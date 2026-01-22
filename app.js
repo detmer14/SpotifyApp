@@ -1,9 +1,9 @@
 const MOCK_MODE = true
 
 const playlists = [
-    {id: "A", name: "playlist A", trackCount: 120},
-    {id: "B", name: "playlist B", trackCount: 80},
-    {id: "C", name: "playlist C", trackCount: 40},
+    {id: "A", trackCount: 120},
+    {id: "B", trackCount: 80},
+    {id: "C", trackCount: 40},
 ]
 
 
@@ -29,14 +29,20 @@ async function pickRandomSong(){
         if (randomindex < cumulative + playlist.trackCount) {
             chosenplaylist = playlist
             index = randomindex - cumulative
-            alert('Playlist ${p.id}, song #${index + 1}')
-            return
+
+            if (MOCK_MODE) {
+                showResult(`Playlist ${playlist.id}, song #${index + 1}`)
+
+                break
+            }
         }
         cumulative += playlist.trackCount
     }
 
+    if (!MOCK_MODE) {
     const track = await getTrackAtIndex(accessToken, chosenplaylist.id, index)
         playTrack(track.url)
+    }
 }
 
 
@@ -49,7 +55,7 @@ async function getTrackAtIndex(token, playlistId, index){
 
     const res = await fetch(
 
-'https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}',
+`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}`,
         {
             headers: { Authorizatoin: 'Bearer ${token}' }
         }
@@ -62,7 +68,7 @@ async function getTrackAtIndex(token, playlistId, index){
 
 async function playTrack(trackUri){
     await fetch(
-        'https://api.spotify.com/v1/me/player/play',
+        `https://api.spotify.com/v1/me/player/play`,
         {
             method: 'PUT',
             headers: {
@@ -77,4 +83,3 @@ async function playTrack(trackUri){
 
 
 document.getElementById('pick').onclick = pickRandomSong
-
