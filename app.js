@@ -1,9 +1,9 @@
 const MOCK_MODE = true
 
 const playlists = [
-    {id: "A", trackCount: 120},
-    {id: "B", trackCount: 80},
-    {id: "C", trackCount: 40},
+    {id: "A", name: "playlist A", trackCount: 120},
+    {id: "B", name: "playlist B", trackCount: 80},
+    {id: "C", name: "playlist C", trackCount: 40},
 ]
 
 
@@ -77,3 +77,4 @@ async function playTrack(trackUri){
 
 
 document.getElementById('pick').onclick = pickRandomSong
+
