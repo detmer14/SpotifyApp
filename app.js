@@ -51,7 +51,7 @@ async function pickRandomSong(){
 
             if (MOCK_MODE) {
                 //alert(`Playlist ${playlist.id}, song #${index + 1}`)
-                showResult(`Playlist ${playlist.id}, song #${index + 1}`)
+                showResult(`Playlist ${playlist.name}, song #${index + 1}`)
 
                 return
             }
@@ -115,7 +115,7 @@ function renderPlaylists() {
                 <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
                 ${playlist.name} (${playlist.trackCount}) songs
             </label>
-            <button class="delete-btn">Delete</btton>
+            <button class="delete-btn">Delete</button>
         `
 
         const checkBox = div.querySelector("input")
