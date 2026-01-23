@@ -113,8 +113,9 @@ function renderPlaylists() {
         div.innerHTML = `
             <label>
                 <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
-                ${playlist.name} (${playlist.trackCount})songs
+                ${playlist.name} (${playlist.trackCount}) songs
             </label>
+            <button class="delete-btn">Delete</btton>
         `
 
         const checkBox = div.querySelector("input")
@@ -148,7 +149,7 @@ document.getElementById('add-playlist').onclick = () => {
     const nameInput = document.getElementById('new-playlist-name')
     const countInput = document.getElementById('new-playlist-count')
 
-    const name = nameInput.ariaValueMax.trim()
+    const name = nameInput.value.trim()
     const count = parseInt(countInput.value)
 
     if(!name || isNaN(count) || count < 1) {
@@ -157,13 +158,13 @@ document.getElementById('add-playlist').onclick = () => {
     }
 
     const newID = Date.now().toString() // unique ID
-    playlists.push({id: newID, name, trackCount: count, enabled: true})
+    playlists.push({id: newID, name: name, trackCount: count, enabled: true})
     savePlaylists()
     renderPlaylists()
 
     //clear input
     nameInput.value = ''
-    countInput.value =''
+    countInput.value = ''
 }
 
 document.getElementById('pick').onclick = pickRandomSong
