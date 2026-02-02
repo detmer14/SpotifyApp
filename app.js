@@ -20,6 +20,12 @@ function loadPlaylists(){
 
 //loadPlaylists() //no longer used
 loadAppState()
+
+if(!activeMixId){
+    createDefaultMix()
+}
+
+renderMixSelector()
 renderPlaylists()
 
 async function initializePlayer(){
@@ -195,7 +201,7 @@ function loadAppState() {
 function saveAppState() {
     mixes[activeMixId].playlists = structuredClone(playlists)
 
-    localStorage.setItem("spotifyAppState").JSON.stringify({mixes, activeMixId})
+    localStorage.setItem("spotifyAppState"), JSON.stringify({mixes, activeMixId})
 }
 
 function createDefaultMix() {
@@ -208,6 +214,7 @@ function createDefaultMix() {
 
     activeMixId = id
     saveAppState()
+    renderMixSelector()
 }
 
 function renderMixSelector(){
