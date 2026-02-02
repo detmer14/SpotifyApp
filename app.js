@@ -5,7 +5,7 @@ const MOCK_MODE = true
 let playlists = [
     {id: "A", enabled: true, name: "Playlist A", trackCount: 10},
     {id: "B", enabled: true, name: "Playlist B", trackCount: 1},
-    {id: "C", enabled: true, name: "Playlist C  ", trackCount: 1}
+    {id: "C", enabled: true, name: "Playlist C", trackCount: 1}
 ]
 
 let mixes = {}
@@ -150,7 +150,6 @@ function renderPlaylists() {
     })
 }
 
-renderPlaylists()
 
 //Save playlists array to localStorage
 //No longer used
@@ -205,7 +204,7 @@ function saveAppState() {
     }
     mixes[activeMixId].playlists = structuredClone(playlists)
 
-    localStorage.setItem("spotifyAppState"), JSON.stringify({mixes, activeMixId})
+    localStorage.setItem("spotifyAppState", JSON.stringify({mixes, activeMixId}))
 }
 
 function createDefaultMix() {
