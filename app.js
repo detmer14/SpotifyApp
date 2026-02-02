@@ -8,13 +8,19 @@ let playlists = [
     {id: "C", enabled: true, name: "Playlist C  ", trackCount: 1}
 ]
 
+let mixes = {}
+let activeMixId = null
+
 //Load playlists array from localStorage
+//no longer used
 function loadPlaylists(){
     const stored = localStorage.getItem('playlists')
     if(stored){playlists = JSON.parse(stored)}
 }
 
-loadPlaylists()
+//loadPlaylists() //no longer used
+loadAppState()
+renderPlaylists()
 
 async function initializePlayer(){
     window.onSpotifyWebPlaybackSDKReady = () => {
@@ -121,14 +127,15 @@ function renderPlaylists() {
         const checkBox = div.querySelector("input")
         checkBox.onchange = () => {
             playlists[index].enabled = checkBox.checked
-            savePlaylists()
+            saveAppState()
+            renderPlaylists()
         }
 
-        // Delete Plalist
+        // Delete Playlist
         const deleteBtn = div.querySelector(".delete-btn")
         deleteBtn.onclick = () => {
             playlists.splice(index, 1)
-            savePlaylists()
+            saveAppState()
             renderPlaylists()
         }
 
@@ -140,6 +147,7 @@ function renderPlaylists() {
 renderPlaylists()
 
 //Save playlists array to localStorage
+//No longer used
 function savePlaylists(){
     localStorage.setItem('playlists', JSON.stringify(playlists))
 }
@@ -159,7 +167,7 @@ document.getElementById('add-playlist').onclick = () => {
 
     const newID = Date.now().toString() // unique ID
     playlists.push({id: newID, name: name, trackCount: count, enabled: true})
-    savePlaylists()
+    saveAppState()
     renderPlaylists()
 
     //clear input
@@ -167,10 +175,84 @@ document.getElementById('add-playlist').onclick = () => {
     //countInput.value = ''
 }
 
+
+function loadAppState() {
+    const stored = localStorage.getItem("spotifyAppState")
+    if(stored){
+        const state = JSON.parse(stored)
+        mixes = state.mixes || {}
+        activeMixId = state.activeMixId || null
+    }
+
+    if(!activeMixId){
+        createDefaultMix()
+    }
+    else{
+        playlists = structuredClone(mixes[activeMixId].playlists)
+    }
+}
+
+function saveAppState() {
+    mixes[activeMixId].playlists = structuredClone(playlists)
+
+    localStorage.setItem("spotifyAppState").JSON.stringify({mixes, activeMixId})
+}
+
+function createDefaultMix() {
+    const id = Date.now().toString()
+
+    mixes[id] = {
+        name: "Default Mix",
+        playlists: structuredClone(playlists)
+    }
+
+    activeMixId = id
+    saveAppState()
+}
+
+function renderMixSelector(){
+    const select = document.getElementById("mix-selector")
+    select.innerHTML = ""
+
+    Object.entries(mixes).forEach(([id, mix]) => {
+        const opt = document.createElement("option")
+        opt.value = id
+        opt.textContent = mix.name
+        if(id === activeMixId) opt.selected = true
+        select.appendChild(opt)
+    })
+}
+
 document.getElementById('pick').onclick = pickRandomSong
 // document.getElementById('pick').onclick = () => {
 //     alert ("button clicked")
 // }
+
+document.getElementById("save-mix").onclick = () => {
+    const name = document.getElementById("new-mix-name").value.trim()
+    if(!name){
+        alert("Enter a mix name")
+        return
+    }
+
+    const id = Date.now().toString()
+
+    mixes[id] = {
+        name,
+        playlists: structuredClone(playlists)
+    }
+
+    activeMixId = id
+    saveAppState()
+    renderMixSelector()
+}
+
+document.getElementById("mix-selector").onchange = e => {
+    activeMixId = e.target.value
+    playlists = structuredClone(mixes[activeMixId].playlists)
+    renderPlaylists()
+    saveAppState()
+}
 
 function showResult(text){
     document.getElementById("result").textContent = text
