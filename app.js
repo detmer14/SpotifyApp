@@ -163,8 +163,8 @@ document.getElementById('add-playlist').onclick = () => {
     renderPlaylists()
 
     //clear input
-    nameInput.value = ''
-    countInput.value = ''
+    //nameInput.value = ''
+    //countInput.value = ''
 }
 
 document.getElementById('pick').onclick = pickRandomSong
