@@ -199,6 +199,10 @@ function loadAppState() {
 }
 
 function saveAppState() {
+    if(!activeMixId){
+        console.warn("No active mix - creating default")
+        createDefaultMix()
+    }
     mixes[activeMixId].playlists = structuredClone(playlists)
 
     localStorage.setItem("spotifyAppState"), JSON.stringify({mixes, activeMixId})
