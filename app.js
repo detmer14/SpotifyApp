@@ -213,16 +213,16 @@ function renderPlaylists() {
 
         // Checkbox change
         checkBox.onchange = () => {
-    playlists[index].enabled = checkBox.checked
-    //slider.disabled = !checkBox.checked   // <- NEW LINE
-    saveAppState()
-    renderPlaylists()
+            playlists[index].enabled = checkBox.checked
+            //slider.disabled = !checkBox.checked   // <- NEW LINE
+            saveAppState()
+            renderPlaylists()
         }
 
         // Slider change
         slider.oninput = () => {
-    playlist.sliderValue = parseInt(slider.value)
-    display.textContent = playlist.sliderValue
+        playlist.sliderValue = parseInt(slider.value)
+        display.textContent = playlist.sliderValue
 
     if (playlist.sliderValue <= 0) {
         playlist.enabled = false
@@ -368,7 +368,6 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
-
 
 
 
