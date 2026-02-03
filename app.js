@@ -59,7 +59,31 @@ async function initializePlayer(){
     }
 }
 
+// =========================
+// Pure random picker (no UI, no playback)
+// =========================
+function pickRandomTrackInfo() {
+    const activePlaylists = playlists.filter(p => p.enabled)
+    if (activePlaylists.length === 0) return null
 
+    const weightedCounts = activePlaylists.map(
+        p => p.trackCount * getWeight(p.sliderValue ?? 50, p)
+    )
+
+    const total = weightedCounts.reduce((s, v) => s + v, 0)
+    let r = Math.random() * total
+
+    for (let i = 0; i < activePlaylists.length; i++) {
+        if (r < weightedCounts[i]) {
+            const playlist = activePlaylists[i]
+            const index = Math.floor(Math.random() * playlist.trackCount)
+            return { playlist, index }
+        }
+        r -= weightedCounts[i]
+    }
+
+    return null
+}
 
 async function pickRandomSong() {
     const activePlaylists = playlists.filter(p => p.enabled)
@@ -97,7 +121,38 @@ async function pickRandomSong() {
     playTrack(track.uri)
 }
 
+// =========================
+// Batch playlist generator
+// =========================
+async function generateRandomPlaylist() {
+    const countInput = document.getElementById("playlist-size")
+    const desiredCount = parseInt(countInput.value)
 
+    if (isNaN(desiredCount) || desiredCount < 1) {
+        alert("Enter a valid number of tracks")
+        return
+    }
+
+    const selections = []
+
+    for (let i = 0; i < desiredCount; i++) {
+        const result = pickRandomTrackInfo()
+        if (!result) break
+        selections.push(result)
+    }
+
+    // MOCK MODE behavior
+    if (MOCK_MODE) {
+        showResult(`Generated ${selections.length} tracks`)
+        console.log("Generated playlist:", selections)
+        return
+    }
+
+    // REAL MODE (next step)
+    // 1. Fetch track URIs via getTrackAtIndex (batched)
+    // 2. Create Spotify playlist
+    // 3. Add tracks in batches of 100
+}
 
 async function getTrackAtIndex(token, playlistId, index){
     const limit = 1
@@ -282,6 +337,8 @@ document.getElementById('pick').onclick = pickRandomSong
 //     alert ("button clicked")
 // }
 
+document.getElementById("generate-playlist").onclick = generateRandomPlaylist
+
 document.getElementById("save-mix").onclick = () => {
     const name = document.getElementById("new-mix-name").value.trim()
     if(!name){
@@ -311,6 +368,7 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
 
