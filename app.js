@@ -141,12 +141,13 @@ function renderPlaylists() {
             <label>
                 <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
                 <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="weight-slider">
+                <span class="weight-display"></span>
                 <button class="delete-btn">Delete</button>
                 ${playlist.name} (${playlist.trackCount}) songs
             </label>
             
             
-            <span class="weight-display"></span>
+            
         `
 
         const checkBox = div.querySelector("input[type='checkbox']")
@@ -310,6 +311,7 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
 
