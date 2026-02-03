@@ -141,10 +141,11 @@ function renderPlaylists() {
             <label>
                 <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
                 <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="weight-slider">
+                <button class="delete-btn">Delete</button>
                 ${playlist.name} (${playlist.trackCount}) songs
             </label>
             
-            <button class="delete-btn">Delete</button>
+            
             <span class="weight-display"></span>
         `
 
@@ -157,7 +158,7 @@ function renderPlaylists() {
         // Checkbox change
         checkBox.onchange = () => {
     playlists[index].enabled = checkBox.checked
-    slider.disabled = !checkBox.checked   // <- NEW LINE
+    //slider.disabled = !checkBox.checked   // <- NEW LINE
     saveAppState()
     renderPlaylists()
         }
@@ -170,7 +171,7 @@ function renderPlaylists() {
     if (playlist.sliderValue <= 0) {
         playlist.enabled = false
         checkBox.checked = false
-        slider.disabled = true   // <- NEW LINE
+        //slider.disabled = true   // <- NEW LINE
     } else {
         playlist.enabled = true
         checkBox.checked = true
@@ -309,6 +310,7 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
 
