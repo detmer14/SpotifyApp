@@ -88,7 +88,7 @@ async function pickRandomSong() {
     if (!chosenplaylist) return
 
     if (MOCK_MODE) {
-        showResult(`Playlist ${chosenplaylist.name}, song #${index + 1}`)
+        showResult(`--------------- Playlist ${chosenplaylist.name}, song #${index + 1}`)
         return
     }
 
@@ -311,6 +311,7 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
 
