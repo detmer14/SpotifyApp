@@ -8,6 +8,24 @@ let playlists = [
     {id: "C", enabled: true, name: "Playlist C", trackCount: 1}
 ]
 
+const playlistColorPalette = [
+    "#fde2e4", //pink
+    "#e2f0cb", //green
+    "#dbe7fd", //blue
+    "#fff1c1", //yellow
+    "#e7d9ff", //lavender
+    "#ffd6a5", //orange
+    "#caffbf"  //mint
+]
+
+let nextColorIndex = 0
+
+function generatePlaylistColor() {
+    const color = playlistColorPalette[nextColorIndex % playlistColorPalette.length]
+    nextColorIndex++
+    return color
+}
+
 let mixes = {}
 let activeMixId = null
 
@@ -147,7 +165,7 @@ async function generateRandomPlaylist() {
     selections.forEach((item, i) => {
         const row = document.createElement("div")
         row.className = "playlist-row"
-        row.style.backgroundColor = getPlaylistColor(item.playlist.name)
+        row.style.backgroundColor = item.playlist.color || "#eee"
 
         row.innerHTML = `
             <span>${item.playlist.name}</span>
@@ -294,7 +312,14 @@ document.getElementById('add-playlist').onclick = () => {
     }
 
     const newID = Date.now().toString() // unique ID
-    playlists.push({id: newID, name: name, trackCount: count, enabled: true, sliderValue: 50})
+    playlists.push({
+        id: newID, 
+        name: name, 
+        trackCount: count, 
+        enabled: true, 
+        sliderValue: 50,
+        color: generatePlaylistColor()
+    })
     saveAppState()
     renderPlaylists()
 
@@ -318,6 +343,13 @@ function loadAppState() {
     else{
         playlists = structuredClone(mixes[activeMixId].playlists)
     }
+
+    playlists.forEach(p => {
+        if(!p.color){
+            p.color = generatePlaylistColor()
+        }
+    })
+    saveAppState()
 }
 
 function saveAppState() {
@@ -356,43 +388,44 @@ function renderMixSelector(){
     })
 }
 
-document.getElementById('pick').onclick = pickRandomSong
-// document.getElementById('pick').onclick = () => {
-//     alert ("button clicked")
-// }
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById('pick').onclick = pickRandomSong
+    // document.getElementById('pick').onclick = () => {
+    //     alert ("button clicked")
+    // }
 
-document.getElementById("generate-playlist").onclick = generateRandomPlaylist
+    document.getElementById("generate-playlist").onclick = generateRandomPlaylist
 
-document.getElementById("save-mix").onclick = () => {
-    const name = document.getElementById("new-mix-name").value.trim()
-    if(!name){
-        alert("Enter a mix name")
-        return
+    document.getElementById("save-mix").onclick = () => {
+        const name = document.getElementById("new-mix-name").value.trim()
+        if(!name){
+            alert("Enter a mix name")
+            return
+        }
+
+        const id = Date.now().toString()
+
+        mixes[id] = {
+            name,
+            playlists: structuredClone(playlists)
+        }
+
+        activeMixId = id
+        saveAppState()
+        renderMixSelector()
     }
 
-    const id = Date.now().toString()
-
-    mixes[id] = {
-        name,
-        playlists: structuredClone(playlists)
+    document.getElementById("mix-selector").onchange = e => {
+        activeMixId = e.target.value
+        playlists = structuredClone(mixes[activeMixId].playlists)
+        renderPlaylists()
+        saveAppState()
     }
 
-    activeMixId = id
-    saveAppState()
-    renderMixSelector()
-}
-
-document.getElementById("mix-selector").onchange = e => {
-    activeMixId = e.target.value
-    playlists = structuredClone(mixes[activeMixId].playlists)
-    renderPlaylists()
-    saveAppState()
-}
-
-function showResult(text){
-    document.getElementById("result").textContent = text
-}
-
+    function showResult(text){
+        document.getElementById("result").textContent = text
+    }
+})
 
 
 
