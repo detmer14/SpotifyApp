@@ -141,18 +141,42 @@ async function generateRandomPlaylist() {
         selections.push(result)
     }
 
-    // MOCK MODE behavior
-    if (MOCK_MODE) {
-        showResult(`Generated ${selections.length} tracks`)
-        console.log("Generated playlist:", selections)
-        return
-    }
+    const container = document.getElementById("generated-playlist")
+container.innerHTML = ""
+
+selections.forEach((item, i) => {
+    const row = document.createElement("div")
+    row.className = "playlist-row"
+    row.style.backgroundColor = getPlaylistColor(item.playlist.name)
+
+    row.innerHTML = `
+        <span>${item.playlist.name}</span>
+        <span>${item.index + 1}</span>
+    `
+
+    container.appendChild(row)
+})
+
+showResult(`Generated ${selections.length} tracks`)
 
     // REAL MODE (next step)
     // 1. Fetch track URIs via getTrackAtIndex (batched)
     // 2. Create Spotify playlist
     // 3. Add tracks in batches of 100
 }
+
+
+// =========================
+// Playlist color helper
+// =========================
+function getPlaylistColor(name) {
+    let hash = 0
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return `hsl(${hash % 360}, 70%, 85%)`
+}
+
 
 async function getTrackAtIndex(token, playlistId, index){
     const limit = 1
@@ -368,6 +392,7 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
 
