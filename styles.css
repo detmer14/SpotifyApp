@@ -8,14 +8,15 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     overflow: hidden;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 .playlist-header,
 .playlist-row {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 100px 60px;
     padding: 6px 10px;
+    column-gap: 12px;
 }
 
 .playlist-header {
