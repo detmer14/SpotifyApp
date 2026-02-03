@@ -142,20 +142,20 @@ async function generateRandomPlaylist() {
     }
 
     const container = document.getElementById("generated-playlist")
-container.innerHTML = ""
+    container.innerHTML = ""
 
-selections.forEach((item, i) => {
-    const row = document.createElement("div")
-    row.className = "playlist-row"
-    row.style.backgroundColor = getPlaylistColor(item.playlist.name)
+    selections.forEach((item, i) => {
+        const row = document.createElement("div")
+        row.className = "playlist-row"
+        row.style.backgroundColor = getPlaylistColor(item.playlist.name)
 
-    row.innerHTML = `
-        <span>${item.playlist.name}</span>
-        <span>${item.index + 1}</span>
-    `
+        row.innerHTML = `
+            <span>${item.playlist.name}</span>
+            <span>${item.index + 1}</span>
+        `
 
-    container.appendChild(row)
-})
+        container.appendChild(row)
+    })
 
 showResult(`Generated ${selections.length} tracks`)
 
@@ -392,7 +392,6 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
-
 
 
 
