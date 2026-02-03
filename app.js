@@ -150,6 +150,7 @@ function renderPlaylists() {
         const checkBox = div.querySelector("input[type='checkbox']")
         const slider = div.querySelector(".weight-slider")
         const display = div.querySelector(".weight-display")
+        slider.disabled = !playlist.enabled
         display.textContent = `${playlist.enabled ? playlist.sliderValue ?? 50 : 0}`
 
         // Checkbox change
@@ -303,5 +304,6 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
