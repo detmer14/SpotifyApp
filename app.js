@@ -155,24 +155,28 @@ function renderPlaylists() {
 
         // Checkbox change
         checkBox.onchange = () => {
-            playlists[index].enabled = checkBox.checked
-            saveAppState()
-            renderPlaylists()
+    playlists[index].enabled = checkBox.checked
+    slider.disabled = !checkBox.checked   // <- NEW LINE
+    saveAppState()
+    renderPlaylists()
         }
 
         // Slider change
         slider.oninput = () => {
-            playlist.sliderValue = parseInt(slider.value)
-            display.textContent = playlist.sliderValue
-            // Disable playlist if slider at 0
-            if (playlist.sliderValue <= 0) {
-                playlist.enabled = false
-                checkBox.checked = false
-            } else {
-                playlist.enabled = true
-                checkBox.checked = true
-            }
-            saveAppState()
+    playlist.sliderValue = parseInt(slider.value)
+    display.textContent = playlist.sliderValue
+
+    if (playlist.sliderValue <= 0) {
+        playlist.enabled = false
+        checkBox.checked = false
+        slider.disabled = true   // <- NEW LINE
+    } else {
+        playlist.enabled = true
+        checkBox.checked = true
+        slider.disabled = false  // <- NEW LINE
+    }
+
+    saveAppState()
         }
 
         // Delete Playlist
@@ -208,7 +212,7 @@ document.getElementById('add-playlist').onclick = () => {
     }
 
     const newID = Date.now().toString() // unique ID
-    playlists.push({id: newID, name: name, trackCount: count, enabled: true})
+    playlists.push({id: newID, name: name, trackCount: count, enabled: true, sliderValue: 50})
     saveAppState()
     renderPlaylists()
 
@@ -304,6 +308,7 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
 
 
