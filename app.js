@@ -11,6 +11,25 @@ let playlists = [
 let mixes = {}
 let activeMixId = null
 
+
+const multipliers = [0.25, 0.5, 0.75, 1.0, 1.25, 1.75, 2.5];
+
+function getWeight(sliderValue, playlist) {
+    if (sliderValue <= 0) {
+        playlist.enabled = false;
+        return 0;
+    } else {
+        playlist.enabled = true;
+    }
+
+    const divisions = multipliers.length;
+    const divisionSize = 100 / divisions; // ~14.285
+    let division = Math.floor((sliderValue - 1) / divisionSize); // subtract 1 to avoid 0 snapping
+    if (division >= divisions) division = divisions - 1;
+
+    return multipliers[division];
+}
+
 //Load playlists array from localStorage
 //no longer used
 function loadPlaylists(){
@@ -40,47 +59,43 @@ async function initializePlayer(){
     }
 }
 
-async function pickRandomSong(){
-    //alert("picking random song")
 
 
-    const activePlaylists = playlists.filter(playlist => playlist.enabled)
+async function pickRandomSong() {
+    const activePlaylists = playlists.filter(p => p.enabled)
 
     if(activePlaylists.length === 0){
         alert("Select at least one playlist")
         return
     }
 
-    const total = activePlaylists.reduce((sum, p) => sum + p.trackCount, 0)
-    const randomindex = Math.floor(Math.random() * total)
+    // Weighted track counts
+    const weightedCounts = activePlaylists.map(p => p.trackCount * getWeight(p.sliderValue ?? 50, p))
+    const total = weightedCounts.reduce((sum, val) => sum + val, 0)
+    const randomindex = Math.random() * total
 
     let cumulative = 0
     let chosenplaylist, index
-    for (const playlist of activePlaylists) {
-        if (randomindex < cumulative + playlist.trackCount) {
-            chosenplaylist = playlist
-            index = randomindex - cumulative
-
-            if (MOCK_MODE) {
-                //alert(`Playlist ${playlist.id}, song #${index + 1}`)
-                showResult(`Playlist ${playlist.name}, song #${index + 1}`)
-
-                return
-            }
+    for (let i = 0; i < activePlaylists.length; i++) {
+        cumulative += weightedCounts[i]
+        if (randomindex < cumulative) {
+            chosenplaylist = activePlaylists[i]
+            index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
             break
         }
-        cumulative += playlist.trackCount
     }
 
-    if(!chosenplaylist) return
+    if (!chosenplaylist) return
 
-    if (!MOCK_MODE) {
+    if (MOCK_MODE) {
+        showResult(`Playlist ${chosenplaylist.name}, song #${index + 1}`)
+        return
+    }
+
+    // real Spotify playback...
     const track = await getTrackAtIndex(accessToken, chosenplaylist.id, index)
-        playTrack(track.uri)
-    }
+    playTrack(track.uri)
 }
-
-
 
 
 
@@ -127,14 +142,36 @@ function renderPlaylists() {
                 <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
                 ${playlist.name} (${playlist.trackCount}) songs
             </label>
+            <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="weight-slider">
             <button class="delete-btn">Delete</button>
+            <span class="weight-display"></span>
         `
 
-        const checkBox = div.querySelector("input")
+        const checkBox = div.querySelector("input[type='checkbox']")
+        const slider = div.querySelector(".weight-slider")
+        const display = div.querySelector(".weight-display")
+        display.textContent = `${playlist.enabled ? playlist.sliderValue ?? 50 : 0}`
+
+        // Checkbox change
         checkBox.onchange = () => {
             playlists[index].enabled = checkBox.checked
             saveAppState()
             renderPlaylists()
+        }
+
+        // Slider change
+        slider.oninput = () => {
+            playlist.sliderValue = parseInt(slider.value)
+            display.textContent = playlist.sliderValue
+            // Disable playlist if slider at 0
+            if (playlist.sliderValue <= 0) {
+                playlist.enabled = false
+                checkBox.checked = false
+            } else {
+                playlist.enabled = true
+                checkBox.checked = true
+            }
+            saveAppState()
         }
 
         // Delete Playlist
@@ -146,7 +183,6 @@ function renderPlaylists() {
         }
 
         container.appendChild(div)
-        
     })
 }
 
@@ -267,4 +303,5 @@ document.getElementById("mix-selector").onchange = e => {
 function showResult(text){
     document.getElementById("result").textContent = text
 }
+
 
