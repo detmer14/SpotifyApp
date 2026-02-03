@@ -2,3 +2,27 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+#generated-playlist-container {
+    margin-top: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.playlist-header,
+.playlist-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    padding: 6px 10px;
+}
+
+.playlist-header {
+    background: #eee;
+    font-weight: bold;
+}
+
+.playlist-row {
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
