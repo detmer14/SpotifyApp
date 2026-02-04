@@ -103,6 +103,51 @@ function pickRandomTrackInfo() {
     return null
 }
 
+// =========================
+// Balance playlist probabilities
+// =========================
+function balancePlaylists() {
+    const enabled = playlists.filter(p => p.enabled)
+
+    if (enabled.length < 2) {
+        alert("Enable at least two playlists to balance")
+        return
+    }
+
+    // Pick a target effective weight
+    const TARGET = 100
+
+    enabled.forEach(p => {
+        // weight ≈ TARGET / trackCount
+        let rawWeight = TARGET / p.trackCount
+
+        // Convert weight → slider value
+        // Find closest matching slider division
+        let bestIndex = 0
+        let bestDiff = Infinity
+
+        multipliers.forEach((m, i) => {
+            const diff = Math.abs(m - rawWeight)
+            if (diff < bestDiff) {
+                bestDiff = diff
+                bestIndex = i
+            }
+        })
+
+        // Map division back into slider range
+        const divisionSize = 100 / multipliers.length
+        p.sliderValue = Math.round(bestIndex * divisionSize + divisionSize / 2)
+
+        // Safety clamps
+        p.sliderValue = Math.max(1, Math.min(100, p.sliderValue))
+    })
+
+    saveAppState()
+    renderPlaylists()
+    showResult("Playlists balanced evenly")
+}
+
+
 async function pickRandomSong() {
     const activePlaylists = playlists.filter(p => p.enabled)
 
@@ -388,6 +433,8 @@ function renderMixSelector(){
     })
 }
 
+document.getElementById("balance-playlists").onclick = balancePlaylists
+
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('pick').onclick = pickRandomSong
     // document.getElementById('pick').onclick = () => {
@@ -426,6 +473,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("result").textContent = text
     }
 })
+
 
 
 
