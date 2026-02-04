@@ -114,38 +114,42 @@ function balancePlaylists() {
         return
     }
 
-    // Pick a target effective weight
-    const TARGET = 100
+    // Step 1: compute raw inverse weights
+    enabled.forEach(p => {
+        p._rawWeight = 1 / p.trackCount
+    })
+
+    // Step 2: normalize so the largest one lands at ~50
+    const maxRaw = Math.max(...enabled.map(p => p._rawWeight))
+    const TARGET_SLIDER = 50
 
     enabled.forEach(p => {
-        // weight ≈ TARGET / trackCount
-        let rawWeight = TARGET / p.trackCount
+        const normalized = (p._rawWeight / maxRaw) * TARGET_SLIDER
 
-        // Convert weight → slider value
-        // Find closest matching slider division
+        // Map to nearest multiplier division
         let bestIndex = 0
         let bestDiff = Infinity
 
         multipliers.forEach((m, i) => {
-            const diff = Math.abs(m - rawWeight)
+            const diff = Math.abs(m - normalized)
             if (diff < bestDiff) {
                 bestDiff = diff
                 bestIndex = i
             }
         })
 
-        // Map division back into slider range
         const divisionSize = 100 / multipliers.length
         p.sliderValue = Math.round(bestIndex * divisionSize + divisionSize / 2)
 
-        // Safety clamps
         p.sliderValue = Math.max(1, Math.min(100, p.sliderValue))
+        delete p._rawWeight
     })
 
     saveAppState()
     renderPlaylists()
     showResult("Playlists balanced evenly")
 }
+
 
 
 async function pickRandomSong() {
@@ -473,6 +477,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("result").textContent = text
     }
 })
+
 
 
 
