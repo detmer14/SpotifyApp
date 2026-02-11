@@ -18,27 +18,23 @@ const playlistColorPalette = [
     "#caffbf"  //mint
 ]
 
-let nextColorIndex = 0
-
-function generatePlaylistColor() {
-    const color = playlistColorPalette[nextColorIndex % playlistColorPalette.length]
-    nextColorIndex++
-    return color
-}
+//Not used anymore
+// function generatePlaylistColor() {
+//     const color = playlistColorPalette[nextColorIndex % playlistColorPalette.length]
+//     nextColorIndex++
+//     return color
+// }
 
 let mixes = {}
 let activeMixId = null
-
+let selectionMode = "normal" // normal | balanced | percentage (mix) | relative (weight)
+let isProgrammaticSliderUpdate = false //to prevent infinite loops when sliders rebalance
 
 const multipliers = [0.25, 0.5, 0.75, 1.0, 1.25, 1.75, 2.5];
 
 function getWeight(sliderValue, playlist) {
-    if (sliderValue <= 0) {
-        playlist.enabled = false;
-        return 0;
-    } else {
-        playlist.enabled = true;
-    }
+
+    if(sliderValue <= 0) return 0
 
     const divisions = multipliers.length;
     const divisionSize = 100 / divisions; // ~14.285
@@ -57,6 +53,7 @@ function loadPlaylists(){
 
 //loadPlaylists() //no longer used
 loadAppState()
+setSelectionMode(selectionMode)
 
 if(!activeMixId){
     createDefaultMix()
@@ -81,79 +78,226 @@ async function initializePlayer(){
 // Pure random picker (no UI, no playback)
 // =========================
 function pickRandomTrackInfo() {
+
+    const chosenplaylist = pickPlaylistByMode()
+    if(!chosenplaylist) return null
+
+    const index = Math.floor(Math.random() * chosenplaylist.trackCount)
+    return { playlist: chosenplaylist, index }
+}
+
+// function toggleSelectionMode(){
+//     selectionMode = selectionMode === "slider" ? "balanced" : "slider"
+//     saveAppState()
+//     renderPlaylists()
+
+//     showResult(selectionMode === "balanced" ? "Balanced mode: all enabled playlists are equally likely" : "Slider selection mode: playlist weights enabled")
+// }
+
+function setSelectionMode(mode){
+    selectionMode = mode
+
+    if(mode === "normal"){
+        playlists.forEach(p => {
+            if(p.enabled) p.sliderValue = 50
+        })
+    }
+
+    saveAppState()
+    renderPlaylists()
+}
+
+
+function rebalancePercentages(activeSlider){
+
+    const rows = Array.from(document.querySelectorAll('.playlist-row')).filter(row => row.querySelector('.playlist-enabled').checked)
+
+    if(rows.length <= 1){
+        activeSlider.value = 100
+        updateSliderDisplay(activeSlider)
+        return
+    }
+
+    const activeValue = Number(activeSlider.value)
+    const remaining = 100 - activeValue
+    
+    const otherSliders = rows.map(r => r.querySelector('.playlist-slider')).filter(s => s !== activeSlider)
+
+    const currentSum = otherSliders.reduce((sum, s) => sum + Number(s.value), 0)
+
+    isProgrammaticSliderUpdate = true
+
+    let runningTotal = 0
+
+    otherSliders.forEach((slider, index) => {
+        let newValue
+
+        if(currentSum === 0){
+            //even split fallback
+            newValue = remaining / otherSliders.length
+        }
+        else{
+            newValue = (Number(slider.value) / currentSum * remaining)
+        }
+
+        // Last slider absorbs rounding error
+        if(index === otherSliders.length - 1){
+            newValue = remaining - runningTotal
+        }
+
+        slider.value = Math.max(0, Math.round(newValue))
+        const playlistIndex = Number(slider.dataset.index)
+        playlists[playlistIndex].sliderValue = slider.value
+        runningTotal += slider.value
+        updateSliderDisplay(slider)
+    })
+
+    isProgrammaticSliderUpdate = false
+}
+
+
+function rebalancePercentagesByIndex(activeIndex){
+    const enabled = playlists.map((p, i) => ({p, i})).filter(x => x.p.enabled)
+
+    if(enabled.length === 0) return
+
+    //only one enabled playlist - 100
+    if(enabled.length === 1){
+        enabled[0].p.sliderValue = 100
+        return
+    }
+
+    const active = playlists[activeIndex]
+    const activeValue = Math.max(0, Math.min(100, active.sliderValue ?? 0))
+    active.sliderValue = activeValue
+
+    const remaining = 100 - activeValue
+
+    const others = enabled.filter(x => x.i !== activeIndex)
+    
+    const currentSum = others.reduce((sum, x) => sum + (x.p.sliderValue ?? 0), 0)
+
+    let runningTotal = 0
+
+    others.forEach((x, idx) => {
+        let newValue
+
+        if(currentSum === 0){
+            //even split fallback
+            newValue = remaining / others.length
+        }
+        else{
+            newValue = (x.p.sliderValue / currentSum) * remaining
+        }
+
+        if(idx === others.length -1){
+            //absorb rounding error
+            newValue = remaining - runningTotal
+        }
+
+        x.p.sliderValue = Math.max(0, Math.round(newValue))
+        runningTotal += x.p.sliderValue
+    })
+}
+
+
+function updateSliderDisplay(slider){
+    const valueSpan = slider.closest('.playlist-row').querySelector('.slider-value')
+
+    if(valueSpan){
+        valueSpan.textContent = slider.value
+    }
+}
+
+function normalizePercentagedAfterToggle(){
+    const sliders = Array.from(document.querySelectorAll('.playlist-row')).filter(row => row.querySelector('.playlist-enabled').checked).map(row => row.querySelector('.playlist-slider'))
+
+    if(sliders.length === 0) return
+
+    const equal = Math.floor(100 / sliders.length)
+    let remaining = 100
+
+    sliders.forEach((slider, i) => {
+        slider.value = (i === sliders.length - 1) ? remaining : equal
+        const playlistIndex = Number(slider.dataset.index)
+        playlists[playlistIndex].sliderValue = slider.value
+        remaining -= slider.value
+        updateSliderDisplay(slider)
+    })
+
+}
+
+function syncSlidersFromState(){
+    // document.querySelectorAll(".playlist.slider").forEach(slider => {
+    //     const i = Number(slider.dataset.index)
+    //     const value = playlists[i].sliderValue ?? 0
+    //     slider.value = value
+    //     slider.closest(".playlist-row").querySelector(".slider-value").textContent = value
+    // })
+
+    playlists.forEach((playlist, index) => {
+        const slider = document.querySelector('.playlist-slider[data-index="$index"]')
+        const display = slider?.closest('.playlist-row')?.querySelector('.slider-value')
+        if(slider){
+            slider.value = playlist.sliderValue ?? 50
+        }
+        if(display){
+            display.textContent = playlist.sliderValue ?? 50
+        }
+    })
+}
+
+
+
+function pickPlaylistByMode(){
     const activePlaylists = playlists.filter(p => p.enabled)
-    if (activePlaylists.length === 0) return null
 
-    const weightedCounts = activePlaylists.map(
-        p => p.trackCount * getWeight(p.sliderValue ?? 50, p)
-    )
+    if(activePlaylists.length === 0) return null
 
-    const total = weightedCounts.reduce((s, v) => s + v, 0)
+    if(selectionMode === 'balanced'){
+        return pickUniformly(activePlaylists)
+    }
+    if(selectionMode === 'percentage'){
+        return pickByPercentage(activePlaylists)
+    }
+
+    //normal + relative
+    return pickByWeightAlgorithm(activePlaylists)
+}
+
+function pickUniformly(activePlaylists){
+    return activePlaylists[Math.floor(Math.random() * activePlaylists.length)]
+}
+
+function pickByPercentage(activePlaylists){
+    const total = activePlaylists.reduce((sum, p) => sum + (p.sliderValue ?? 0), 0)
+
+    if(total == 0) return null
+
     let r = Math.random() * total
 
-    for (let i = 0; i < activePlaylists.length; i++) {
-        if (r < weightedCounts[i]) {
-            const playlist = activePlaylists[i]
-            const index = Math.floor(Math.random() * playlist.trackCount)
-            return { playlist, index }
-        }
-        r -= weightedCounts[i]
+    for(const playlist of activePlaylists){
+        r -= playlist.sliderValue
+        if(r <= 0) return playlist
     }
 
     return null
 }
 
-// =========================
-// Balance playlist probabilities
-// =========================
-function balancePlaylists() {
-    const enabled = playlists.filter(p => p.enabled)
+function pickByWeightAlgorithm(activePlaylists){
+    const weightedCounts = activePlaylists.map(p => p.trackCount * getWeight(p.sliderValue ?? 50, p))
 
-    if (enabled.length < 2) {
-        alert("Enable at least two playlists to balance")
-        return
+    const total = weightedCounts.reduce((s, v) => s + v, 0)
+    if(total <= 0) return null
+
+    let r = Math.random() * total
+
+    for(let i = 0; i < activePlaylists.length; i++){
+        r -= weightedCounts[i]
+        if(r <= 0) return activePlaylists[i]
     }
 
-    // Step 1: raw inverse weights
-    enabled.forEach(p => {
-        p._rawWeight = 1 / p.trackCount
-    })
-
-    // Step 2: sort by raw weight
-    const sorted = [...enabled].sort(
-        (a, b) => a._rawWeight - b._rawWeight
-    )
-
-    // Step 3: choose median as visual anchor
-    const median = sorted[Math.floor(sorted.length / 2)]
-    const TARGET_SLIDER = 50
-    const scale = TARGET_SLIDER / median._rawWeight
-
-    // Step 4: scale + map to slider divisions
-    enabled.forEach(p => {
-        const scaled = p._rawWeight * scale
-
-        let bestIndex = 0
-        let bestDiff = Infinity
-
-        multipliers.forEach((m, i) => {
-            const diff = Math.abs(m - scaled)
-            if (diff < bestDiff) {
-                bestDiff = diff
-                bestIndex = i
-            }
-        })
-
-        const divisionSize = 100 / multipliers.length
-        p.sliderValue = Math.round(bestIndex * divisionSize + divisionSize / 2)
-
-        p.sliderValue = Math.max(1, Math.min(100, p.sliderValue))
-        delete p._rawWeight
-    })
-
-    saveAppState()
-    renderPlaylists()
-    showResult("Playlists balanced evenly")
+    return null
 }
 
 
@@ -165,23 +309,13 @@ async function pickRandomSong() {
         return
     }
 
-    // Weighted track counts
-    const weightedCounts = activePlaylists.map(p => p.trackCount * getWeight(p.sliderValue ?? 50, p))
-    const total = weightedCounts.reduce((sum, val) => sum + val, 0)
-    const randomindex = Math.random() * total
-
     let cumulative = 0
     let chosenplaylist, index
-    for (let i = 0; i < activePlaylists.length; i++) {
-        cumulative += weightedCounts[i]
-        if (randomindex < cumulative) {
-            chosenplaylist = activePlaylists[i]
-            index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
-            break
-        }
-    }
 
-    if (!chosenplaylist) return
+
+    chosenplaylist = pickPlaylistByMode()
+
+    index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
 
     if (MOCK_MODE) {
         showResult(`--------------- Playlist ${chosenplaylist.name}, song #${index + 1}`)
@@ -219,7 +353,10 @@ async function generateRandomPlaylist() {
     selections.forEach((item, i) => {
         const row = document.createElement("div")
         row.className = "playlist-row"
-        row.style.backgroundColor = item.playlist.color || "#eee"
+        row.style.backgroundColor = 
+            playlists.indexOf(item.playlist) !== -1 ?
+            getPlaylistColorByIndex(playlists.indexOf(item.playlist))
+            : "#eee"
 
         row.innerHTML = `
             <span>${item.playlist.name}</span>
@@ -229,7 +366,7 @@ async function generateRandomPlaylist() {
         container.appendChild(row)
     })
 
-showResult(`Generated ${selections.length} tracks`)
+    showResult(`Generated ${selections.length} tracks`)
 
     // REAL MODE (next step)
     // 1. Fetch track URIs via getTrackAtIndex (batched)
@@ -247,6 +384,10 @@ function getPlaylistColor(name) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash)
     }
     return `hsl(${hash % 360}, 70%, 85%)`
+}
+
+function getPlaylistColorByIndex(index){
+    return playlistColorPalette[index % playlistColorPalette.length]
 }
 
 
@@ -287,51 +428,94 @@ function renderPlaylists() {
     container.innerHTML = ""
 
     playlists.forEach((playlist, index) => {
+        
+        playlist._renderColor = getPlaylistColorByIndex(index)
+        
         const div = document.createElement("div")
+        div.className = "playlist-row"
         div.innerHTML = `
-            <label>
                 <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
-                <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="weight-slider">
-                <span class="weight-display"></span>
+                <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
+                <span class="slider-value"></span>
                 <button class="delete-btn">Delete</button>
                 ${playlist.name} (${playlist.trackCount}) songs
-            </label>
-            
-            
-            
         `
 
         const checkBox = div.querySelector("input[type='checkbox']")
-        const slider = div.querySelector(".weight-slider")
-        const display = div.querySelector(".weight-display")
-        slider.disabled = !playlist.enabled
-        display.textContent = `${playlist.enabled ? playlist.sliderValue ?? 50 : 0}`
+        const slider = div.querySelector(".playlist-slider")
+        //disable slider when in balanced mode
+        const sliderDisabled = selectionMode === "balanced"
+        slider.disabled = sliderDisabled || !playlist.enabled
+        slider.style.opacity = slider.disabled ? 0.4 : 1
+        slider.style.pointerEvents = sliderDisabled ? "none" : "auto"
+        
+        const display = div.querySelector(".slider-value")
+        
+
+        //display.textContent = `${playlist.enabled ? playlist.sliderValue ?? 50 : 0}`
+        display.textContent = playlist.sliderValue ?? 50
 
         // Checkbox change
         checkBox.onchange = () => {
+            //selectionMode = "weighted"
             playlists[index].enabled = checkBox.checked
             //slider.disabled = !checkBox.checked   // <- NEW LINE
+
+            if(selectionMode === "percentage"){
+                normalizePercentagedAfterToggle()
+                syncSlidersFromState()
+            }
+
             saveAppState()
             renderPlaylists()
         }
 
         // Slider change
-        slider.oninput = () => {
-        playlist.sliderValue = parseInt(slider.value)
-        display.textContent = playlist.sliderValue
+        //slider.oninput = () => {
+        slider.addEventListener("input", () => {
 
-    if (playlist.sliderValue <= 0) {
-        playlist.enabled = false
-        checkBox.checked = false
-        //slider.disabled = true   // <- NEW LINE
-    } else {
-        playlist.enabled = true
-        checkBox.checked = true
-        slider.disabled = false  // <- NEW LINE
-    }
 
-    saveAppState()
-        }
+            if(isProgrammaticSliderUpdate) return
+
+            playlist.sliderValue = Number(slider.value)
+            display.textContent = slider.value
+
+            //If in normal mode, moving slider switches to slider mode
+            if(selectionMode === "normal"){
+                selectionMode = "percentage"
+
+                //update radio button
+                document.querySelector('input[value="percentage"]').checked = true
+                //normalizePercentagedAfterToggle()
+                showResult("Percentage mode enabled")
+            }
+
+            if(selectionMode === "percentage"){
+                isProgrammaticSliderUpdate = true
+                rebalancePercentagesByIndex(index)
+                //syncSlidersFromState()
+                isProgrammaticSliderUpdate = false
+            }
+                        
+            //Slider at 0 disables playlist
+            if(playlist.sliderValue <= 0){
+                playlist.enabled = false
+                checkBox.checked = false
+            }
+            // else{
+            //     playlist.enabled = true
+            //     checkBox.checked = true
+            // }
+            saveAppState()
+        })
+
+        //slider.onchange = () => {
+        slider.addEventListener("change", () => {
+            isProgrammaticSliderUpdate = true
+            syncSlidersFromState()
+            //saveAppState()
+            isProgrammaticSliderUpdate = false
+        })
 
         // Delete Playlist
         const deleteBtn = div.querySelector(".delete-btn")
@@ -343,6 +527,7 @@ function renderPlaylists() {
 
         container.appendChild(div)
     })
+
 }
 
 
@@ -371,8 +556,7 @@ document.getElementById('add-playlist').onclick = () => {
         name: name, 
         trackCount: count, 
         enabled: true, 
-        sliderValue: 50,
-        color: generatePlaylistColor()
+        sliderValue: 50
     })
     saveAppState()
     renderPlaylists()
@@ -398,11 +582,6 @@ function loadAppState() {
         playlists = structuredClone(mixes[activeMixId].playlists)
     }
 
-    playlists.forEach(p => {
-        if(!p.color){
-            p.color = generatePlaylistColor()
-        }
-    })
     saveAppState()
 }
 
@@ -442,9 +621,23 @@ function renderMixSelector(){
     })
 }
 
-document.getElementById("balance-playlists").onclick = balancePlaylists
+
+function showResult(text){
+    document.getElementById("result").textContent = text
+}
+
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    
+    
+    //document.getElementById("balance-playlists").onclick = toggleSelectionMode
+    document.querySelectorAll('input[name="selectionMode"]').forEach(radio => {
+        radio.addEventListener("change", e => {
+            setSelectionMode(e.target.value)
+        })
+    })
+
     document.getElementById('pick').onclick = pickRandomSong
     // document.getElementById('pick').onclick = () => {
     //     alert ("button clicked")
@@ -478,17 +671,4 @@ document.addEventListener("DOMContentLoaded", () => {
         saveAppState()
     }
 
-    function showResult(text){
-        document.getElementById("result").textContent = text
-    }
 })
-
-
-
-
-
-
-
-
-
-
