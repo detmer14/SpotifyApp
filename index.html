@@ -6,36 +6,60 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Spotify App</h1>
+    <h1>Ben Burt Spotify Playlist Mixer</h1>
     <!-- <button id="pick">Pick Random Song</button> -->
     <section>
-        <h2>Playlists</h2>
+        <h3>Playlists:</h3>
         <div id="playlist-inputs">
             <input type="text" id="new-playlist-name" placeholder="Playlist Name">
             <input type="number" id="new-playlist-count" placeholder="Track Count" min="1">
             <button id="add-playlist">Add Playlist</button>
         </div>
-        <div id="mix-controls">
-            
+
+        <div id="mix-controls">            
             <input id="new-mix-name" placeholder="Mix name">
             <button id="save-mix">Save Mix</button>
         </div>
-        <!-- ========================= -->
-<!-- Playlist balancing -->
-<!-- ========================= -->
-<button id="balance-playlists">
-    Balance playlists
-</button>
+
         <div>
             <select id="mix-selector"></select>
         </div>
+
+        <!-- ========================= -->
+        <!-- Playlist balancing -->
+        <!-- ========================= -->
+        <div id="mode-description">
+            <p id="mode-text"></p>
+        </div>
+        <div id=""selection-modes>
+            <label>
+                <input type="radio" name="selectionMode" value="normal" checked>
+                Normal
+            </label>
+            <label>
+                <input type="radio" name="selectionMode" value="percentage">
+                Percentage Mix
+            </label>
+            <label>
+                <input type="radio" name="selectionMode" value="balanced">
+                Balanced
+            </label>
+            <label>
+                <input type="radio" name="selectionMode" value="relative">
+                Relative Weight
+            </label>
+        </div>
+
         <div id="playlist-list"></div>
+
     </section>
     <section>
         <h1> </h1>
         <button id="pick">Pick Random Song</button>
         <p id="result"></p>
     </section>
+
+
     <!-- ========================= -->
     <!-- Playlist Generator UI -->
     <!-- ========================= -->
