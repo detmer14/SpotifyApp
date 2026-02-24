@@ -60,7 +60,7 @@ if(!activeMixId){
 }
 
 renderMixSelector()
-renderPlaylists()
+//renderPlaylists() //called in setSelectionMode initial above
 
 async function initializePlayer(){
     window.onSpotifyWebPlaybackSDKReady = () => {
@@ -83,6 +83,7 @@ function pickRandomTrackInfo() {
     if(!chosenplaylist) return null
 
     const index = Math.floor(Math.random() * chosenplaylist.trackCount)
+        showResult("pickRandomTrackInfo")
     return { playlist: chosenplaylist, index }
 }
 
@@ -101,6 +102,10 @@ function setSelectionMode(mode){
         playlists.forEach(p => {
             if(p.enabled) p.sliderValue = 50
         })
+        showResult("Normal mode enabled")
+    }
+    if(mode === "percentage"){
+        normalizePercentagesAfterToggle()
     }
 
     saveAppState()
@@ -156,7 +161,8 @@ function rebalancePercentages(activeSlider){
 }
 
 
-function rebalancePercentagesByIndex(activeIndex){
+function xrebalancePercentagesByIndex(activeIndex){
+    showResult(`Rebalancing ${Date.now().toString()}`)
     const enabled = playlists.map((p, i) => ({p, i})).filter(x => x.p.enabled)
 
     if(enabled.length === 0) return
@@ -198,6 +204,76 @@ function rebalancePercentagesByIndex(activeIndex){
         x.p.sliderValue = Math.max(0, Math.round(newValue))
         runningTotal += x.p.sliderValue
     })
+    showResult(`Rebalancing ${Date.now().toString()}`)
+}
+
+function rebalancePercentagesByIndex(activeIndex){
+
+    const debug = false
+
+    if(debug) showResult(`Rebalancing ${Date.now().toString()}`)
+    const enabled = playlists.map((p, i) => ({p, i})).filter(x => x.p.enabled)
+    //const enabled = Array.from(document.querySelectorAll('.playlist-row')).filter((row, rowindex) => row.querySelector('.playlist-enabled').checked).map(row => row.querySelector('.playlist-slider'))
+
+    if(enabled.length === 0) return
+
+    //only one enabled playlist - 100
+    if(enabled.length === 1){
+        enabled[0].p.sliderValue = 100
+        return
+    }
+        showResult(`Rebalancing Enabled ${enabled.length}`)
+
+
+    const active = playlists[activeIndex]
+    const activeValue = Math.max(0, Math.min(100, active.sliderValue ?? 0))
+    active.sliderValue = activeValue
+    if(debug) console.log(`\nRebalancing activeValue ${active.sliderValue}`)
+
+
+    const remaining = 100 - activeValue
+    let runningTotal = 0
+
+    //const filteredSliders = Array.from(sliders).filter((_, i) => i !== indexToExclude);
+    const sliders = Array.from(document.querySelectorAll('.playlist-row')).filter((row, rowindex) => rowindex !== activeIndex).filter((row) => row.querySelector('.playlist-enabled').checked).map(row => row.querySelector('.playlist-slider'))
+    if(debug) console.log(`currentSum`)
+    if(debug) console.log(`sliders length ${sliders.length}`)
+    const currentSum = sliders.reduce((accumulator, currentItem, index) => {
+        // If the current index matches the one to exclude, return the accumulator unchanged
+        // if (index === activeIndex) {
+        //     return accumulator;
+        // }
+        // Otherwise, add the current item's value to the accumulator
+        if(debug) console.log(`value ${currentItem.value}`)
+        return accumulator + Number(currentItem.value);
+    }, 0); // Start the accumulator at 0
+    if(debug) console.log(`Rebalancing currentSum ${currentSum}`)
+
+    if(debug) console.log(`set sliders`)
+    sliders.forEach((slider, i) => {
+        //if(i !== activeIndex){
+            let newValue
+            if(currentSum === 0){
+                //even split fallback
+                newValue = remaining / others.length
+            }
+            else{
+                newValue = (slider.value / currentSum) * remaining
+            }
+
+            if(i === sliders.length -1){
+                //absorb rounding error
+                newValue = remaining - runningTotal
+            }
+        slider.value = Math.max(0, Math.round(newValue))
+        const playlistIndex = Number(slider.dataset.index)
+        //playlists[slider.data-index].sliderValue = slider.value
+        playlists[playlistIndex].sliderValue = slider.value
+        if(debug) console.log(`slider ${playlistIndex} value ${slider.value}`)
+        runningTotal += slider.value
+        //updateSliderDisplay(slider)
+        //}
+    })
 }
 
 
@@ -209,7 +285,7 @@ function updateSliderDisplay(slider){
     }
 }
 
-function normalizePercentagedAfterToggle(){
+function normalizePercentagesAfterToggle(){
     const sliders = Array.from(document.querySelectorAll('.playlist-row')).filter(row => row.querySelector('.playlist-enabled').checked).map(row => row.querySelector('.playlist-slider'))
 
     if(sliders.length === 0) return
@@ -228,6 +304,9 @@ function normalizePercentagedAfterToggle(){
 }
 
 function syncSlidersFromState(){
+
+    const debug = true
+    if(debug) console.log("syncSlidersFromState")
     // document.querySelectorAll(".playlist.slider").forEach(slider => {
     //     const i = Number(slider.dataset.index)
     //     const value = playlists[i].sliderValue ?? 0
@@ -235,14 +314,28 @@ function syncSlidersFromState(){
     //     slider.closest(".playlist-row").querySelector(".slider-value").textContent = value
     // })
 
+    // document.querySelectorAll(".playlist.slider").forEach(slider => {
+    //     const i = Number(slider.dataset.index)
+    //     const value = playlists[i].sliderValue ?? 0
+    //     slider.value = value
+    //     const display = slider.closest(".playlist-row").querySelector(".slider-value")
+    //     //slider.closest(".playlist-row").querySelector(".slider-value").textContent = value
+    //     if(display){
+    //         display.textContent = value
+    //     }
+    // })
+
     playlists.forEach((playlist, index) => {
-        const slider = document.querySelector('.playlist-slider[data-index="$index"]')
+        if(debug) console.log(`playlist ${index}`)
+        const slider = document.querySelector(`.playlist-slider[data-index="${index}"]`)
         const display = slider?.closest('.playlist-row')?.querySelector('.slider-value')
         if(slider){
             slider.value = playlist.sliderValue ?? 50
+            if(debug) console.log(`value ${slider.value}`)
         }
         if(display){
             display.textContent = playlist.sliderValue ?? 50
+            if(debug) console.log(`text ${display.textContent}`)
         }
     })
 }
@@ -434,7 +527,7 @@ function renderPlaylists() {
         const div = document.createElement("div")
         div.className = "playlist-row"
         div.innerHTML = `
-                <input type="checkbox" ${playlist.enabled ? "checked" : ""}>
+                <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
                 <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
                 <span class="slider-value"></span>
                 <button class="delete-btn">Delete</button>
@@ -462,8 +555,9 @@ function renderPlaylists() {
             //slider.disabled = !checkBox.checked   // <- NEW LINE
 
             if(selectionMode === "percentage"){
-                normalizePercentagedAfterToggle()
+                normalizePercentagesAfterToggle()
                 syncSlidersFromState()
+                showResult(`normalize ${Date.now().toString()}`)
             }
 
             saveAppState()
@@ -486,14 +580,16 @@ function renderPlaylists() {
 
                 //update radio button
                 document.querySelector('input[value="percentage"]').checked = true
-                //normalizePercentagedAfterToggle()
+                normalizePercentagesAfterToggle()
                 showResult("Percentage mode enabled")
             }
 
             if(selectionMode === "percentage"){
                 isProgrammaticSliderUpdate = true
                 rebalancePercentagesByIndex(index)
-                //syncSlidersFromState()
+                syncSlidersFromState()
+                updateSliderDisplay(slider)
+
                 isProgrammaticSliderUpdate = false
             }
                         
@@ -509,13 +605,13 @@ function renderPlaylists() {
             saveAppState()
         })
 
-        //slider.onchange = () => {
-        slider.addEventListener("change", () => {
-            isProgrammaticSliderUpdate = true
-            syncSlidersFromState()
-            //saveAppState()
-            isProgrammaticSliderUpdate = false
-        })
+        // //slider.onchange = () => {
+        // slider.addEventListener("change", () => {
+        //     isProgrammaticSliderUpdate = true
+        //     syncSlidersFromState()
+        //     //saveAppState()
+        //     isProgrammaticSliderUpdate = false
+        // })
 
         // Delete Playlist
         const deleteBtn = div.querySelector(".delete-btn")
