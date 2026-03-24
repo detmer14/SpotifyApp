@@ -1,5 +1,84 @@
 //alert("app.js loaded")
 
+//To securely integrate your app, you should use the Authorization Code Flow with PKCE. This is the modern standard for client-side apps that cannot hide a "Client Secret".
+// --- AUTHENTICATION CONFIG ---
+//const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
+const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
+const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
+//const redirectUri = 'netlifylocation';
+//const redirectUri = window.location.origin + '/'; 
+// This automatically picks http://127.0.0.1 locally 
+// AND https://your-app.netlify.app once hosted!
+const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private';
+
+// Helper: Generate a random string for PKCE
+const generateRandomString = (length) => {
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const values = crypto.getRandomValues(new Uint8Array(length));
+    return values.reduce((acc, x) => acc + possible[x % possible.length], "");
+};
+
+// Helper: SHA-256 hashing for the code challenge
+const sha256 = async (plain) => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plain);
+    return window.crypto.subtle.digest('SHA-256', data);
+};
+
+// Helper: Base64 encoding the hash
+const base64encode = (input) => {
+    return btoa(String.fromCharCode(...new Uint8Array(input)))
+        .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+};
+
+// This function starts the process by redirecting the user to Spotify’s secure login page.
+async function redirectToSpotifyAuth() {
+    const codeVerifier = generateRandomString(64);
+    const hashed = await sha256(codeVerifier);
+    const codeChallenge = base64encode(hashed);
+
+    // Store verifier locally to verify the response later
+    window.localStorage.setItem('code_verifier', codeVerifier);
+
+    const params = {
+        response_type: 'code',
+        client_id: clientId,
+        scope: scope,
+        code_challenge_method: 'S256',
+        code_challenge: codeChallenge,
+        redirect_uri: redirectUri,
+    };
+
+    const authUrl = new URL("https://accounts.spotify.com/authorize");
+    authUrl.search = new URLSearchParams(params).toString();
+    window.location.href = authUrl.toString(); // Redirects the entire page
+}
+
+async function getToken(code) {
+    const codeVerifier = window.localStorage.getItem('code_verifier');
+
+    const payload = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            client_id: clientId,
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri,
+            code_verifier: codeVerifier,
+        }),
+    };
+
+    const response = await fetch("https://accounts.spotify.com/api/token", payload);
+    const data = await response.json();
+
+    if (data.access_token) {
+        window.localStorage.setItem('access_token', data.access_token);
+        // Optional: setup a 'refresh_token' to keep the user logged in longer
+    }
+}
+
+
 const MOCK_MODE = true
 
 let playlists = [
@@ -656,7 +735,45 @@ function savePlaylists(){
 }
 
 
-document.getElementById('add-playlist').onclick = () => {
+document.getElementById('add-playlist').onclick = async () => {
+    const input = document.getElementById('new-playlist-name').value.trim();
+    let playlistData;
+
+    // Robust Spotify ID extraction
+    if (input.includes('://spotify.com') || input.startsWith('spotify:playlist:')) {
+        let id = "";
+        if (input.includes('playlist/')) {
+            // Extracts ID between 'playlist/' and any '?' or '/'
+            id = input.split('playlist/')[1].split('?')[0].split('/')[0];
+        } else {
+            id = input.split(':').pop();
+        }
+        
+        showResult(`Fetching Spotify data... ${id}`);
+        playlistData = await getSpotifyPlaylistData(id);
+    } else {
+        // Fallback to manual entry if it's just a name
+        const count = parseInt(document.getElementById('new-playlist-count').value);
+        if (!input || isNaN(count)) return alert("Enter name and count OR a Spotify Link");
+        
+        playlistData = {
+            id: Date.now().toString(),
+            name: input,
+            trackCount: count,
+            enabled: true,
+            sliderValue: 50
+        };
+    }
+
+    if (playlistData) {
+        playlists.push(playlistData);
+        saveAppState();
+        renderPlaylists();
+        document.getElementById('new-playlist-name').value = '';
+        document.getElementById('new-playlist-count').value = '';
+    }
+}
+document.getElementById('add-playlist').oncancel = () => {
     const nameInput = document.getElementById('new-playlist-name')
     const countInput = document.getElementById('new-playlist-count')
 
@@ -684,6 +801,60 @@ document.getElementById('add-playlist').onclick = () => {
     //countInput.value = ''
 }
 
+async function fetchUserPlaylists() {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    try {
+        const response = await fetch('https://api.spotify.com', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        // Map Spotify's data format to your app's format
+        playlists = data.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            trackCount: item.tracks.total,
+            enabled: true,
+            sliderValue: 50
+        }));
+
+        renderPlaylists();
+        saveAppState(); // Save these real playlists to your 'Mix'
+        showResult(`Loaded ${playlists.length} playlists from Spotify`);
+    } catch (err) {
+        console.error("Failed to fetch playlists:", err);
+    }
+}
+
+async function getSpotifyPlaylistData(playlistId) {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        alert("Please login to Spotify first!");
+        return null;
+    }
+
+    try {
+        const response = await fetch(`https://api.spotify.com{playlistId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error("Playlist not found or Private");
+        
+        const data = await response.json();
+        return {
+            id: data.id,
+            name: data.name,
+            trackCount: data.tracks.total,
+            enabled: true,
+            sliderValue: 50
+        };
+    } catch (err) {
+        alert("Error fetching Spotify playlist: " + err.message);
+        return null;
+    }
+}
 
 function loadAppState() {
     const stored = localStorage.getItem("spotifyAppState")
@@ -746,7 +917,38 @@ function showResult(text){
 }
 
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+
+    document.getElementById('login-button').onclick = redirectToSpotifyAuth
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (code) {
+        // We just returned from Spotify; swap the code for a token
+        await getToken(code);
+        // Clean the URL so the 'code' doesn't stay in the address bar
+        window.history.replaceState({}, document.title, "/");
+
+        // Change button text to show user is logged in
+        document.getElementById('login-button').textContent = "Logged In";
+        document.getElementById('login-button').disabled = true;
+    }
+
+    // const token = localStorage.getItem('access_token');
+    // if (token) {
+    //     // Change UI state
+    //     const loginBtn = document.getElementById('login-button');
+    //     if (loginBtn) {
+    //         loginBtn.textContent = "Logged In";
+    //         loginBtn.disabled = true;
+    //     }
+
+    //     // FETCH REAL DATA
+    //     await fetchUserPlaylists();
+    // }
+
+
 
     // --- INITIALIZE DATA AND UI HERE ---
     loadAppState();
