@@ -9,7 +9,7 @@ const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACT
 //const redirectUri = window.location.origin + '/'; 
 // This automatically picks http://127.0.0.1 locally 
 // AND https://your-app.netlify.app once hosted!
-const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private';
+const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative user-read-private user-read-email streaming';
 
 // Helper: Generate a random string for PKCE
 const generateRandomString = (length) => {
@@ -47,6 +47,7 @@ async function redirectToSpotifyAuth() {
         code_challenge_method: 'S256',
         code_challenge: codeChallenge,
         redirect_uri: redirectUri,
+        show_dialog: true
     };
 
     const authUrl = new URL("https://accounts.spotify.com/authorize");
@@ -78,6 +79,15 @@ async function getToken(code) {
     }
 }
 
+async function getCurrentUserId() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch('https://api.spotify.com/v1/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    localStorage.setItem('spotify_user_id', data.id);
+    return data.id;
+}
 
 const MOCK_MODE = true
 
@@ -722,6 +732,13 @@ function renderPlaylists() {
             renderPlaylists()
         }
 
+        // Inside your renderPlaylists loop:
+        const refreshBtn = document.createElement("button");
+        refreshBtn.textContent = "🔄";
+        refreshBtn.onclick = () => refreshPlaylistCount(playlist.id, index);
+        div.appendChild(refreshBtn);
+
+
         container.appendChild(div)
     })
 
@@ -739,20 +756,19 @@ document.getElementById('add-playlist').onclick = async () => {
     const input = document.getElementById('new-playlist-name').value.trim();
     let playlistData;
 
-    // Robust Spotify ID extraction
-    if (input.includes('://spotify.com') || input.startsWith('spotify:playlist:')) {
-        let id = "";
-        if (input.includes('playlist/')) {
-            // Extracts ID between 'playlist/' and any '?' or '/'
-            id = input.split('playlist/')[1].split('?')[0].split('/')[0];
-        } else {
-            id = input.split(':').pop();
-        }
-        
+    // Robust Spotify ID extraction using Regex
+    const spotifyIdRegex = /(?:playlist[:\/])([a-zA-Z0-9]{22})/;
+    const match = input.match(spotifyIdRegex);
+
+    if (match) {
+        const id = match[1]; // match[1] is the captured 22-character ID
         showResult(`Fetching Spotify data... ${id}`);
         playlistData = await getSpotifyPlaylistData(id);
-    } else {
-        // Fallback to manual entry if it's just a name
+    } else if (input.length === 22 && !input.includes(' ')) {
+        // Fallback: If they just paste the raw 22-character ID
+        showResult(`Fetching Spotify data... ${input}`);
+        playlistData = await getSpotifyPlaylistData(input);
+    } else {        // Fallback to manual entry if it's just a name
         const count = parseInt(document.getElementById('new-playlist-count').value);
         if (!input || isNaN(count)) return alert("Enter name and count OR a Spotify Link");
         
@@ -828,31 +844,171 @@ async function fetchUserPlaylists() {
     }
 }
 
-async function getSpotifyPlaylistData(playlistId) {
+// --- FIX THIS FUNCTION ---
+async function xgetSpotifyPlaylistData(playlistId) {
     const token = localStorage.getItem('access_token');
-    if (!token) {
-        alert("Please login to Spotify first!");
-        return null;
-    }
+    if (!token) return null;
+
+    // USE BACKTICKS ` and include /v1/playlists/
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}`;
 
     try {
-        const response = await fetch(`https://api.spotify.com{playlistId}`, {
+        showResult(`await fetch(${url}` )
+        const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error("Playlist not found or Private");
+        if (!response.ok) {
+            const errorData = await response.json();
+            // Handle common 404 or 403 errors for private playlists
+            throw new Error(errorData.error.message || "Playlist not found");
+        }
         
         const data = await response.json();
+        console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
+        console.log("Full Tracks Object:", data.tracks); // Check if this is an object or a number
         return {
             id: data.id,
             name: data.name,
-            trackCount: data.tracks.total,
+            // Change this:
+            //trackCount: data.tracks.total,
+
+            // To this (safer for 2026):
+            //trackCount: data.tracks ? data.tracks.total : (data.items ? data.items.length : 0)
+            // Fix: Spotify 2026 now uses 'items' instead of 'tracks' for the count
+            //trackCount: data.items ? data.items.total : (data.tracks ? data.tracks.total : 0),
+            // Try this specific nesting which is the standard for the Get Playlist endpoint
+            //trackCount: data.tracks?.total || data.items?.total || 0,
+            // Fix: Access tracks.total specifically
+            trackCount: (data.tracks && typeof data.tracks === 'object') ? data.tracks.total : 0,
+            enabled: true,
+            sliderValue: 50        };
+            } catch (err) {
+        alert("Error fetching Spotify playlist: " + err.message);
+        return null;
+    }
+}
+async function getSpotifyPlaylistData(playlistId) {
+    const token = localStorage.getItem('access_token');
+    if (!token) return null;
+    const currentUserId = localStorage.getItem('spotify_user_id') || await getCurrentUserId();
+
+    // Use the /items endpoint - it's more direct for track data in 2026
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
+    // Fetch the main playlist metadata, NOT the items/tracks sub-endpoint
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,tracks.total`;
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,total`;
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}`;
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,owner.id,tracks.total`;
+
+    try {
+        showResult(`await fetch(${url}` )
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
+        const data = await response.json();
+        console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
+        console.log("Keys available in this object:", Object.keys(data));
+        console.log("Full Tracks Object:", data.tracks); // Check if this is an object or a number
+        console.log("Full Tracks Object:", data.total); // Check if this is an object or a number
+        console.log("Full Tracks Object:", data.tracks?.total); // Check if this is an object or a number
+        console.log("Full Tracks Object:", data.total_tracks); // Check if this is an object or a number
+        
+        // CHECK OWNERSHIP
+        const isOwner = data.owner.id === currentUserId;
+
+
+        // We also need the playlist NAME, so we do one more quick fetch 
+        // or just use the ID as a placeholder if name isn't critical yet.
+        const nameRes = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}?fields=name`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const nameData = await nameRes.json();
+        console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
+        console.log("nameData:", nameData.name); // Check if this is an object or a number
+
+        if (!isOwner) {
+            const confirmDup = confirm(
+                `You don't own "${data.name}". Due to Spotify's 2026 rules, I can't read the songs unless you duplicate it to your account. \n\n
+                Would you like me to try and create a copy for you? \n\n
+                Note that this will only create an empty playlist with the same name, you will still need to manually (in spotify or spotify app itself) "Select All" tracks from the original playlist and "Add to" your new empty playlist that YOU own. \n\n
+                This will merely create an empty playlist as a placeholder`
+            );
+            if (confirmDup) {
+                return await duplicatePlaylist(playlistId, data.name);
+            }
+            return null; 
+        }
+
+        return {
+            id: playlistId,
+            name: nameData.name || "Spotify Playlist",
+            //trackCount: data.total || 0, // 'total' is a top-level field in the /tracks endpoint
+            // This 'total' field is usually available even for unowned playlists
+            trackCount: data.tracks?.total || data.total_tracks || 0,
             enabled: true,
             sliderValue: 50
         };
     } catch (err) {
-        alert("Error fetching Spotify playlist: " + err.message);
+        showResult("Error: " + err.message);
         return null;
+    }
+}
+
+async function duplicatePlaylist(oldId, oldName) {
+    const token = localStorage.getItem('access_token');
+    const userId = localStorage.getItem('spotify_user_id');
+
+    //const response = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
+    const response = await fetch(`https://api.spotify.com/v1/me/playlists`, {
+        method: 'POST',
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: `${oldName} (Mixer Copy)`,
+            description: "Created by Ben Burt's Mixer to allow playback.",
+            public: true
+        })
+    });
+    
+    const newPlaylist = await response.json();
+    alert(`Success! Created "${newPlaylist.name}". \n\nFinal Step: Open Spotify, go to the original playlist, select all songs, and add them to this new one.`);
+    
+    return {
+        id: newPlaylist.id,
+        name: newPlaylist.name,
+        trackCount: 0, // Will update once they add songs
+        enabled: true,
+        sliderValue: 50
+    };
+}
+
+async function refreshPlaylistCount(playlistId, playlistIndex) {
+    const token = localStorage.getItem('access_token');
+    // Use the /items endpoint we fixed earlier to get the real count
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
+
+    try {
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (data.total !== undefined) {
+            playlists[playlistIndex].trackCount = data.total;
+            saveAppState();
+            renderPlaylists();
+            showResult(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
+        }
+    } catch (err) {
+        console.error("Refresh failed:", err);
     }
 }
 
