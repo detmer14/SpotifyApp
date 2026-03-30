@@ -1,4 +1,4 @@
-alert("app.js loaded")
+//alert("app.js loaded")
 
 let player;
 let device_id;
@@ -551,7 +551,8 @@ async function pickRandomSong() {
     chosenplaylist = pickPlaylistByMode()
 
     index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
-        showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
+        showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
 
     if (MOCK_MODE) {
         showResult(`--------------- Playlist ${chosenplaylist.name}, song #${index + 1}`)
@@ -655,7 +656,7 @@ async function getTrackAtIndex(token, playlistId, index){
     )
 
     const data = await res.json()
-console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
+//console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
         // 2026 Debug: Log the full structure if it's still empty
         if (!data.items || data.items.length === 0) {
             console.log("Empty items array. Full Response:", data);
@@ -1165,7 +1166,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             player = new Spotify.Player({
                 name: "Ben's Mixer Lab",
                 getOAuthToken: cb => { cb(currentToken); },
-                volume: 0.5
+                volume: 0.2
             });
 
             if (!player) {
