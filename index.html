@@ -6,6 +6,23 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Top-level Authentication Bar -->
+    <header style="padding: 10px; background: #121212; display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="color: #1DB954; margin: 0; font-size: 1.2em;">Mixer Lab</h1>
+        <button id="login-button" style="background: #1DB954; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
+            Login with Spotify
+        </button>
+        <!-- Add this inside your <body>, maybe in your header -->
+        <div id="player-controls" style="margin: 10px; text-align: center;">
+            <button id="init-player" style="background: #1DB954; color: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
+                🔌 Power On Mixer
+            </button>
+            <button id="play-pause" style="display: none; background: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
+                Play/Pause
+            </button>
+        </div>
+    </header>
+
     <h1>Ben Burt Spotify Playlist Mixer</h1>
     <!-- <button id="pick">Pick Random Song</button> -->
     <section>
@@ -88,7 +105,22 @@
         </div>
         <div id="generated-playlist"></div>
     </div>
+
+    <!-- 1. Define the "Ready" function globally first -->
+    <script>
+    window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log("Spotify SDK is ready!");
+        // This just alerts us that the SDK is alive. 
+        // We handle the actual player setup in app.js via the button click.
+    };
+    </script>
+
     <!-- ========================= -->
+    <!-- Spotify Web Playback SDK -->
+    <!-- ========================= -->
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+
     <script src="app.js"></script>
+
 </body>
 </html>

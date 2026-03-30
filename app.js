@@ -1,6 +1,129 @@
 //alert("app.js loaded")
 
-const MOCK_MODE = true
+let player;
+let device_id;
+
+window.onSpotifyWebPlaybackSDKReady = () => {
+    console.log("Spotify SDK is ready to initialize!");
+    const token = localStorage.getItem('access_token');
+};
+
+async function playTrack(trackUri) {
+    const token = localStorage.getItem('access_token');
+    if (!device_id) return alert("Click 'Power On' first!");
+
+    try {
+        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${device_id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            // CRITICAL: trackUri must be inside an array []
+            body: JSON.stringify({ 
+                uris: [trackUri] 
+            }),
+        });
+
+        if (response.status === 403) {
+            alert("Spotify Premium is required for this feature.");
+        }
+    } catch (err) {
+        console.error("Playback error:", err);
+    }
+}
+
+
+//To securely integrate your app, you should use the Authorization Code Flow with PKCE. This is the modern standard for client-side apps that cannot hide a "Client Secret".
+// --- AUTHENTICATION CONFIG ---
+//const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
+const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
+const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
+//const redirectUri = 'netlifylocation';
+//const redirectUri = window.location.origin + '/'; 
+// This automatically picks http://127.0.0.1 locally 
+// AND https://your-app.netlify.app once hosted!
+const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative user-read-private user-read-email streaming';
+
+// Helper: Generate a random string for PKCE
+const generateRandomString = (length) => {
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const values = crypto.getRandomValues(new Uint8Array(length));
+    return values.reduce((acc, x) => acc + possible[x % possible.length], "");
+};
+
+// Helper: SHA-256 hashing for the code challenge
+const sha256 = async (plain) => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plain);
+    return window.crypto.subtle.digest('SHA-256', data);
+};
+
+// Helper: Base64 encoding the hash
+const base64encode = (input) => {
+    return btoa(String.fromCharCode(...new Uint8Array(input)))
+        .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+};
+
+// This function starts the process by redirecting the user to Spotify’s secure login page.
+async function redirectToSpotifyAuth() {
+    const codeVerifier = generateRandomString(64);
+    const hashed = await sha256(codeVerifier);
+    const codeChallenge = base64encode(hashed);
+
+    // Store verifier locally to verify the response later
+    window.localStorage.setItem('code_verifier', codeVerifier);
+
+    const params = {
+        response_type: 'code',
+        client_id: clientId,
+        scope: scope,
+        code_challenge_method: 'S256',
+        code_challenge: codeChallenge,
+        redirect_uri: redirectUri,
+        show_dialog: true
+    };
+
+    const authUrl = new URL("https://accounts.spotify.com/authorize");
+    authUrl.search = new URLSearchParams(params).toString();
+    window.location.href = authUrl.toString(); // Redirects the entire page
+}
+
+async function getToken(code) {
+    const codeVerifier = window.localStorage.getItem('code_verifier');
+
+    const payload = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            client_id: clientId,
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri,
+            code_verifier: codeVerifier,
+        }),
+    };
+
+    const response = await fetch("https://accounts.spotify.com/api/token", payload);
+    const data = await response.json();
+
+    if (data.access_token) {
+        window.localStorage.setItem('access_token', data.access_token);
+        // Optional: setup a 'refresh_token' to keep the user logged in longer
+    }
+}
+
+async function getCurrentUserId() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch('https://api.spotify.com/v1/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    localStorage.setItem('spotify_user_id', data.id);
+    return data.id;
+}
+
+const MOCK_MODE = false
 
 let playlists = [
     {id: "A", enabled: true, name: "Playlist A", trackCount: 10},
@@ -61,7 +184,7 @@ function loadPlaylists(){
 //    createDefaultMix()
 //}
 
-renderMixSelector()
+//renderMixSelector()
 //renderPlaylists() //called in setSelectionMode initial above
 
 async function initializePlayer(){
@@ -225,7 +348,7 @@ try{
 
     //only one enabled playlist - 100
     if(enabled.length === 1){
-        playlists[enabled[0]].sliderValue = 100;
+        playlists[enabled[0].i].sliderValue = 100;
         return;
     }
         showResult(`Rebalancing Enabled ${enabled.length}`)
@@ -428,6 +551,8 @@ async function pickRandomSong() {
     chosenplaylist = pickPlaylistByMode()
 
     index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
+        showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
 
     if (MOCK_MODE) {
         showResult(`--------------- Playlist ${chosenplaylist.name}, song #${index + 1}`)
@@ -435,8 +560,16 @@ async function pickRandomSong() {
     }
 
     // real Spotify playback...
-    const track = await getTrackAtIndex(accessToken, chosenplaylist.id, index)
-    playTrack(track.uri)
+    const token = localStorage.getItem('access_token');
+    const track = await getTrackAtIndex(token, chosenplaylist.id, index)
+    // Safety check: only call playTrack if we actually got a track back
+    if (track && track.uri) {
+        console.log("Playing:", track.name);
+        showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
+        playTrack(track.uri);
+    } else {
+        alert("Could not fetch that specific track. Try again!");
+    }
 }
 
 // =========================
@@ -509,36 +642,52 @@ function getPlaylistColorByIndex(index){
 
 
 async function getTrackAtIndex(token, playlistId, index){
+    console.log("getTrackAtIndex");
     const limit = 1
-    const offset = index
+    const offset = Number(index)
 
+    try{
     const res = await fetch(
 
-`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}`,
+`https://api.spotify.com/v1/playlists/${playlistId}/items?limit=${limit}&offset=${offset}&market=from_token&additional_types=track`,
         {
             headers: { Authorization: `Bearer ${token}` }
         }
     )
 
     const data = await res.json()
-    return data.items[0].track
-}
-
-
-async function playTrack(trackUri){
-    await fetch(
-        `https://api.spotify.com/v1/me/player/play`,
-        {
-            method: 'PUT',
-            headers: {
-                Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                uris: [trackUri]
-            })
+//console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
+        // 2026 Debug: Log the full structure if it's still empty
+        if (!data.items || data.items.length === 0) {
+            console.log("Empty items array. Full Response:", data);
+            return null;
         }
-    )
+                console.log("Keys available in this object:", Object.keys(data.items));
+
+        // Check if items exists and is not empty
+        if (data.items && data.items.length > 0) {
+
+            const container = data.items[0];
+            
+            // --- THE FIX ---
+            // Based on your JSON, the data is inside 'item'
+            const track = container.item || container.track; 
+            
+            if (track && track.uri) {
+                            console.log("Found Track:", track.name, "URI:", track.uri);
+               console.log("Success! Found:", track.name, "by", track.artists[0].name);
+             }
+            return track; 
+        } else {
+            console.error("No track found at this index:", index);
+            return null;
+        }
+    } catch(err){
+        console.error("Fetch error in getTrackAtIndex:", err);
+        return null
+    }
 }
+
 
 function renderPlaylists() {
     const container = document.getElementById("playlist-list")
@@ -571,7 +720,7 @@ function renderPlaylists() {
 
         //display.textContent = `${playlist.enabled ? playlist.sliderValue ?? 50 : 0}`
         //display.textContent = playlist.sliderValue ?? 50
-	  display.textContent = playlist.sliderValue ?? (selectionMode === "balanced" ? "Eq" : 50); //Set the initial text for the slider value so it isn't blank on load
+	    display.textContent = playlist.sliderValue ?? (selectionMode === "balanced" ? "Eq" : 50); //Set the initial text for the slider value so it isn't blank on load
 
         // Checkbox change
         checkBox.onchange = () => {
@@ -643,6 +792,13 @@ function renderPlaylists() {
             renderPlaylists()
         }
 
+        // Inside your renderPlaylists loop:
+        const refreshBtn = document.createElement("button");
+        refreshBtn.textContent = "🔄";
+        refreshBtn.onclick = () => refreshPlaylistCount(playlist.id, index);
+        div.appendChild(refreshBtn);
+
+
         container.appendChild(div)
     })
 
@@ -656,7 +812,44 @@ function savePlaylists(){
 }
 
 
-document.getElementById('add-playlist').onclick = () => {
+document.getElementById('add-playlist').onclick = async () => {
+    const input = document.getElementById('new-playlist-name').value.trim();
+    let playlistData;
+
+    // Robust Spotify ID extraction using Regex
+    const spotifyIdRegex = /(?:playlist[:\/])([a-zA-Z0-9]{22})/;
+    const match = input.match(spotifyIdRegex);
+
+    if (match && match[1]) {
+        const id = match[1]; // match[1] is the captured 22-character ID
+        showResult(`Fetching Spotify data... ${id}`);
+        playlistData = await getSpotifyPlaylistData(id);
+    } else if (input.length === 22 && !input.includes(' ')) {
+        // Fallback: If they just paste the raw 22-character ID
+        showResult(`Fetching Spotify data... ${input}`);
+        playlistData = await getSpotifyPlaylistData(input);
+    } else {        // Fallback to manual entry if it's just a name
+        const count = parseInt(document.getElementById('new-playlist-count').value);
+        if (!input || isNaN(count)) return alert("Enter name and count OR a Spotify Link");
+        
+        playlistData = {
+            id: Date.now().toString(),
+            name: input,
+            trackCount: count,
+            enabled: true,
+            sliderValue: 50
+        };
+    }
+
+    if (playlistData) {
+        playlists.push(playlistData);
+        saveAppState();
+        renderPlaylists();
+        document.getElementById('new-playlist-name').value = '';
+        document.getElementById('new-playlist-count').value = '';
+    }
+}
+document.getElementById('add-playlist').oncancel = () => {
     const nameInput = document.getElementById('new-playlist-name')
     const countInput = document.getElementById('new-playlist-count')
 
@@ -684,6 +877,200 @@ document.getElementById('add-playlist').onclick = () => {
     //countInput.value = ''
 }
 
+async function fetchUserPlaylists() {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    try {
+        const response = await fetch('https://api.spotify.com', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        // Map Spotify's data format to your app's format
+        playlists = data.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            trackCount: item.tracks.total,
+            enabled: true,
+            sliderValue: 50
+        }));
+
+        renderPlaylists();
+        saveAppState(); // Save these real playlists to your 'Mix'
+        showResult(`Loaded ${playlists.length} playlists from Spotify`);
+    } catch (err) {
+        console.error("Failed to fetch playlists:", err);
+    }
+}
+
+// --- FIX THIS FUNCTION ---
+async function xgetSpotifyPlaylistData(playlistId) {
+    const token = localStorage.getItem('access_token');
+    if (!token) return null;
+
+    // USE BACKTICKS ` and include /v1/playlists/
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}`;
+
+    try {
+        showResult(`await fetch(${url}` )
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            // Handle common 404 or 403 errors for private playlists
+            throw new Error(errorData.error.message || "Playlist not found");
+        }
+        
+        const data = await response.json();
+        console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
+        console.log("Full Tracks Object:", data.tracks); // Check if this is an object or a number
+        return {
+            id: data.id,
+            name: data.name,
+            // Change this:
+            //trackCount: data.tracks.total,
+
+            // To this (safer for 2026):
+            //trackCount: data.tracks ? data.tracks.total : (data.items ? data.items.length : 0)
+            // Fix: Spotify 2026 now uses 'items' instead of 'tracks' for the count
+            //trackCount: data.items ? data.items.total : (data.tracks ? data.tracks.total : 0),
+            // Try this specific nesting which is the standard for the Get Playlist endpoint
+            //trackCount: data.tracks?.total || data.items?.total || 0,
+            // Fix: Access tracks.total specifically
+            trackCount: (data.tracks && typeof data.tracks === 'object') ? data.tracks.total : 0,
+            enabled: true,
+            sliderValue: 50        };
+            } catch (err) {
+        alert("Error fetching Spotify playlist: " + err.message);
+        return null;
+    }
+}
+async function getSpotifyPlaylistData(playlistId) {
+    const token = localStorage.getItem('access_token');
+    if (!token) return null;
+    const currentUserId = localStorage.getItem('spotify_user_id') || await getCurrentUserId();
+
+    // Use the /items endpoint - it's more direct for track data in 2026
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
+    // Fetch the main playlist metadata, NOT the items/tracks sub-endpoint
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,tracks.total`;
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,total`;
+    //const url = `https://api.spotify.com/v1/playlists/${playlistId}`;
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,owner.id,tracks.total`;
+
+    try {
+        showResult(`await fetch(${url}` )
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
+        const data = await response.json();
+        console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
+        console.log("Keys available in this object:", Object.keys(data));
+        console.log("Full Tracks Object:", data.tracks); // Check if this is an object or a number
+        console.log("Full Tracks Object:", data.total); // Check if this is an object or a number
+        console.log("Full Tracks Object:", data.tracks?.total); // Check if this is an object or a number
+        console.log("Full Tracks Object:", data.total_tracks); // Check if this is an object or a number
+        
+        // CHECK OWNERSHIP
+        const isOwner = data.owner.id === currentUserId;
+
+
+        // We also need the playlist NAME, so we do one more quick fetch 
+        // or just use the ID as a placeholder if name isn't critical yet.
+        // const nameRes = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}?fields=name`, {
+        //     headers: { 'Authorization': `Bearer ${token}` }
+        // });
+        //const nameData = await nameRes.json();
+        console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
+        console.log("nameData:", data.name); // Check if this is an object or a number
+
+        if (!isOwner) {
+            const confirmDup = confirm(
+                `You don't own "${data.name}". Due to Spotify's 2026 rules, I can't read the songs unless you duplicate it to your account. \n\n
+                Would you like me to try and create a copy for you? \n\n
+                Note that this will only create an empty playlist with the same name, you will still need to manually (in spotify or spotify app itself) "Select All" tracks from the original playlist and "Add to" your new empty playlist that YOU own. \n\n
+                This will merely create an empty playlist as a placeholder`
+            );
+            if (confirmDup) {
+                return await duplicatePlaylist(playlistId, data.name);
+            }
+            return null; 
+        }
+
+        return {
+            id: playlistId,
+            name: data.name || "Spotify Playlist",
+            //trackCount: data.total || 0, // 'total' is a top-level field in the /tracks endpoint
+            // This 'total' field is usually available even for unowned playlists
+            trackCount: data.tracks?.total || data.total_tracks || 0,
+            enabled: true,
+            sliderValue: 50
+        };
+    } catch (err) {
+        showResult("Error: " + err.message);
+        return null;
+    }
+}
+
+async function duplicatePlaylist(oldId, oldName) {
+    const token = localStorage.getItem('access_token');
+    const userId = localStorage.getItem('spotify_user_id');
+
+    //const response = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
+    const response = await fetch(`https://api.spotify.com/v1/me/playlists`, {
+        method: 'POST',
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: `${oldName} (Mixer Copy)`,
+            description: "Created by Ben Burt's Mixer to allow playback.",
+            public: true
+        })
+    });
+    
+    const newPlaylist = await response.json();
+    alert(`Success! Created "${newPlaylist.name}". \n\nFinal Step: Open Spotify, go to the original playlist, select all songs, and add them to this new one.`);
+    
+    return {
+        id: newPlaylist.id,
+        name: newPlaylist.name,
+        trackCount: 0, // Will update once they add songs
+        enabled: true,
+        sliderValue: 50
+    };
+}
+
+async function refreshPlaylistCount(playlistId, playlistIndex) {
+    const token = localStorage.getItem('access_token');
+    // Use the /items endpoint we fixed earlier to get the real count
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
+
+    try {
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (data.total !== undefined) {
+            playlists[playlistIndex].trackCount = data.total;
+            saveAppState();
+            renderPlaylists();
+            showResult(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
+        }
+    } catch (err) {
+        console.error("Refresh failed:", err);
+    }
+}
 
 function loadAppState() {
     const stored = localStorage.getItem("spotifyAppState")
@@ -704,7 +1091,7 @@ function loadAppState() {
 }
 
 function saveAppState() {
-    if(!activeMixId){
+    if (!activeMixId || !mixes[activeMixId]){
         console.warn("No active mix - creating default")
         createDefaultMix()
     }
@@ -746,7 +1133,100 @@ function showResult(text){
 }
 
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+
+    document.getElementById('login-button').onclick = redirectToSpotifyAuth
+
+
+    // const token = localStorage.getItem('access_token');
+    // if (token) {
+    //     // Change UI state
+    //     const loginBtn = document.getElementById('login-button');
+    //     if (loginBtn) {
+    //         loginBtn.textContent = "Logged In";
+    //         loginBtn.disabled = true;
+    //     }
+
+    //     // FETCH REAL DATA
+    //     await fetchUserPlaylists();
+    // }
+
+
+    const initBtn = document.getElementById('init-player');
+    const playPauseBtn = document.getElementById('play-pause');
+
+    if (initBtn) {
+        initBtn.onclick = () => {
+            //alert("CLICK DETECTED!"); // <--- ADD THIS TEMPORARILY
+            const currentToken = localStorage.getItem('access_token');
+            if (!currentToken) return alert("Please login to Spotify first!");
+
+            console.log("Button Clicked: Initializing Player...");
+
+            player = new Spotify.Player({
+                name: "Ben's Mixer Lab",
+                getOAuthToken: cb => { cb(currentToken); },
+                volume: 0.2
+            });
+
+            if (!player) {
+                console.error("Player not initialized yet. Wait for SDK.");
+                return;
+            }
+
+            // Ready
+            player.addListener('ready', ({ device_id: id }) => {
+                console.log('Ready with Device ID', id);
+                device_id = id;
+                initBtn.textContent = "Mixer Online 🟢";
+                initBtn.style.background = "#1DB954";
+                document.getElementById('init-player').textContent = "Mixer Online 🟢";
+                document.getElementById('play-pause').style.display = "inline-block";
+            });
+
+            // Error handling
+            player.addListener('initialization_error', ({ message }) => { console.error(message); });
+            player.addListener('authentication_error', ({ message }) => { console.error(message); });
+            player.addListener('account_error', ({ message }) => { alert("Premium account required!"); });
+
+            console.log("Powering on...");
+            // Use activateElement for mobile/Android compatibility
+            player.activateElement(); 
+            player.connect().then(success => {
+                if (success) {
+                    console.log("Connection request sent to Spotify!");
+                } else {
+                    console.error("Connection failed. Check your Premium status.");
+                }
+            });
+        };
+    }
+
+    if (playPauseBtn) {
+        playPauseBtn.onclick = () => {
+    console.log("PlayPauseBtn");
+            if (player){
+    console.log("togglePlay");
+                player.togglePlay();
+            }
+        };
+    }
+
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (code) {
+        // We just returned from Spotify; swap the code for a token
+        await getToken(code);
+        // Clean the URL so the 'code' doesn't stay in the address bar
+        window.history.replaceState({}, document.title, "/");
+
+        // Change button text to show user is logged in
+        document.getElementById('login-button').textContent = "Logged In";
+        document.getElementById('login-button').disabled = true;
+    }
+
 
     // --- INITIALIZE DATA AND UI HERE ---
     loadAppState();
