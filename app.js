@@ -9,12 +9,58 @@ window.onSpotifyWebPlaybackSDKReady = () => {
     const token = localStorage.getItem('access_token');
 };
 
+let activeTimeouts = []; // Array to track all pending retries
+
+// Helper to safely set timeouts
+function safeTimeout(func, delay) {
+    const id = setTimeout(() => {
+        func();
+        activeTimeouts = activeTimeouts.filter(tId => tId !== id);
+    }, delay);
+    activeTimeouts.push(id);
+}
+
+async function emergencyStop() {
+    console.warn("EMERGENCY STOP TRIGGERED");
+    
+    // 1. Clear all pending pickRandomSong retries
+    activeTimeouts.forEach(id => clearTimeout(id));
+    activeTimeouts = [];
+
+    // 2. Disconnect the Player
+    if (player) {
+        player.disconnect();
+        // Remove listeners to prevent "Ghost" events
+        player.removeListener('player_state_changed');
+        player.removeListener('ready');
+        player.removeListener('not_ready');
+        player.removeListener('autoplay_failed');
+        player.removeListener('initialization_error');
+        player.removeListener('authentication_error');
+        player.removeListener('account_error');
+    }
+
+    // 3. Reset UI
+    device_id = null;
+    currentTrackId = null;
+    document.getElementById('init-player').textContent = "🔌 Power On Mixer";
+    document.getElementById('init-player').style.background = "#1DB954";
+    showResult("Mixer Hard-Reset: All processes stopped.");
+
+    if (window.refreshInterval) {
+        clearInterval(window.refreshInterval);
+        window.refreshInterval = null;
+        console.log("Refresh heartbeat stopped.");
+    }
+}
+
+
 async function playTrack(trackUri) {
     const token = localStorage.getItem('access_token');
     if (!device_id) return alert("Click 'Power On' first!");
 
     try {
-        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${device_id}`, {
+        const response = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player/play?device_id=${device_id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -31,11 +77,11 @@ async function playTrack(trackUri) {
             showResult("Song restricted by Spotify. Picking another...");
             //alert("Spotify Premium is required for this feature.");
             // AUTO-RECOVERY: Just trigger a new pick!
-            setTimeout(() => pickRandomSong(), 500); 
+            safeTimeout(() => pickRandomSong(), 500); 
         } else if (response.status === 204) {
             // Wait 300ms for Spotify's servers to process the change, 
             // then force the local player to start.
-            setTimeout(async () => {
+            safeTimeout(async () => {
                 if (player){
                     await player.resume().then(() => {
                         console.log("Local player resumed after URI injection");
@@ -91,9 +137,9 @@ function addToHistory(track, playlistName) {
 //const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
 const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
 //const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
-const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
+//const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'netlifylocation';
-//const redirectUri = window.location.origin + '/'; 
+const redirectUri = window.location.origin + '/'; 
 // This automatically picks http://127.0.0.1 locally 
 // AND https://your-app.netlify.app once hosted!
 const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative';
@@ -157,7 +203,7 @@ async function getToken(code) {
         }),
     };
 
-    const response = await fetch("https://accounts.spotify.com/api/token", payload);
+    const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
     const data = await response.json();
 
         if (response.ok) {
@@ -168,16 +214,53 @@ async function getToken(code) {
             // Log the actual error message from Spotify (e.g., "invalid_grant")
             console.error("Token Error:", data.error, data.error_description);
         }
-
+        if (data.access_token) {
+            window.localStorage.setItem('access_token', data.access_token);
+            
+            // --- NEW: Store the refresh token ---
+            if (data.refresh_token) {
+                window.localStorage.setItem('refresh_token', data.refresh_token);
+                console.log("Refresh token saved for continuous play!");
+            }
+        }
     // if (data.access_token) {
     //     window.localStorage.setItem('access_token', data.access_token);
     //     // Optional: setup a 'refresh_token' to keep the user logged in longer
     // }
 }
 
+async function refreshAccessToken() {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return redirectToSpotifyAuth(); // If no refresh token, we must log in
+
+    const payload = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            client_id: clientId,
+        }),
+    };
+
+    try {
+        const response = await safeSpotifyFetch("https://spotify.com", payload);
+        const data = await response.json();
+
+        if (data.access_token) {
+            localStorage.setItem('access_token', data.access_token);
+            if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+            console.log("Token Refreshed Successfully!");
+        }
+    } catch (err) {
+        console.error("Refresh failed, redirecting to login...");
+        redirectToSpotifyAuth();
+    }
+}
+
 async function getCurrentUserId() {
     const token = localStorage.getItem('access_token');
-    const response = await fetch('https://api.spotify.com/v1/me', {
+    const response = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
         headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await response.json();
@@ -185,12 +268,71 @@ async function getCurrentUserId() {
     return data.id;
 }
 
+let apiCallCounter = 0;
+const MAX_CALLS_PER_MINUTE = 30; // Safe threshold for Dev Mode
+
+let isSoftLocked = false;
+let rateLimitStrikes = 0;
+const MAX_STRIKES = 3; // 3 strikes and you're out (Emergency Stop)
+
+async function safeSpotifyFetch(url, options) {
+    if (apiCallCounter > MAX_CALLS_PER_MINUTE) {
+        showResult("Slow down! Too many requests.");
+        console.warn("Slow down! Too many requests.");
+        return null;
+    }
+    
+    apiCallCounter++;
+    safeTimeout(() => apiCallCounter--, 60000); // Reset count after 1 min
+
+    if (isSoftLocked) {
+        console.warn("Fetch blocked: Soft Lock active.");
+        return null;
+    }
+
+    const res = await fetch(url, options);
+    
+    if (res.status === 429) {
+        rateLimitStrikes++;
+        // Soft Lock Logic
+        isSoftLocked = true;
+        const retryAfter = res.headers.get("Retry-After") || 5;
+        showResult(`Rate limited. Waiting ${retryAfter}s...`);
+        console.warn(`Rate limited. Waiting ${retryAfter}s...`);
+        showResult(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
+        console.warn(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
+        // You MUST wait this long before trying again
+        
+        if (rateLimitStrikes >= MAX_STRIKES) {
+            showResult("CRITICAL: Repeated rate limits. Hard-resetting mixer.");
+            emergencyStop(); // Kill everything
+            rateLimitStrikes = 0; // Reset for next Power On
+            return null;
+        }
+
+
+        // Soft Lock: Just wait, don't kill the player
+        setTimeout(() => {
+            isSoftLocked = false;
+            showResult("Soft Lock lifted.");
+            console.log("Soft Lock lifted.");
+            // If we go 2 minutes without another 429, clear a strike
+            setTimeout(() => { if(rateLimitStrikes > 0) rateLimitStrikes--; }, 120000);
+        }, wait * 1000);
+
+        return null;
+    }
+    
+    return res;
+}
+
+
 const MOCK_MODE = false
 
 let playlists = [
-    {id: "A", enabled: true, name: "Playlist A", trackCount: 10},
-    {id: "B", enabled: true, name: "Playlist B", trackCount: 1},
-    {id: "C", enabled: true, name: "Playlist C", trackCount: 1}
+    {id: "0eWgOpuQl2sXTGpomp6UG2", enabled: true, name: "Cover Very Good", trackCount: 10},
+    {id: "0eWgOpuQl2sXTGpomp6UG2", enabled: true, name: "Cover Very Good", trackCount: 1},
+    {id: "0eWgOpuQl2sXTGpomp6UG2", enabled: true, name: "Cover Very Good", trackCount: 1}
 ]
 
 const playlistColorPalette = [
@@ -632,6 +774,17 @@ async function pickRandomSong(attempt = 0) {
         return
     }
 
+    // --- NEW: SPOTIFY ID VALIDATION ---
+    // If the ID is just a name like "A" or "MyMix", we only do "Mock" mode
+    const isSpotifyId = /^[a-zA-Z0-9]{22}$/.test(chosenplaylist.id);
+
+    if (!isSpotifyId) {
+        const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
+        showResult(`[MOCK MODE] Playlist: ${chosenplaylist.name}, Track #${randomIndex + 1}`);
+        console.log(`Bypassing Spotify API for non-Spotify Playlist: ${chosenplaylist.id}`);
+        return; // STOP HERE: Do not call getTrackAtIndex or playTrack
+    }
+
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
@@ -641,6 +794,20 @@ async function pickRandomSong(attempt = 0) {
         return; // Stop the loop immediately!
     }
     
+    // 4. RATE LIMIT CHECK: Stop if safeSpotifyFetch triggered a 429
+    if (track === "RATE_LIMIT_HIT") {
+        console.log("pickRandomSong: RATE_LIMIT_HIT, stopping loop");
+        return;
+    }
+
+    if (track === null) {
+        if (isSoftLocked) {
+            console.log("pickRandomSong: Mixer is soft-locked. Waiting for recovery...");
+            return; // Don't even attempt a retry loop
+        }
+        // ... normal restricted track retry logic ...
+    }
+
     // Safety check: only call playTrack if we actually got a track back
     if (track && track.uri) {
         console.log("Playing:", track.name);
@@ -654,7 +821,7 @@ async function pickRandomSong(attempt = 0) {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
         console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
-        pickRandomSong(attempt + 1);
+        safeTimeout(() => pickRandomSong(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
     }
 }
 
@@ -733,7 +900,7 @@ async function getTrackAtIndex(token, playlistId, index){
     const offset = Number(index)
 
     try{
-        const res = await fetch(
+        const res = await safeSpotifyFetch(
 
     `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=${limit}&offset=${offset}&market=from_token&additional_types=track`,
             {
@@ -741,14 +908,26 @@ async function getTrackAtIndex(token, playlistId, index){
             }
         )
 
-    const data = await res.json()
+        // --- THE RATE LIMIT CHECK ---
+        if (res.status === 429) {
+            const retryAfter = res.headers.get("Retry-After") || 5;
+            console.error(`RATE LIMIT HIT: Spotify says wait ${retryAfter}s`);
+            
+            // This is the signal pickRandomSong is waiting for
+            return "RATE_LIMIT_HIT"; 
+        }
+
+        if (!res.ok) return null;
+
+        const data = await res.json()
 //console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
         // 2026 Debug: Log the full structure if it's still empty
         if (!data.items || data.items.length === 0) {
             console.log("Empty items array. Full Response:", data);
             return null;
-        }
-                console.log("Keys available in this object:", Object.keys(data.items));
+        }        
+        
+        console.log("Keys available in this object:", Object.keys(data.items));
 
         // Check if items exists and is not empty
         if (data.items && data.items.length > 0) {
@@ -998,7 +1177,7 @@ async function fetchUserPlaylists() {
     if (!token) return;
 
     try {
-        const response = await fetch('https://api.spotify.com', {
+        const response = await safeSpotifyFetch('https://api.spotify.com', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -1030,7 +1209,7 @@ async function xgetSpotifyPlaylistData(playlistId) {
 
     try {
         showResult(`await fetch(${url}` )
-        const response = await fetch(url, {
+        const response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1079,7 +1258,7 @@ async function getSpotifyPlaylistData(playlistId) {
 
     try {
         showResult(`await fetch(${url}` )
-        const response = await fetch(url, {
+        const response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1141,7 +1320,7 @@ async function duplicatePlaylist(oldId, oldName) {
     const userId = localStorage.getItem('spotify_user_id');
 
     //const response = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
-    const response = await fetch(`https://api.spotify.com/v1/me/playlists`, {
+    const response = await safeSpotifyFetch(`https://api.spotify.com/v1/me/playlists`, {
         method: 'POST',
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -1172,7 +1351,7 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
     const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
 
     try {
-        const response = await fetch(url, {
+        const response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -1251,6 +1430,13 @@ function showResult(text){
 
 document.addEventListener("DOMContentLoaded", async () => {
 
+    // 1. Check if we have a refresh token but a potentially dead access token
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+        console.log("Returning user detected. Refreshing session...");
+        await refreshAccessToken(); // Use the function we discussed earlier
+    }   
+
     document.getElementById('login-button').onclick = redirectToSpotifyAuth
 
 
@@ -1276,6 +1462,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (initBtn) {
         initBtn.onclick = () => {
+
+            // If already online, act as the Emergency Stop
+            if (device_id) {
+                emergencyStop();
+                return;
+            }
             //alert("CLICK DETECTED!"); // <--- ADD THIS TEMPORARILY
             const currentToken = localStorage.getItem('access_token');
             if (!currentToken) return alert("Please login to Spotify first!");
@@ -1331,16 +1523,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             });
 
-            // Add this to catch the 'Melody' 401/500 errors
+            // Merged Initialization Error Handler
             player.addListener('initialization_error', ({ message }) => {
-                if (message.includes("initialized")) {
-                    console.error("SDK lost its internal connection. A page refresh is likely needed.");
-                    showResult("Playback Engine Error. Please refresh the page.");
-                }
-            });            
+                // 1. Log the error to the console (covers your second listener's job)
+                console.error("Spotify SDK Initialization Error:", message);
 
-            // Error handling
-            player.addListener('initialization_error', ({ message }) => { console.error(message); });
+                // 2. Specific check for the "Lost Connection" case (covers your first listener's job)
+                if (message.includes("initialized") || message.includes("connection")) {
+                    console.error("Critical: SDK lost internal connection.");
+                    showResult("Playback Engine Error. Please refresh the page.");
+                } else {
+                    // Handle other random init errors (like DRM issues)
+                    showResult("Error starting player: " + message);
+                }
+            });
             player.addListener('authentication_error', ({ message }) => { console.error(message); });
             player.addListener('account_error', ({ message }) => { alert("Premium account required!"); });
 
@@ -1438,6 +1634,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.error("Connection failed. Check your Premium status.");
                 }
             });
+
+            // START THE HEARTBEAT ONLY ONCE THE MIXER IS POWERED ON
+            // We store it in a variable so 'Emergency Stop' can kill it later
+            if (!window.refreshInterval) {
+                window.refreshInterval = setInterval(async () => {
+                    if (device_id) { 
+                        console.log("Mixer is active, keeping token warm...");
+                        await refreshAccessToken();
+                    }
+                }, 50 * 60 * 1000); // 50 minutes
+            }
+
         };
     }
 
