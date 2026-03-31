@@ -90,12 +90,13 @@ function addToHistory(track, playlistName) {
 // --- AUTHENTICATION CONFIG ---
 //const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
 const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
-const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
+//const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
+//const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'netlifylocation';
-//const redirectUri = window.location.origin + '/'; 
+const redirectUri = window.location.origin + '/'; 
 // This automatically picks http://127.0.0.1 locally 
 // AND https://your-app.netlify.app once hosted!
-const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative user-read-private user-read-email streaming';
+const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative';
 
 // Helper: Generate a random string for PKCE
 const generateRandomString = (length) => {
@@ -159,10 +160,19 @@ async function getToken(code) {
     const response = await fetch("https://accounts.spotify.com/api/token", payload);
     const data = await response.json();
 
-    if (data.access_token) {
-        window.localStorage.setItem('access_token', data.access_token);
-        // Optional: setup a 'refresh_token' to keep the user logged in longer
-    }
+        if (response.ok) {
+            window.localStorage.setItem('access_token', data.access_token);
+            // Clean the URL so the code isn't reused on refresh
+            window.history.replaceState({}, document.title, "/");
+        } else {
+            // Log the actual error message from Spotify (e.g., "invalid_grant")
+            console.error("Token Error:", data.error, data.error_description);
+        }
+
+    // if (data.access_token) {
+    //     window.localStorage.setItem('access_token', data.access_token);
+    //     // Optional: setup a 'refresh_token' to keep the user logged in longer
+    // }
 }
 
 async function getCurrentUserId() {
@@ -178,9 +188,9 @@ async function getCurrentUserId() {
 const MOCK_MODE = false
 
 let playlists = [
-    {id: "A", enabled: true, name: "Playlist A", trackCount: 10},
-    {id: "B", enabled: true, name: "Playlist B", trackCount: 1},
-    {id: "C", enabled: true, name: "Playlist C", trackCount: 1}
+    {id: "0eWgOpuQl2sXTGpomp6UG2", enabled: true, name: "Cover Very Good", trackCount: 10},
+    {id: "0eWgOpuQl2sXTGpomp6UG2", enabled: true, name: "Cover Very Good", trackCount: 1},
+    {id: "0eWgOpuQl2sXTGpomp6UG2", enabled: true, name: "Cover Very Good", trackCount: 1}
 ]
 
 const playlistColorPalette = [
