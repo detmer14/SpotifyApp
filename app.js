@@ -2,6 +2,7 @@
 
 let player;
 let device_id;
+let lastPickTime = 0;
 
 window.onSpotifyWebPlaybackSDKReady = () => {
     console.log("Spotify SDK is ready to initialize!");
@@ -26,10 +27,61 @@ async function playTrack(trackUri) {
         });
 
         if (response.status === 403) {
-            alert("Spotify Premium is required for this feature.");
+            console.warn("403: Song restricted. Skipping to a new one...");
+            showResult("Song restricted by Spotify. Picking another...");
+            //alert("Spotify Premium is required for this feature.");
+            // AUTO-RECOVERY: Just trigger a new pick!
+            setTimeout(() => pickRandomSong(), 500); 
+        } else if (response.status === 204) {
+            // Wait 300ms for Spotify's servers to process the change, 
+            // then force the local player to start.
+            setTimeout(async () => {
+                if (player){
+                    await player.resume().then(() => {
+                        console.log("Local player resumed after URI injection");
+                    }).catch(err => {
+                        // If this fails, the browser is likely blocking autoplay
+                        console.error("Autoplay blocked by browser. Manual click required.", err);
+                    });
+
+                    //player.togglePlay();
+
+                }
+            }, 1000);
+
+            console.log("Playback started successfully.");
         }
     } catch (err) {
         console.error("Playback error:", err);
+    }
+}
+
+function addToHistory(track, playlistName) {
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
+
+    // Remove the "No songs played yet" placeholder on first play
+    if (historyList.innerHTML.includes("No songs played yet")) {
+        historyList.innerHTML = "";
+    }
+
+    const entry = document.createElement('div');
+    entry.style.padding = "5px 0";
+    entry.style.borderBottom = "1px solid #282828";
+    
+    // Format: Song Name - Artist (from Playlist Name)
+    entry.innerHTML = `
+        <strong style="color: #1DB954;">${track.name}</strong> 
+        by ${track.artists[0].name} 
+        <span style="font-size: 0.8em; color: #535353;">— ${playlistName}</span>
+    `;
+
+    // Add to the top of the list
+    historyList.prepend(entry);
+
+    // Keep only the last 10 entries
+    if (historyList.children.length > 10) {
+        historyList.removeChild(historyList.lastChild);
     }
 }
 
@@ -536,8 +588,16 @@ function pickByWeightAlgorithm(activePlaylists){
 }
 
 
-async function pickRandomSong() {
+async function pickRandomSong(attempt = 0) {
+    lastPickTime = Date.now(); // Update timestamp whenever a pick is made (manual or auto)
     const activePlaylists = playlists.filter(p => p.enabled)
+
+    // Safety: Don't get stuck in an infinite loop if a playlist is 100% unplayable
+    if (attempt > 5) {
+        showResult("Error: Hit too many restricted tracks. Try a different playlist.");
+        console.log("Error: Hit too many restricted tracks. Try a different playlist.");
+        return;
+    }
 
     if(activePlaylists.length === 0){
         alert("Select at least one playlist")
@@ -549,7 +609,10 @@ async function pickRandomSong() {
 
 
     chosenplaylist = pickPlaylistByMode()
-
+    if (!chosenplaylist) {
+        console.warn("No playlist selected for auto-pick.");
+        return; // Don't alert here, just stop
+    }
     index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
         showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
         console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
@@ -562,13 +625,26 @@ async function pickRandomSong() {
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
+    
+    if (track === "NETWORK_ERROR"){
+        console.log("pickRandomSong: NETWORK_ERROR, stopping loop")
+        return; // Stop the loop immediately!
+    }
+    
     // Safety check: only call playTrack if we actually got a track back
     if (track && track.uri) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
+        
+        // --- ADD TO HISTORY ---
+        addToHistory(track, chosenplaylist.name);
+
         playTrack(track.uri);
     } else {
-        alert("Could not fetch that specific track. Try again!");
+        console.log("Could not fetch that specific track. Try again!");
+        // If track was null (failed safety checks), try again!
+        console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
+        pickRandomSong(attempt + 1);
     }
 }
 
@@ -647,13 +723,13 @@ async function getTrackAtIndex(token, playlistId, index){
     const offset = Number(index)
 
     try{
-    const res = await fetch(
+        const res = await fetch(
 
-`https://api.spotify.com/v1/playlists/${playlistId}/items?limit=${limit}&offset=${offset}&market=from_token&additional_types=track`,
-        {
-            headers: { Authorization: `Bearer ${token}` }
-        }
-    )
+    `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=${limit}&offset=${offset}&market=from_token&additional_types=track`,
+            {
+                headers: { Authorization: `Bearer ${token}` }
+            }
+        )
 
     const data = await res.json()
 //console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
@@ -674,9 +750,34 @@ async function getTrackAtIndex(token, playlistId, index){
             const track = container.item || container.track; 
             
             if (track && track.uri) {
-                            console.log("Found Track:", track.name, "URI:", track.uri);
-               console.log("Success! Found:", track.name, "by", track.artists[0].name);
-             }
+                console.log("Found Track:", track.name, "URI:", track.uri);
+                console.log("Success! Found:", track.name, "by", track.artists[0].name);
+            }
+
+            // 1. Check if the track is playable in your region
+            if (track.is_playable === false) {
+                console.warn(`Skipping "${track.name}": Not playable in your region.`);
+                return null;
+            }
+
+            // 2. Check for explicit content restrictions (if you want to avoid 403s on filtered accounts)
+            if (track.explicit && localStorage.getItem('filter_explicit') === 'true') {
+                console.warn(`Skipping "${track.name}": Explicit content filtered.`);
+                return null;
+            }
+
+            // 3. Check for specific 'restrictions' (usually 'market' or 'product')
+            if (track.restrictions) {
+                console.warn(`Skipping "${track.name}": Restricted (${track.restrictions.reason}).`);
+                return null;
+            }
+
+            // 4. Check for 'Local' files (Web SDK cannot stream these)
+            if (track.is_local) {
+                console.warn(`Skipping "${track.name}": Local file (cannot stream via SDK).`);
+                return null;
+            }
+
             return track; 
         } else {
             console.error("No track found at this index:", index);
@@ -684,6 +785,11 @@ async function getTrackAtIndex(token, playlistId, index){
         }
     } catch(err){
         console.error("Fetch error in getTrackAtIndex:", err);
+        // If it's a network error, don't just return null, throw it!
+        if (err.message.includes('Failed to fetch') || !navigator.onLine) {
+            showResult("Network disconnected. Please check your internet.");
+            return "NETWORK_ERROR"; 
+        }
         return null
     }
 }
@@ -1155,6 +1261,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const initBtn = document.getElementById('init-player');
     const playPauseBtn = document.getElementById('play-pause');
 
+    let currentTrackId = null;
+    let songStartTime = 0;
+
     if (initBtn) {
         initBtn.onclick = () => {
             //alert("CLICK DETECTED!"); // <--- ADD THIS TEMPORARILY
@@ -1168,11 +1277,19 @@ document.addEventListener("DOMContentLoaded", async () => {
                 getOAuthToken: cb => { cb(currentToken); },
                 volume: 0.2
             });
+            player.activateElement(); 
 
             if (!player) {
                 console.error("Player not initialized yet. Wait for SDK.");
                 return;
             }
+
+            // // Add this to your Power On click handler
+            // const silencer = document.createElement('video');
+            // silencer.src = "https://githubusercontent.com";
+            // silencer.loop = true;
+            // silencer.muted = true; // Muted video still counts as 'active' for the browser
+            // silencer.play().catch(e => console.log("Silent video blocked until next click."));
 
             // Ready
             player.addListener('ready', ({ device_id: id }) => {
@@ -1184,10 +1301,122 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.getElementById('play-pause').style.display = "inline-block";
             });
 
+            // Add this listener to handle temporary drops
+            player.addListener('not_ready', ({ device_id }) => {
+                console.warn("Device has gone offline:", device_id);
+                showResult("Connection lost. Trying to reconnect...");
+                // The SDK will try to reconnect itself, but we can nudge it:
+                player.connect(); 
+            });
+
+            player.addListener('autoplay_failed', () => {
+                console.warn("AUTOPLAY BLOCKED: The browser stopped the next song from starting.");
+                showResult("Browser blocked autoplay. Tap 'Play' to resume the mixer.");
+                
+                // Optional: Make the Play/Pause button glow or shake to get the user's attention
+                const playBtn = document.getElementById('play-pause');
+                if (playBtn) {
+                    playBtn.style.border = "2px solid #1DB954";
+                    playBtn.style.boxShadow = "0 0 15px #1DB954";
+                }
+            });
+
+            // Add this to catch the 'Melody' 401/500 errors
+            player.addListener('initialization_error', ({ message }) => {
+                if (message.includes("initialized")) {
+                    console.error("SDK lost its internal connection. A page refresh is likely needed.");
+                    showResult("Playback Engine Error. Please refresh the page.");
+                }
+            });            
+
             // Error handling
             player.addListener('initialization_error', ({ message }) => { console.error(message); });
             player.addListener('authentication_error', ({ message }) => { console.error(message); });
             player.addListener('account_error', ({ message }) => { alert("Premium account required!"); });
+
+            // Add this inside your initBtn.onclick, near your other listeners:
+            player.addListener('player_state_changed', async (state) => {
+                if (!state) return;
+
+                const {
+                    paused,
+                    position,
+                    duration,
+                    track_window: {current_track}
+                } = state;
+
+                const now = Date.now()
+
+                // 1. Check if the song has actually changed to a new ID
+                if (current_track.id !== currentTrackId) {
+                    console.log("New track detected:", current_track.name);
+                    currentTrackId = current_track.id;
+                    lastPickTime = Date.now() //reset timer for new song
+                    return; //exit: we just started a song, don't pick a new one!
+                    // Update your 'Now Playing' UI here if needed
+                }
+                
+                // 2. Detect the REAL end of the track
+                // We check if it's paused, at the end (position 0), and 
+                // ensure we don't trigger if it's just the 'start' event.
+                const isAtEnd = paused && position === 0 && duration > 0;
+
+                // 2. The "Cooldown" Check
+                // If we picked a song less than 5 seconds ago, ignore this event.
+                // This stops the 'New Track Loading' event from triggering a loop.
+                const isRecentPick = (now - lastPickTime) < 5000;
+                
+                // Safety check: Did this song play for at least 5 seconds?
+                // This prevents the "Loading -> Pick -> Loading -> Pick" loop.
+                const hasPlayedEnough = (Date.now() - lastPickTime) > 5000;
+
+
+                if (isAtEnd && hasPlayedEnough) {
+                //if (isAtEnd) {
+                    console.log("Track naturally finished. Picking next...");
+
+                    // Force a small interaction signal
+                    player.getVolume().then(v => {
+                        player.setVolume(v > 0.1 ? v - 0.05 : v + 0.05).then(() => {
+                            player.setVolume(v); // Quickly set it back
+                        });
+                    });
+
+                    // --- THE KEY FIX ---
+                    // 1. Re-activate the element to satisfy autoplay rules
+                    // Nudge the browser to keep the audio context alive
+                    player.activateElement(); 
+                    
+                    // Small trick: Set volume to current level to trigger an 'interaction' event
+                    player.getVolume().then(v => player.setVolume(v));
+                    // 2. The "Nudge": Slightly change volume and back to trigger an interaction
+                    player.getVolume().then(v => {
+                        player.setVolume(v + 0.01).then(() => player.setVolume(v));
+                    });
+
+                    // 2. Explicitly resume the player so it's in a 'playing' state 
+                    // before the new URI arrives
+                    await player.resume(); 
+
+
+                    lastPickTime = now; // Mark the time of this pick
+                    // Clear the ID so the next track can be detected as a change
+                    currentTrackId = null; 
+                    player.activateElement(); 
+                    pickRandomSong();                     
+                }   
+                
+                // Detect if the song has naturally ended
+                // Position 0 and Paused = The track is over
+                if (isAtEnd) {
+                    console.log("Track finished! But it's a recent pick. Picking next song automatically...");
+                    
+                    // Reset the ID so the next song can be detected as 'new'
+                    //currentTrackId = null; 
+        
+                    //pickRandomSong(); 
+                }
+            });
 
             console.log("Powering on...");
             // Use activateElement for mobile/Android compatibility
@@ -1250,6 +1479,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     // document.getElementById('pick').onclick = () => {
     //     alert ("button clicked")
     // }
+
+    document.getElementById('manual-retry-btn').onclick = () => {
+        const uriInput = document.getElementById('manual-uri-input');
+        const uri = uriInput.value.trim();
+
+        // Basic validation: Check if it looks like a Spotify track URI
+        if (uri.startsWith('spotify:track:') && uri.length > 20) {
+            console.log("Manually retrying with URI:", uri);
+            showResult(`Manual Play: ${uri}`);
+            
+            // Use your existing playTrack function
+            playTrack(uri);
+            
+            // Optional: Clear the input after playing
+            uriInput.value = '';
+        } else {
+            alert("Please enter a valid Spotify track URI (e.g., spotify:track:...)");
+        }
+    };
 
     document.getElementById("generate-playlist").onclick = async () => {
         //Force a save and a small wait to ensure all rebalancing math is finished

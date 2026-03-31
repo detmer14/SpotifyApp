@@ -70,12 +70,31 @@
         <div id="playlist-list"></div>
 
     </section>
+
     <section>
         <h1> </h1>
         <button id="pick">Pick Random Song</button>
         <p id="result"></p>
     </section>
 
+    <!-- Manual Playback Entry -->
+    <div id="manual-play-container" style="margin-top: 15px; display: flex; gap: 10px;">
+        <input type="text" id="manual-uri-input" placeholder="Paste spotify:track:URI here..." 
+            style="flex-grow: 1; padding: 10px; border-radius: 20px; border: 1px solid #333; background: #121212; color: white;">
+        <button id="manual-retry-btn" 
+                style="background: #ffffff; color: black; padding: 10px 20px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer;">
+            Play URI
+        </button>
+    </div>
+
+    <!-- Add this below your playlist-list div -->
+    <div id="history-container" style="margin-top: 20px; padding: 15px; background: #181818; border-radius: 8px; color: #b3b3b3;">
+        <h3 style="color: white; margin-top: 0;">Mix History</h3>
+        <div id="history-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">
+            <!-- New songs will appear here -->
+            <p>No songs played yet...</p>
+        </div>
+    </div>
 
     <!-- ========================= -->
     <!-- Playlist Generator UI -->
