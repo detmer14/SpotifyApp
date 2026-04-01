@@ -288,6 +288,7 @@ async function refreshAccessToken() {
     // CHANGE THIS:
     if (!refreshToken) {
         console.warn("No refresh token found. User needs to log in manually.");
+        alert("No refresh token found. User needs to log in manually.");
         // REMOVE THIS: redirectToSpotifyAuth();
         return; // Just exit, don't redirect!
     }
@@ -409,7 +410,21 @@ const playlistColorPalette = [
     "#fff1c1", //yellow
     "#e7d9ff", //lavender
     "#ffd6a5", //orange
-    "#caffbf"  //mint
+    "#caffbf", //mint
+    "#fc4f4f", //pink
+    "#6c962a", //green
+    "#4b88f8", //blue
+    "#fffc40", //yellow
+    "#9a62fc", //lavender
+    "#ff991b", //orange
+    "#2bff00",  //mint
+    "#ff6f6f", //pink
+    "#6c962a", //green
+    "#45fcfc", //blue
+    "#c7c400", //yellow
+    "#4d05ca", //lavender
+    "#d87804", //orange
+    "#025f57"  //mint
 ]
 
 //Not used anymore
@@ -1464,7 +1479,7 @@ function loadAppState() {
 
     if(!activeMixId){
         createDefaultMix()
-    }
+    } 
     else{
         playlists = structuredClone(mixes[activeMixId].playlists)
     }
@@ -1484,6 +1499,7 @@ function saveAppState() {
 }
 
 function createDefaultMix() {
+    console.warn("Creating Default Mix")
     const id = Date.now().toString()
 
     mixes[id] = {
@@ -1537,6 +1553,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (refreshToken) {
             await refreshAccessToken();
         }
+        // Change button text to show user is logged in
+        document.getElementById('login-button').textContent = "Logged In";
+        document.getElementById('login-button').disabled = true;
+        document.getElementById('login-button').style.background = "#1DB954";
     }
     // 2. SECOND: Now that the URL is clean, check if we need to refresh an old session
     const refreshToken = localStorage.getItem('refresh_token');
@@ -1560,13 +1580,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Give it a unique ID so it doesn't overwrite existing mixes
             const newId = "shared_" + Date.now();
             
+            loadAppState()
             // Add to your global mixes object
             if (!mixes) mixes = {}; 
             mixes[newId] = sharedMix;
             activeMixId = newId;
-            
+
+            playlists = structuredClone(mixes[activeMixId].playlists)
+
+            // CRITICAL: Save to storage immediately so loadAppState() doesn't overwrite it
+            //localStorage.setItem('mixes', JSON.stringify(mixes)); 
+            //localStorage.setItem('activeMixId', newId);
+            // CRITICAL: Save to storage immediately so loadAppState() doesn't overwrite it
             // Save and clean the URL
             saveAppState();
+
             window.history.replaceState({}, document.title, "/");
             showResult(`Imported Mix: ${sharedMix.name}`);
             console.log(`Imported Mix: ${sharedMix.name}`);
