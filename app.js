@@ -1464,7 +1464,7 @@ function loadAppState() {
 
     if(!activeMixId){
         createDefaultMix()
-    }
+    } 
     else{
         playlists = structuredClone(mixes[activeMixId].playlists)
     }
@@ -1484,6 +1484,7 @@ function saveAppState() {
 }
 
 function createDefaultMix() {
+    console.warn("Creating Default Mix")
     const id = Date.now().toString()
 
     mixes[id] = {
@@ -1560,13 +1561,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Give it a unique ID so it doesn't overwrite existing mixes
             const newId = "shared_" + Date.now();
             
+            loadAppState()
             // Add to your global mixes object
             if (!mixes) mixes = {}; 
             mixes[newId] = sharedMix;
             activeMixId = newId;
-            
+
+            playlists = structuredClone(mixes[activeMixId].playlists)
+
+            // CRITICAL: Save to storage immediately so loadAppState() doesn't overwrite it
+            //localStorage.setItem('mixes', JSON.stringify(mixes)); 
+            //localStorage.setItem('activeMixId', newId);
+            // CRITICAL: Save to storage immediately so loadAppState() doesn't overwrite it
             // Save and clean the URL
             saveAppState();
+
             window.history.replaceState({}, document.title, "/");
             showResult(`Imported Mix: ${sharedMix.name}`);
             console.log(`Imported Mix: ${sharedMix.name}`);
