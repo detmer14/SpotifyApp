@@ -36,7 +36,7 @@ function updateSessionTimer() {
     const minutes = Math.floor(remainingMs / 60000);
     const seconds = Math.floor((remainingMs % 60000) / 1000);
     display.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    display.style.color = minutes < 5 ? "orange" : "#1DB954"; // Turns orange at 5 mins
+    display.style.color = minutes < 5 ? "red" : minutes < 10 ? "orange" : "#1DB954"; // Turns orange at 5 mins
 }
 
 // Run this every second to keep the UI fresh
@@ -1070,19 +1070,45 @@ function renderPlaylists() {
     const container = document.getElementById("playlist-list")
     container.innerHTML = ""
 
+    
     playlists.forEach((playlist, index) => {
         
         playlist._renderColor = getPlaylistColorByIndex(index)
         
         const div = document.createElement("div")
         div.className = "playlist-row"
+        div.draggable = true; //enable dragging
+        div.dataset.index = index; // store the original position
+
+
+        //Add styling for the "drag handle" look
+        div.style.padding = "8px";
+        div.style.borderBottom = "1px solid #282828";
+        div.style.cursor = "grab";
+
         div.innerHTML = `
+                <span style="color: #535353; margin-right: 10px;">☰</span>
                 <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
                 <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
                 <span class="slider-value"></span>
                 <button class="delete-btn">Delete</button>
                 ${playlist.name} (${playlist.trackCount}) songs
         `
+        // div.innerHTML = `
+        //         <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
+        //         <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
+        //         <span class="slider-value"></span>
+        //         <button class="delete-btn">Delete</button>
+        //         ${playlist.name} (${playlist.trackCount}) songs
+        // `
+
+        // --- ATTACH DRAG EVENTS ---
+        div.addEventListener('dragstart', handleDragStart);
+        div.addEventListener('dragover', handleDragOver);
+        div.addEventListener('drop', handleDrop);
+        div.addEventListener('dragend', handleDragEnd);
+        // Add this to your event listeners in the loop:
+        div.addEventListener('dragenter', (e) => e.preventDefault());
 
         const checkBox = div.querySelector("input[type='checkbox']")
         const slider = div.querySelector(".playlist-slider")
@@ -1181,6 +1207,49 @@ function renderPlaylists() {
 
 }
 
+let dragSourceIndex = null;
+
+function handleDragStart(e) {
+    dragSourceIndex = this.dataset.index;
+    this.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+// Update your handleDragOver to be explicit:
+function handleDragOver(e) {
+    e.preventDefault(); // REQUIRED: Tells the browser "this is a valid drop zone"
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDrop(e) {
+    if (e.preventDefault) e.preventDefault();
+    e.stopPropagation();
+    
+    const targetIndex = parseInt(this.dataset.index);
+    const sourceIndex = parseInt(dragSourceIndex);
+
+    if (sourceIndex !== targetIndex) {
+        // --- THE FIX ---
+        // Use the same 'playlists' array that renderPlaylists uses
+        const movedItem = playlists.splice(sourceIndex, 1)[0];
+        playlists.splice(targetIndex, 0, movedItem);
+
+        // If you are using a Mix system, make sure the Mix is updated too
+        if (mixes && activeMixId) {
+            mixes[activeMixId].playlists = playlists;
+        }
+
+        saveAppState();
+        renderPlaylists(); 
+    }
+    return false;
+}
+
+function handleDragEnd() {
+    this.style.opacity = '1';
+    // Remove any visual "hover" indicators you might add later
+}
 
 //Save playlists array to localStorage
 //No longer used
@@ -1717,6 +1786,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             player.addListener('authentication_error', async ({ message }) => {
                 console.error('SDK Authentication Error:', message);
                 // If the SDK says we aren't authorized, force a token refresh immediately
+                
+                const expiry = localStorage.getItem('token_expiry');
+                const remainingMs = expiry - Date.now();
+                const minutes = Math.floor(remainingMs / 60000);
+                const seconds = Math.floor((remainingMs % 60000) / 1000);
+                console.warn(`Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
+
                 showResult("Session expired. Re-authenticating...");
                 console.warn("Session expired. Re-authenticating...");
                 await refreshAccessToken();
