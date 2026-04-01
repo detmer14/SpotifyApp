@@ -9,12 +9,15 @@
     <!-- Top-level Authentication Bar -->
     <header style="padding: 10px; background: #121212; display: flex; justify-content: space-between; align-items: center;">
         <h1 style="color: #1DB954; margin: 0; font-size: 1.2em;">Mixer Lab</h1>
-        <button id="login-button" style="background: #1DB954; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
+        <div id="session-info" style="font-size: 0.8em; color: #535353; margin-top: 10px;">
+            Session Expires in: <span id="timer-display">--:--</span>
+        </div>
+        <button id="login-button" style="background: #ff0000; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
             Login with Spotify
         </button>
         <!-- Add this inside your <body>, maybe in your header -->
         <div id="player-controls" style="margin: 10px; text-align: center;">
-            <button id="init-player" style="background: #1DB954; color: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
+            <button id="init-player" style="background: #ff0000; color: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
                 🔌 Power On Mixer
             </button>
             <button id="play-pause" style="display: none; background: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
@@ -71,7 +74,20 @@
             </label>
         </div>
 
-        <div id="playlist-list"></div>
+        <!-- <div id="playlist-list"></div> -->
+        <!-- <div id="playlist-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">
+        </div> -->
+        <div id="playlist-container" style="background: #ddf1fd; padding: 10px; border-radius: 8px;">
+            <!-- Your existing list -->
+            <div id="playlist-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto; transition: max-height 0.3s ease;">
+                <!-- Playlists go here -->
+            </div>
+            
+            <!-- The Toggle Button -->
+            <button id="toggle-list-btn" style="width: 100%; background: none; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
+                ▼ Show All
+            </button>
+        </div>
 
     </section>
 
@@ -86,7 +102,7 @@
         <input type="text" id="manual-uri-input" placeholder="Paste spotify:track:URI here..." 
             style="flex-grow: 1; padding: 10px; border-radius: 20px; border: 1px solid #333; background: #121212; color: white;">
         <button id="manual-retry-btn" 
-                style="background: #ffffff; color: black; padding: 10px 20px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer;">
+                style="background: #36e930; color: black; padding: 10px 20px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer;">
             Play URI
         </button>
     </div>
