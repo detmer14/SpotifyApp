@@ -230,8 +230,15 @@ async function getToken(code) {
 }
 
 async function refreshAccessToken() {
+    
     const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) return redirectToSpotifyAuth(); // If no refresh token, we must log in
+    
+    // CHANGE THIS:
+    if (!refreshToken) {
+        console.log("No refresh token found. User needs to log in manually.");
+        // REMOVE THIS: redirectToSpotifyAuth();
+        return; // Just exit, don't redirect!
+    }
 
     const payload = {
         method: 'POST',
@@ -244,7 +251,7 @@ async function refreshAccessToken() {
     };
 
     try {
-        const response = await safeSpotifyFetch("https://spotify.com", payload);
+        const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
         const data = await response.json();
 
         if (data.access_token) {
@@ -253,8 +260,11 @@ async function refreshAccessToken() {
             console.log("Token Refreshed Successfully!");
         }
     } catch (err) {
-        console.error("Refresh failed, redirecting to login...");
-        redirectToSpotifyAuth();
+        console.error("Refresh failed, but staying on page:", err);
+        // Don't redirect here! Just let the user click 'Login' manually if they need to.
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        showResult("Session expired. Please log in again.");
     }
 }
 
@@ -1172,6 +1182,26 @@ document.getElementById('add-playlist').oncancel = () => {
     //countInput.value = ''
 }
 
+function generateShareLink() {
+    if (!activeMixId || !mixes[activeMixId]) return alert("Select a mix first!");
+
+    const mixData = mixes[activeMixId];
+    // We stringify the mix and encode it so it's safe for a URL
+    const jsonString = JSON.stringify(mixData);
+    const base64Data = btoa(unescape(encodeURIComponent(jsonString))); 
+    
+    const shareUrl = `${window.location.origin}/?import_mix=${base64Data}`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        showResult("Share link copied to clipboard!");
+        alert("Share link copied! Send this URL to a friend.");
+    }).catch(err => {
+        console.error("Link copy failed:", err);
+        alert("Copy failed. Here is your link: " + shareUrl);
+    });
+}
+
 async function fetchUserPlaylists() {
     const token = localStorage.getItem('access_token');
     if (!token) return;
@@ -1430,12 +1460,64 @@ function showResult(text){
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-    // 1. Check if we have a refresh token but a potentially dead access token
+    // 1. FIRST: Check for a new login code from Spotify
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (code) {
+        console.log("New login detected. Swapping code for token...");
+        await getToken(code); // This saves the initial tokens
+        // Clean the URL immediately so we don't process this code again
+        window.history.replaceState({}, document.title, "/");
+
+        // Change button text to show user is logged in
+        document.getElementById('login-button').textContent = "Logged In";
+        document.getElementById('login-button').disabled = true;
+    } else {
+        // Only try to refresh if we AREN'T currently processing a login code
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+            await refreshAccessToken();
+        }
+    }
+    // 2. SECOND: Now that the URL is clean, check if we need to refresh an old session
     const refreshToken = localStorage.getItem('refresh_token');
-    if (refreshToken) {
+    const accessToken = localStorage.getItem('access_token');
+
+    if (refreshToken && !accessToken) { 
+        // Only proactive refresh if we have a refresh token but NO access token
         console.log("Returning user detected. Refreshing session...");
-        await refreshAccessToken(); // Use the function we discussed earlier
-    }   
+        console.log("Session recovery needed...");
+        await refreshAccessToken();
+    }
+
+    // 3. THIRD: Handle the Shared Mix Import (if any)
+    const sharedMixBase64 = urlParams.get('import_mix');
+    if (sharedMixBase64) {
+        try {
+            // Decode the Base64 back into a Javascript object
+            const decoded = decodeURIComponent(escape(atob(sharedMixBase64)));
+            const sharedMix = JSON.parse(decoded);
+            
+            // Give it a unique ID so it doesn't overwrite existing mixes
+            const newId = "shared_" + Date.now();
+            
+            // Add to your global mixes object
+            if (!mixes) mixes = {}; 
+            mixes[newId] = sharedMix;
+            activeMixId = newId;
+            
+            // Save and clean the URL
+            saveAppState();
+            window.history.replaceState({}, document.title, "/");
+            showResult(`Imported Mix: ${sharedMix.name}`);
+            console.log(`Imported Mix: ${sharedMix.name}`);
+        } catch (e) {
+            console.error("Failed to import shared mix:", e);
+            showResult("Error: Invalid share link.");
+        }
+    }
+    // --- END IMPORT LOGIC ---
 
     document.getElementById('login-button').onclick = redirectToSpotifyAuth
 
@@ -1660,21 +1742,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-
-    if (code) {
-        // We just returned from Spotify; swap the code for a token
-        await getToken(code);
-        // Clean the URL so the 'code' doesn't stay in the address bar
-        window.history.replaceState({}, document.title, "/");
-
-        // Change button text to show user is logged in
-        document.getElementById('login-button').textContent = "Logged In";
-        document.getElementById('login-button').disabled = true;
-    }
-
-
     // --- INITIALIZE DATA AND UI HERE ---
     loadAppState();
     setSelectionMode(selectionMode); 
@@ -1760,5 +1827,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPlaylists()
         saveAppState()
     }
+
+    document.getElementById('share-mix-btn').onclick = generateShareLink;
 
 })
