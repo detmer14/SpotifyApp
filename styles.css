@@ -29,3 +29,22 @@
 .playlist-row {
     border-top: 1px solid rgba(0,0,0,0.1);
 }
+
+
+
+.playlist-row input, .playlist-row button {
+    cursor: default;
+}
+
+
+.playlist-item {
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+.playlist-item:hover {
+    background: #2a2a2a;
+}
+.playlist-item:active {
+    cursor: grabbing;
+}
