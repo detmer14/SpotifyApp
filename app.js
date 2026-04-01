@@ -230,8 +230,15 @@ async function getToken(code) {
 }
 
 async function refreshAccessToken() {
+    
     const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) return redirectToSpotifyAuth(); // If no refresh token, we must log in
+    
+    // CHANGE THIS:
+    if (!refreshToken) {
+        console.log("No refresh token found. User needs to log in manually.");
+        // REMOVE THIS: redirectToSpotifyAuth();
+        return; // Just exit, don't redirect!
+    }
 
     const payload = {
         method: 'POST',
@@ -244,7 +251,7 @@ async function refreshAccessToken() {
     };
 
     try {
-        const response = await safeSpotifyFetch("https://spotify.com", payload);
+        const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
         const data = await response.json();
 
         if (data.access_token) {
@@ -255,6 +262,8 @@ async function refreshAccessToken() {
     } catch (err) {
         console.error("Refresh failed, but staying on page:", err);
         // Don't redirect here! Just let the user click 'Login' manually if they need to.
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         showResult("Session expired. Please log in again.");
     }
 }
@@ -1464,8 +1473,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Change button text to show user is logged in
         document.getElementById('login-button').textContent = "Logged In";
         document.getElementById('login-button').disabled = true;
-    } 
-
+    } else {
+        // Only try to refresh if we AREN'T currently processing a login code
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+            await refreshAccessToken();
+        }
+    }
     // 2. SECOND: Now that the URL is clean, check if we need to refresh an old session
     const refreshToken = localStorage.getItem('refresh_token');
     const accessToken = localStorage.getItem('access_token');
