@@ -5,7 +5,7 @@ let device_id;
 let lastPickTime = 0;
 
 window.onSpotifyWebPlaybackSDKReady = () => {
-    console.log("Spotify SDK is ready to initialize!");
+    console.warn("Spotify SDK is ready to initialize!");
     const token = localStorage.getItem('access_token');
 };
 
@@ -19,6 +19,28 @@ function safeTimeout(func, delay) {
     }, delay);
     activeTimeouts.push(id);
 }
+
+function updateSessionTimer() {
+    const expiry = localStorage.getItem('token_expiry');
+    const display = document.getElementById('timer-display');
+    if (!expiry || !display) return;
+
+    const remainingMs = expiry - Date.now();
+    
+    if (remainingMs <= 0) {
+        display.textContent = "EXPIRED";
+        display.style.color = "red";
+        return;
+    }
+
+    const minutes = Math.floor(remainingMs / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    display.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    display.style.color = minutes < 5 ? "orange" : "#1DB954"; // Turns orange at 5 mins
+}
+
+// Run this every second to keep the UI fresh
+setInterval(updateSessionTimer, 1000);
 
 async function emergencyStop() {
     console.warn("EMERGENCY STOP TRIGGERED");
@@ -44,13 +66,13 @@ async function emergencyStop() {
     device_id = null;
     currentTrackId = null;
     document.getElementById('init-player').textContent = "🔌 Power On Mixer";
-    document.getElementById('init-player').style.background = "#1DB954";
+    document.getElementById('init-player').style.background = "#ff0000";
     showResult("Mixer Hard-Reset: All processes stopped.");
 
     if (window.refreshInterval) {
         clearInterval(window.refreshInterval);
         window.refreshInterval = null;
-        console.log("Refresh heartbeat stopped.");
+        console.warn("Refresh heartbeat stopped.");
     }
 }
 
@@ -71,6 +93,31 @@ async function playTrack(trackUri) {
                 uris: [trackUri] 
             }),
         });
+
+        if (response.status === 404) {
+            console.warn("Device ID not found. Attempting to refresh device list...");
+            showResult("Re-syncing with Spotify...");
+
+            // Check if the token is likely the problem
+            const expiry = localStorage.getItem('token_expiry');
+            if (Date.now() > expiry) {
+                showResult("Session expired. Refreshing...");
+                console.warn("Session expired. Refreshing...");
+                await refreshAccessToken();
+            }
+
+            // Logic to re-fetch devices or re-initialize player
+            // 1. Tell the SDK to re-announce itself to Spotify
+            await player.connect();
+            
+            // 2. Wait a split second for the 'ready' event to update the device_id
+            setTimeout(() => {
+                console.warn("Retrying playback with refreshed device...");
+                playTrack(trackUri, false); // retry = false to prevent infinite loops
+            }, 1000);
+            
+            return;
+        }
 
         if (response.status === 403) {
             console.warn("403: Song restricted. Skipping to a new one...");
@@ -119,7 +166,7 @@ function addToHistory(track, playlistName) {
     entry.innerHTML = `
         <strong style="color: #1DB954;">${track.name}</strong> 
         by ${track.artists[0].name} 
-        <span style="font-size: 0.8em; color: #535353;">— ${playlistName}</span>
+        <span style="font-size: 0.8em; color: #8352f5;">— ${playlistName}</span>
     `;
 
     // Add to the top of the list
@@ -217,10 +264,15 @@ async function getToken(code) {
         if (data.access_token) {
             window.localStorage.setItem('access_token', data.access_token);
             
+            // --- ADD THIS LINE ---
+            // Record exactly when this token will die (current time + 3600 seconds)
+            const expiryTime = Date.now() + (3600 * 1000); 
+            window.localStorage.setItem('token_expiry', expiryTime);            
+
             // --- NEW: Store the refresh token ---
             if (data.refresh_token) {
                 window.localStorage.setItem('refresh_token', data.refresh_token);
-                console.log("Refresh token saved for continuous play!");
+                console.warn("Refresh token saved for continuous play!");
             }
         }
     // if (data.access_token) {
@@ -235,7 +287,7 @@ async function refreshAccessToken() {
     
     // CHANGE THIS:
     if (!refreshToken) {
-        console.log("No refresh token found. User needs to log in manually.");
+        console.warn("No refresh token found. User needs to log in manually.");
         // REMOVE THIS: redirectToSpotifyAuth();
         return; // Just exit, don't redirect!
     }
@@ -256,8 +308,13 @@ async function refreshAccessToken() {
 
         if (data.access_token) {
             localStorage.setItem('access_token', data.access_token);
-            if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-            console.log("Token Refreshed Successfully!");
+            
+            // --- ADD THIS LINE ---
+            // Record exactly when this token will die (current time + 3600 seconds)
+            const expiryTime = Date.now() + (3600 * 1000); 
+            localStorage.setItem('token_expiry', expiryTime);            if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
+            console.warn("Token Refreshed Successfully!");
         }
     } catch (err) {
         console.error("Refresh failed, but staying on page:", err);
@@ -1465,7 +1522,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const code = urlParams.get('code');
 
     if (code) {
-        console.log("New login detected. Swapping code for token...");
+        console.warn("New login detected. Swapping code for token...");
         await getToken(code); // This saves the initial tokens
         // Clean the URL immediately so we don't process this code again
         window.history.replaceState({}, document.title, "/");
@@ -1473,6 +1530,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Change button text to show user is logged in
         document.getElementById('login-button').textContent = "Logged In";
         document.getElementById('login-button').disabled = true;
+        document.getElementById('login-button').style.background = "#1DB954";
     } else {
         // Only try to refresh if we AREN'T currently processing a login code
         const refreshToken = localStorage.getItem('refresh_token');
@@ -1486,8 +1544,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (refreshToken && !accessToken) { 
         // Only proactive refresh if we have a refresh token but NO access token
-        console.log("Returning user detected. Refreshing session...");
-        console.log("Session recovery needed...");
+        console.warn("Returning user detected. Refreshing session...");
+        console.warn("Session recovery needed...");
         await refreshAccessToken();
     }
 
@@ -1554,13 +1612,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             const currentToken = localStorage.getItem('access_token');
             if (!currentToken) return alert("Please login to Spotify first!");
 
-            console.log("Button Clicked: Initializing Player...");
+            console.warn("Button Clicked: Initializing Player...");
 
             player = new Spotify.Player({
                 name: "Ben's Mixer Lab",
-                getOAuthToken: cb => { cb(currentToken); },
+                getOAuthToken: cb => { 
+                    // Always fetch from storage so it gets the refreshed one!
+                    const token = localStorage.getItem('access_token');
+                    cb(token); 
+                },
                 volume: 0.2
             });
+
             player.activateElement(); 
 
             if (!player) {
@@ -1577,7 +1640,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             // Ready
             player.addListener('ready', ({ device_id: id }) => {
-                console.log('Ready with Device ID', id);
+                console.warn('Ready with Device ID', id);
                 device_id = id;
                 initBtn.textContent = "Mixer Online 🟢";
                 initBtn.style.background = "#1DB954";
@@ -1617,10 +1680,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                 } else {
                     // Handle other random init errors (like DRM issues)
                     showResult("Error starting player: " + message);
+                    console.error("Error starting player: " + message);
                 }
             });
             player.addListener('authentication_error', ({ message }) => { console.error(message); });
             player.addListener('account_error', ({ message }) => { alert("Premium account required!"); });
+
+            player.addListener('authentication_error', async ({ message }) => {
+                console.error('SDK Authentication Error:', message);
+                // If the SDK says we aren't authorized, force a token refresh immediately
+                showResult("Session expired. Re-authenticating...");
+                console.warn("Session expired. Re-authenticating...");
+                await refreshAccessToken();
+                // After refresh, tell the player to try connecting again
+                player.connect();
+                showResult("Player reconnected");
+                console.warn("Player reconnected");
+            });
 
             // Add this inside your initBtn.onclick, near your other listeners:
             player.addListener('player_state_changed', async (state) => {
@@ -1706,12 +1782,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             });
 
-            console.log("Powering on...");
+            console.warn("Powering on...");
             // Use activateElement for mobile/Android compatibility
             player.activateElement(); 
             player.connect().then(success => {
                 if (success) {
-                    console.log("Connection request sent to Spotify!");
+                    console.warn("Connection request sent to Spotify!");
                 } else {
                     console.error("Connection failed. Check your Premium status.");
                 }
@@ -1722,20 +1798,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (!window.refreshInterval) {
                 window.refreshInterval = setInterval(async () => {
                     if (device_id) { 
-                        console.log("Mixer is active, keeping token warm...");
+                        console.warn("Mixer is active, keeping token warm...");
                         await refreshAccessToken();
                     }
                 }, 50 * 60 * 1000); // 50 minutes
             }
+
+            // Add this inside your initBtn.onclick
+            setInterval(() => {
+                if (device_id && player) {
+                    console.warn("Pinging Spotify to keep device active...");
+                    player.connect();
+                }
+            }, 15 * 60 * 1000); // Every 15 minutes
 
         };
     }
 
     if (playPauseBtn) {
         playPauseBtn.onclick = () => {
-    console.log("PlayPauseBtn");
+        console.log("PlayPauseBtn");
             if (player){
-    console.log("togglePlay");
+                console.log("togglePlay");
                 player.togglePlay();
             }
         };
@@ -1829,5 +1913,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     document.getElementById('share-mix-btn').onclick = generateShareLink;
+
+    document.getElementById('toggle-list-btn').onclick = function() {
+        const list = document.getElementById('playlist-list');
+        const btn = this;
+
+        if (list.style.maxHeight === "200px" || list.style.maxHeight === "") {
+            // EXPAND
+            //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
+            list.style.maxHeight = "1000px"; // Set to a height larger than your list
+            list.style.overflowY = "visible";
+            btn.textContent = "▲ Show Less";
+        } else {
+            // COLLAPSE
+            list.style.maxHeight = "200px";
+            list.style.overflowY = "auto";
+            btn.textContent = "▼ Show All";
+        }
+    };
 
 })
