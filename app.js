@@ -1624,7 +1624,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         // Change button text to show user is logged in
         document.getElementById('login-button').textContent = "Logged In";
-        document.getElementById('login-button').disabled = true;
+        //document.getElementById('login-button').disabled = true;
         document.getElementById('login-button').style.background = "#1DB954";
     }
     // 2. SECOND: Now that the URL is clean, check if we need to refresh an old session
