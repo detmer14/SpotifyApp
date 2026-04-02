@@ -1,3 +1,7 @@
+<!-- 4. The "No-Cache" Header Logic
+To stop the Auto-Refresh when you return to the tab, you can tell the browser to "State-Check" before it reloads.
+The Fix: In your index.html, add this meta tag to discourage the browser from thinking the page is "old" and needs a hard refresh: -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,6 +19,15 @@
         <button id="login-button" style="background: #ff0000; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
             Login with Spotify
         </button>
+        <!-- Add to your HTML -->
+        <div id="resume-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+            <h3 style="color:white;">Mixer Paused</h3>
+            <p style="color:#b3b3b3; text-align:center; padding:0 20px;">Playback moved to another app or device.</p>
+            <button onclick="resumeOnThisDevice()" style="background:#1DB954; color:white; border:none; padding:15px 30px; border-radius:30px; font-weight:bold; font-size:1.1em; cursor:pointer;">
+                ▶ Resume Mixer Here
+            </button>
+        </div>
+
         <!-- Add this inside your <body>, maybe in your header -->
         <div id="player-controls" style="margin: 10px; text-align: center;">
             <button id="init-player" style="background: #ff0000; color: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">

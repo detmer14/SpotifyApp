@@ -77,7 +77,7 @@ async function emergencyStop() {
 }
 
 
-async function playTrack(trackUri) {
+async function playTrack(trackUri, isRetry = false) {
     const token = localStorage.getItem('access_token');
     if (!device_id) return alert("Click 'Power On' first!");
 
@@ -106,16 +106,22 @@ async function playTrack(trackUri) {
                 await refreshAccessToken();
             }
 
-            // Logic to re-fetch devices or re-initialize player
-            // 1. Tell the SDK to re-announce itself to Spotify
-            await player.connect();
-            
-            // 2. Wait a split second for the 'ready' event to update the device_id
-            setTimeout(() => {
-                console.warn("Retrying playback with refreshed device...");
-                playTrack(trackUri, false); // retry = false to prevent infinite loops
-            }, 1000);
-            
+            if(!isRetry){
+
+                // Logic to re-fetch devices or re-initialize player
+                // 1. Tell the SDK to re-announce itself to Spotify
+                await player.connect();
+                
+                // 2. Wait a split second for the 'ready' event to update the device_id
+                setTimeout(() => {
+                    console.warn("Retrying playback with refreshed device...");
+                    playTrack(trackUri, true); // retry = true to prevent infinite loops
+                }, 1000);
+            } else {
+                console.warn("404 persisted after retry. Stopping loop.");
+                showResult("Connection lost. Please Power Off and On again.");
+                // EXIT HERE. No more setTimeouts.
+            }            
             return;
         }
 
@@ -143,6 +149,37 @@ async function playTrack(trackUri) {
             }, 1000);
 
             console.log("Playback started successfully.");
+
+            // 1. Set Chrome Battery Usage to "Unrestricted"
+            // By default, Android "optimizes" Chrome, which kills audio connections when the screen is off.
+            // Go to Settings > Apps > Chrome.
+            // Tap App battery usage (or Battery).
+            // Change the setting from Optimized to Unrestricted.
+
+            // 2. Disable Chrome's "Memory Saver"
+            // Chrome has a built-in feature that discards inactive tabs to free up RAM, causing them to refresh when you return to them.
+            // Open Chrome and tap the three dots (Menu) > Settings.
+            // Go to Performance.
+            // Turn off Memory Saver.
+            // Add your Netlify URL to the "Always keep these sites active" list.
+
+            // 3. Use the "Desktop Site" Hack
+            // If the tab still suspends, enabling "Desktop Site" in Chrome's menu can sometimes trick Android into treating the tab with higher priority, similar to how YouTube Music is often kept alive in the background.
+
+            // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
+            // Add this whenever a song starts:
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: track.name,
+                    artist: track.artists[0].name,
+                    album: chosenplaylist.name,
+                    artwork: [{ src: track.album.images[0].url }]
+                });
+
+                // Update the playback state so the play/pause button looks right
+                navigator.mediaSession.playbackState = "playing";
+            }
+
         }
     } catch (err) {
         console.error("Playback error:", err);
@@ -289,7 +326,13 @@ async function refreshAccessToken() {
     if (!refreshToken) {
         console.warn("No refresh token found. User needs to log in manually.");
         alert("No refresh token found. User needs to log in manually.");
+        // Change button text to show user is logged in
+        document.getElementById('login-button').textContent = "Login with Spotify";
+        document.getElementById('login-button').disabled = false;
+        document.getElementById('login-button').style.background = "#ff0000";
         // REMOVE THIS: redirectToSpotifyAuth();
+        // The Issue: When Chrome Android "hiccups" or puts a tab to sleep, it can sometimes lose access to the in-memory state. If your refreshAccessToken triggers before the storage is ready, it returns null.
+        // The Fix: You must ensure refresh_token is explicitly pulled from localStorage every single time, and add a "Guard" to your refreshAccessToken so it doesn't redirect to login just because of a temporary glitch.        
         return; // Just exit, don't redirect!
     }
 
@@ -316,6 +359,11 @@ async function refreshAccessToken() {
             localStorage.setItem('token_expiry', expiryTime);            if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
             console.warn("Token Refreshed Successfully!");
+
+            // Change button text to show user is logged in
+            document.getElementById('login-button').textContent = "Logged In";
+            document.getElementById('login-button').disabled = false;
+            document.getElementById('login-button').style.background = "#1DB954";
         }
     } catch (err) {
         console.error("Refresh failed, but staying on page:", err);
@@ -323,6 +371,44 @@ async function refreshAccessToken() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         showResult("Session expired. Please log in again.");
+        
+        // Change button text to show user is logged in
+        document.getElementById('login-button').textContent = "Login with Spotify";
+        document.getElementById('login-button').disabled = false;
+        document.getElementById('login-button').style.background = "#ff0000";
+    }
+}
+
+async function resumeOnThisDevice() {
+    console.warn("Attempting to reclaim playback session...");
+    
+    try {
+        // 1. Re-prime the browser's audio (Required for mobile)
+        await player.activateElement();
+        
+        // 2. Tell Spotify to move the active session to this device_id
+        const token = localStorage.getItem('access_token');
+        await safeSpotifyFetch(`https://api.spotify.com/v1/me/player`, {
+            method: 'PUT',
+            body: JSON.stringify({ device_ids: [device_id], play: true }),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        showResumeOverlay(false);
+        showResult("Mixer resumed on this phone.");
+        console.warn("Mixer resumed on this phone.");
+    } catch (err) {
+        console.error("Failed to resume session:", err);
+    }
+}
+
+function showResumeOverlay(visible) {
+    const overlay = document.getElementById('resume-overlay');
+    if (overlay) {
+        overlay.style.display = visible ? 'flex' : 'none';
     }
 }
 
@@ -898,7 +984,7 @@ async function pickRandomSong(attempt = 0) {
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
 
-        playTrack(track.uri);
+        playTrack(track.uri, false); //retry false
     } else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
@@ -1600,13 +1686,60 @@ function showResult(text){
 }
 
 
+// Screen Wake Lock API (Official)
+// Modern Chrome supports a specific API just for this. It’s cleaner than the video hack but can "release" if you switch apps.
+let wakeLock = null;
+async function requestWakeLock() {
+    // If we already have an active lock, don't request another one
+    if (wakeLock !== null) {
+        console.warn("Screen Wake is already locked")
+        return;
+    }
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.warn("Screen Wake Lock is aquired and active");
+            // --- THE FIX: Listen for the system releasing the lock ---
+            wakeLock.addEventListener('release', () => {
+                console.log("🟡 Wake Lock was released by the system.");
+                wakeLock = null; // Clear it so we can re-request later
+            });
+        }
+        else{
+            console.warn("No wakeLock in navigator");
+        }
+    } catch (err) {
+        console.error(`❌ Wake Lock Error: ${err.name}, ${err.message}`);
+        wakeLock = null;
+    }
+}
+// Re-request when the user comes back to the tab
+document.addEventListener('visibilitychange', () => {
+    console.warn("App visibility changed")
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock();
+    }
+});
+
+
+
+
 document.addEventListener("DOMContentLoaded", async () => {
 
     // 1. FIRST: Check for a new login code from Spotify
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
+    const existingRefreshToken = localStorage.getItem('refresh_token');
 
-    if (code) {
+    // 1. If we have a code BUT we already have a session, IGNORE the code.
+    if (code && existingRefreshToken) {
+        console.warn("Stale login code detected in URL, but we have a session. Cleaning URL...");
+        window.history.replaceState({}, document.title, "/");
+        // Proceed to refresh the existing session instead
+        await refreshAccessToken();
+    } 
+    // 2. If it's a brand new login (Code present, No Refresh Token)
+    else if (code) {
         console.warn("New login detected. Swapping code for token...");
         await getToken(code); // This saves the initial tokens
         // Clean the URL immediately so we don't process this code again
@@ -1616,16 +1749,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('login-button').textContent = "Logged In";
         document.getElementById('login-button').disabled = true;
         document.getElementById('login-button').style.background = "#1DB954";
-    } else {
+    }
+    // 3. Normal return to app (No code, but has session)    
+    else {
         // Only try to refresh if we AREN'T currently processing a login code
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-            await refreshAccessToken();
-        }
-        // Change button text to show user is logged in
-        document.getElementById('login-button').textContent = "Logged In";
-        //document.getElementById('login-button').disabled = true;
-        document.getElementById('login-button').style.background = "#1DB954";
+        await refreshAccessToken();
+
+        // // Change button text to show user is logged in
+        // document.getElementById('login-button').textContent = "Logged In";
+        // //document.getElementById('login-button').disabled = true;
+        // document.getElementById('login-button').style.background = "#1DB954";
     }
     // 2. SECOND: Now that the URL is clean, check if we need to refresh an old session
     const refreshToken = localStorage.getItem('refresh_token');
@@ -1698,7 +1831,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     let songStartTime = 0;
 
     if (initBtn) {
-        initBtn.onclick = () => {
+        initBtn.onclick = async () => {
+
+            await requestWakeLock();
 
             // If already online, act as the Emergency Stop
             if (device_id) {
@@ -1734,6 +1869,73 @@ document.addEventListener("DOMContentLoaded", async () => {
             // silencer.loop = true;
             // silencer.muted = true; // Muted video still counts as 'active' for the browser
             // silencer.play().catch(e => console.log("Silent video blocked until next click."));
+            try {
+                const video = document.createElement('video');
+                
+                // This is a 1-second, black, silent MP4 in Base64 format
+                video.src = 'data:video/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21pc28yYXZjMQAAAAhmcmVlAAAAG21kYXTeBAAAbGlieDI2NCAtIGNvcmUgMTY0IAAAAApmoW9vcHMAAAAALW1vb3YAAABsbXZoZAAAAAAAAAAAAAAAAAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAABidHJrawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAIAAAACAAAAAABAAAAAAUlbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAABAAAAVVYfUAAAAAAAAMWhkbHIAAAAAAAAAAHZpZGVvAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAFHZtYmhkAAAAAQAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAASVzdGJsAAAAd3N0c2QAAAAAAAAAAQAAAGdhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAgACABIAAAASAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGP//AAAALmF2Y2MBQsAr/+EAFWfEArAtvA8AAAMAAQAAAwAyDxArpSABAAZIDpAgAAAAEHBhc3AAAAABAAAAAQAAABhzdHRzAAAAAAAAAAEAAAABAAAAQAAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAUc3RzegAAAAAAAAAIAAAAAQAAABRzdGNvAAAAAAAAAAEAAAA0AAAAYXVkdGEAAABZTWV0YQAAAAAAAAAhSGRscgAAAAAAAAAAbWRpcgAAAAAAAAAAAAAAAAAAAAAALWlsc3QAAAApAKW5hbQAAACFEYXRhAFVudGl0bGVkIChIUCBNZWRpYSBTdHJlYW0pAAAAEGlkYXQAAAAAAAAAAQ==';
+                
+                video.loop = true;
+                video.muted = true;
+                video.setAttribute('playsinline', ''); // Essential for iOS/Android background play
+                video.style.display = 'none'; // Keep it hidden from the UI
+                
+                document.body.appendChild(video);
+                await video.play();
+                console.log("🟢 Hidden Video Wake Lock (Base64) Active");
+            } catch (err) {
+                console.warn("🟡 Hidden Video Hack failed:", err);
+            }
+
+            // Since the video approach is being blocked, let's switch to the "Silent Audio Heartbeat" method. It's often more compatible with mobile Chrome because it uses the Web Audio API to generate a signal, which avoids codec errors entirely. 
+            // The "Silent Audio Heartbeat" Strategy
+            // This code creates a continuous, silent audio stream. Android Chrome will see this as "Active Media," making it much less likely to kill your tab when the screen is off. 
+            let audioHeartbeat = null;
+            //async function enableWakeLock() {
+                try {
+                    // Create an AudioContext
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    audioHeartbeat = new AudioContext();
+
+                    // Create a silent oscillator
+                    const oscillator = audioHeartbeat.createOscillator();
+                    const gainNode = audioHeartbeat.createGain();
+
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(440, audioHeartbeat.currentTime);
+                    
+                    // Volume = 0 (Pure Silence)
+                    gainNode.gain.setValueAtTime(0, audioHeartbeat.currentTime);
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioHeartbeat.destination);
+
+                    // Start the heartbeat
+                    oscillator.start();
+                    console.log("🔊 Silent Audio Heartbeat active (Safe for Mobile)");
+                } catch (err) {
+                    console.warn("🟡 Audio Heartbeat failed:", err);
+                }
+           // }
+
+            
+            // Alternative: Silent Audio Context
+            // If your system is extremely restricted and blocks even large data URIs, you can use the Web Audio API to generate "silence." It’s less effective for keeping the screen on than video, but it’s great for preventing Chrome from suspending the "playback pipe".            
+            //function startSilentAudio() {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = context.createOscillator();
+                const gainNode = context.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(440, context.currentTime); // Standard tone
+                gainNode.gain.setValueAtTime(0, context.currentTime); // Volume = 0 (Silence)
+
+                oscillator.connect(gainNode);
+                gainNode.connect(context.destination);
+
+                oscillator.start();
+                console.warn("🔊 Silent Audio Context Active");
+            //}
 
             // Ready
             player.addListener('ready', ({ device_id: id }) => {
@@ -1810,8 +2012,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                     paused,
                     position,
                     duration,
+                    is_active,
+                    playback_id,
                     track_window: {current_track}
                 } = state;
+
+                // Check if another device (like the Spotify App) took over
+                if (state.playback_id === "" && !state.is_paused) {
+                    // This usually means the 'Session' moved elsewhere
+                    console.warn("Playback hijacked by another device.");
+                    showResumeOverlay(true);
+                } else if (state.is_active === false) {
+                    console.warn("Mixer is no longer the active device.");
+                    showResumeOverlay(true);
+                } else {
+                    // If we are active again, hide the overlay
+                    showResumeOverlay(false);
+                }
 
                 const now = Date.now()
 
@@ -1916,6 +2133,28 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             }, 15 * 60 * 1000); // Every 15 minutes
 
+            // The "Action Handlers" (The Remote Control)
+            // This is the part that usually gets missed. You need to tell the Android OS what to do when the user hits the buttons on their lock screen. Put this in your initBtn.onclick (or anywhere it only runs once).
+            if ('mediaSession' in navigator) {
+                // When the user hits "Next" on the lock screen
+                navigator.mediaSession.setActionHandler('nexttrack', () => {
+                    console.warn("Lock screen: Next Track clicked.");
+                    pickRandomSong(); 
+                });
+
+                // When the user hits "Pause"
+                navigator.mediaSession.setActionHandler('pause', () => {
+                    if (player) player.pause();
+                    navigator.mediaSession.playbackState = "paused";
+                });
+
+                // When the user hits "Play"
+                navigator.mediaSession.setActionHandler('play', () => {
+                    if (player) player.resume();
+                    navigator.mediaSession.playbackState = "playing";
+                });
+            }
+
         };
     }
 
@@ -1963,7 +2202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             showResult(`Manual Play: ${uri}`);
             
             // Use your existing playTrack function
-            playTrack(uri);
+            playTrack(uri, false);
             
             // Optional: Clear the input after playing
             uriInput.value = '';
