@@ -79,7 +79,15 @@ async function emergencyStop() {
 
 async function playTrack(trackUri, isRetry = false) {
     const token = localStorage.getItem('access_token');
+    // If the app just refreshed, device_id might be null, so check storage
+    if (!device_id) {
+        device_id = localStorage.getItem('last_active_device');
+    }
     if (!device_id) return alert("Click 'Power On' first!");
+    if (!device_id) {
+        showResult("No device found. Please Power On.");
+        return;
+    }
 
     try {
         const response = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player/play?device_id=${device_id}`, {
@@ -131,7 +139,7 @@ async function playTrack(trackUri, isRetry = false) {
             //alert("Spotify Premium is required for this feature.");
             // AUTO-RECOVERY: Just trigger a new pick!
             safeTimeout(() => pickRandomSong(), 500); 
-        } else if (response.status === 204) {
+        } else if (response.status === 204  || response.status === 200) {
             // Wait 300ms for Spotify's servers to process the change, 
             // then force the local player to start.
             safeTimeout(async () => {
@@ -147,6 +155,26 @@ async function playTrack(trackUri, isRetry = false) {
 
                 }
             }, 1000);
+
+            console.log("Current song started. Pre-picking next song for the queue...");
+            // Wait 3 seconds to let the current song settle, then queue the next one
+            setTimeout(() => {
+                prepareNextQueueItem();
+            }, 3000);
+            async function prepareNextQueueItem() {
+                // This is basically a "Silent" version of pickRandomSong
+                const chosenplaylist = pickPlaylistByMode();
+                if (!chosenplaylist) return;
+
+                const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
+                const token = await getStoredToken('access_token');
+                const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
+
+                if (nextTrack && nextTrack.uri) {
+                    console.log(`Queued up: ${nextTrack.name} for later.`);
+                    await addToQueue(nextTrack.uri);
+                }
+            }
 
             console.log("Playback started successfully.");
 
@@ -185,6 +213,25 @@ async function playTrack(trackUri, isRetry = false) {
         console.error("Playback error:", err);
     }
 }
+
+async function addToQueue(trackUri) {
+    const token = await getStoredToken('access_token'); // Using the retry helper
+    const url = `https://spotify.com/v1/me/player/queue/{encodeURIComponent(${trackUri})}&device_id=${device_id}`;
+
+    try {
+        const response = await safeSpotifyFetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response && response.status === 202) {
+            console.log("Successfully added next song to Spotify Queue.");
+        }
+    } catch (err) {
+        console.error("Queue error:", err);
+    }
+}
+
 
 function addToHistory(track, playlistName) {
     const historyList = document.getElementById('history-list');
@@ -318,9 +365,19 @@ async function getToken(code) {
     // }
 }
 
+async function getStoredToken(key, retries = 5) {
+    for (let i = 0; i < retries; i++) {
+        const val = localStorage.getItem(key);
+        if (val) return val;
+        await new Promise(r => setTimeout(r, 200)); // Wait 200ms for storage to mount
+    }
+    return null;
+}
+
 async function refreshAccessToken() {
     
-    const refreshToken = localStorage.getItem('refresh_token');
+    //const refreshToken = localStorage.getItem('refresh_token');
+    const refreshToken = await getStoredToken('refresh_token');
     
     // CHANGE THIS:
     if (!refreshToken) {
@@ -1941,6 +1998,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             player.addListener('ready', ({ device_id: id }) => {
                 console.warn('Ready with Device ID', id);
                 device_id = id;
+                localStorage.setItem('last_active_device', id); // Keep a record
                 initBtn.textContent = "Mixer Online 🟢";
                 initBtn.style.background = "#1DB954";
                 document.getElementById('init-player').textContent = "Mixer Online 🟢";
@@ -2030,6 +2088,19 @@ document.addEventListener("DOMContentLoaded", async () => {
                     showResumeOverlay(false);
                 }
 
+                const playPauseBtn = document.getElementById('play-pause');
+                if (playPauseBtn) {
+                    if (state.paused) {
+                        // If music is paused, show "Play" button (Green)
+                        playPauseBtn.textContent = "▶ Play";
+                        playPauseBtn.style.background = "#1DB954"; // Spotify Green
+                    } else {
+                        // If music is playing, show "Pause" button (Orange/Red)
+                        playPauseBtn.textContent = "⏸ Pause";
+                        playPauseBtn.style.background = "#FF5722"; // Deep Orange
+                    }
+                }
+
                 const now = Date.now()
 
                 // 1. Check if the song has actually changed to a new ID
@@ -2090,6 +2161,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                     player.activateElement(); 
                     pickRandomSong();                     
                 }   
+                
+                // --- THE FIX: Detect a new song has started ---
+                if (currentTrack.id !== lastTrackId) {
+                    console.log("New song detected:", currentTrack.name);
+                    lastTrackId = currentTrack.id;
+                    
+                    // Update UI (Now Playing, etc.)
+                    updateUI(currentTrack);
+
+                    // REFILL THE QUEUE: Now that we are on Song 2, queue up Song 3
+                    // We wait 5 seconds to make sure the transition is stable
+                    setTimeout(() => {
+                        prepareNextQueueItem();
+                    }, 5000);
+                }
                 
                 // Detect if the song has naturally ended
                 // Position 0 and Paused = The track is over
