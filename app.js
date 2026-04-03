@@ -3,6 +3,9 @@
 let player;
 let device_id;
 let lastPickTime = 0;
+let queuePlaylistName = ""
+let lastTrackId
+
 
 window.onSpotifyWebPlaybackSDKReady = () => {
     console.warn("Spotify SDK is ready to initialize!");
@@ -161,21 +164,6 @@ async function playTrack(trackUri, isRetry = false) {
             setTimeout(() => {
                 prepareNextQueueItem();
             }, 3000);
-            async function prepareNextQueueItem() {
-                // This is basically a "Silent" version of pickRandomSong
-                const chosenplaylist = pickPlaylistByMode();
-                if (!chosenplaylist) return;
-
-                const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
-                const token = await getStoredToken('access_token');
-                const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
-
-                if (nextTrack && nextTrack.uri) {
-                    console.log(`Queued up: ${nextTrack.name} for later.`);
-                    await addToQueue(nextTrack.uri);
-                }
-            }
-
             console.log("Playback started successfully.");
 
             // 1. Set Chrome Battery Usage to "Unrestricted"
@@ -214,9 +202,80 @@ async function playTrack(trackUri, isRetry = false) {
     }
 }
 
+    async function prepareNextQueueItem(attempt = 0) {
+
+    // Safety: Don't get stuck in an infinite loop if a playlist is 100% unplayable
+    if (attempt > 5) {
+        showResult("Error: Hit too many restricted tracks. Try a different playlist.");
+        console.log("Error: Hit too many restricted tracks. Try a different playlist.");
+        return;
+    }
+
+
+        // This is basically a "Silent" version of pickRandomSong
+        const chosenplaylist = pickPlaylistByMode();
+        if (!chosenplaylist) {
+            console.warn("No playlist selected for auto-pick.");
+            return; // Don't alert here, just stop
+        }
+
+        const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
+
+    // --- NEW: SPOTIFY ID VALIDATION ---
+    // If the ID is just a name like "A" or "MyMix", we only do "Mock" mode
+    const isSpotifyId = /^[a-zA-Z0-9]{22}$/.test(chosenplaylist.id);
+
+    if (!isSpotifyId) {
+        showResult(`[MOCK MODE] Playlist: ${chosenplaylist.name}, Track #${randomIndex + 1}`);
+        console.log(`Bypassing Spotify API for non-Spotify Playlist: ${chosenplaylist.id}`);
+        return; // STOP HERE: Do not call getTrackAtIndex or playTrack
+    }
+
+        console.log(`--------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`)
+        
+        const token = await getStoredToken('access_token');
+        const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
+
+
+    if (nextTrack === "NETWORK_ERROR"){
+        console.log("pickRandomSong: NETWORK_ERROR, stopping loop")
+        return; // Stop the loop immediately!
+    }
+    
+    // 4. RATE LIMIT CHECK: Stop if safeSpotifyFetch triggered a 429
+    if (nextTrack === "RATE_LIMIT_HIT") {
+        console.log("pickRandomSong: RATE_LIMIT_HIT, stopping loop");
+        return;
+    }
+
+    if (nextTrack === null) {
+        if (isSoftLocked) {
+            console.log("pickRandomSong: Mixer is soft-locked. Waiting for recovery...");
+            return; // Don't even attempt a retry loop
+        }
+        // ... normal restricted track retry logic ...
+    }
+
+
+
+
+        if (nextTrack && nextTrack.uri) {
+            console.log(`Queued up: ${nextTrack.name} for later.`);
+            queuePlaylistName = chosenplaylist.name
+            await addToQueue(nextTrack.uri);
+    } else {
+        console.log("Could not fetch that specific track. Try again!");
+        // If track was null (failed safety checks), try again!
+        console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
+        safeTimeout(() => prepareNextQueueItem(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
+    }
+    }
+
+
+
 async function addToQueue(trackUri) {
     const token = await getStoredToken('access_token'); // Using the retry helper
-    const url = `https://spotify.com/v1/me/player/queue/{encodeURIComponent(${trackUri})}&device_id=${device_id}`;
+    const url = `https://api.spotify.com/v1/me/player/queue?uri=${trackUri}&device_id=${device_id}`;
 
     try {
         const response = await safeSpotifyFetch(url, {
@@ -1041,6 +1100,7 @@ async function pickRandomSong(attempt = 0) {
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
 
+        lastTrackId = track.id
         playTrack(track.uri, false); //retry false
     } else {
         console.log("Could not fetch that specific track. Try again!");
@@ -2103,12 +2163,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const now = Date.now()
 
+                if(!current_track){
+                    console.warn("player state changed but no currentTrack")
+                    return;
+                }
+
                 // 1. Check if the song has actually changed to a new ID
                 if (current_track.id !== currentTrackId) {
                     console.log("New track detected:", current_track.name);
                     currentTrackId = current_track.id;
                     lastPickTime = Date.now() //reset timer for new song
-                    return; //exit: we just started a song, don't pick a new one!
+                    //return; //exit: we just started a song, don't pick a new one!
                     // Update your 'Now Playing' UI here if needed
                 }
                 
@@ -2159,16 +2224,57 @@ document.addEventListener("DOMContentLoaded", async () => {
                     // Clear the ID so the next track can be detected as a change
                     currentTrackId = null; 
                     player.activateElement(); 
-                    pickRandomSong();                     
+                    //pickRandomSong();                     
                 }   
                 
                 // --- THE FIX: Detect a new song has started ---
-                if (currentTrack.id !== lastTrackId) {
-                    console.log("New song detected:", currentTrack.name);
-                    lastTrackId = currentTrack.id;
+                if (current_track.id !== lastTrackId) {
+                    console.log("New song detected:", current_track.name);
+                    lastTrackId = current_track.id;
                     
                     // Update UI (Now Playing, etc.)
-                    updateUI(currentTrack);
+                    //updateUI(currentTrack);
+                    console.log("Playing:", current_track.name);
+                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistName}`);
+                    
+                    // --- ADD TO HISTORY ---
+                    addToHistory(current_track, queuePlaylistName);
+
+
+
+                    // Force a small interaction signal
+                    player.getVolume().then(v => {
+                        player.setVolume(v > 0.1 ? v - 0.05 : v + 0.05).then(() => {
+                            player.setVolume(v); // Quickly set it back
+                        });
+                    });
+
+                    // --- THE KEY FIX ---
+                    // 1. Re-activate the element to satisfy autoplay rules
+                    // Nudge the browser to keep the audio context alive
+                    player.activateElement(); 
+                    
+                    // Small trick: Set volume to current level to trigger an 'interaction' event
+                    player.getVolume().then(v => player.setVolume(v));
+                    // 2. The "Nudge": Slightly change volume and back to trigger an interaction
+                    player.getVolume().then(v => {
+                        player.setVolume(v + 0.01).then(() => player.setVolume(v));
+                    });
+
+                    // 2. Explicitly resume the player so it's in a 'playing' state 
+                    // before the new URI arrives
+                    await player.resume(); 
+
+
+                    player.activateElement(); 
+
+
+
+
+
+
+
+
 
                     // REFILL THE QUEUE: Now that we are on Song 2, queue up Song 3
                     // We wait 5 seconds to make sure the transition is stable
