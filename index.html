@@ -75,16 +75,16 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         </div>
         <div id="selection-modes">
             <label>
-                <input type="radio" name="selectionMode" value="normal" checked>
-                Normal
+                <input type="radio" name="selectionMode" value="balanced">
+                Balanced
             </label>
             <label>
                 <input type="radio" name="selectionMode" value="percentage">
                 Percentage Mix
             </label>
             <label>
-                <input type="radio" name="selectionMode" value="balanced">
-                Balanced
+                <input type="radio" name="selectionMode" value="normal" checked>
+                Normal
             </label>
             <label>
                 <input type="radio" name="selectionMode" value="relative">
@@ -112,6 +112,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     <section>
         <h1> </h1>
         <button id="pick">Pick Random Song</button>
+        <button id="skip-button" class="mixer-control">Skip to Next</button>
         <p id="result"></p>
     </section>
 
@@ -126,12 +127,18 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     </div>
 
     <!-- Add this below your playlist-list div -->
-    <div id="history-container" style="margin-top: 20px; padding: 15px; background: #181818; border-radius: 8px; color: #b3b3b3;">
+    <div id="history-container" style="margin-top: 20px; padding: 10px; background: #181818; border-radius: 8px; color: #b3b3b3;">
         <h3 style="color: white; margin-top: 0;">Mix History</h3>
         <div id="history-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">
             <!-- New songs will appear here -->
             <p>No songs played yet...</p>
         </div>
+    </div>
+    <div id="queue-container" class="mixer-panel" style="margin-top: 20px; padding: 15px; background: #181818; border-radius: 8px; color: #b3b3b3;">
+        <h3>Upcoming Mix</h3>
+        <ul id="queue-list" style="max-height: 150px; overflow-y: auto;">
+            <!-- Queue items will appear here -->
+        </ul>
     </div>
 
     <!-- ========================= -->
