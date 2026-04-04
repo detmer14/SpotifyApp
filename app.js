@@ -2,8 +2,15 @@
 
 let player;
 let device_id;
+let isRefreshing = false;
 let lastPickTime = 0;
+let internalQueue = []; // Array of {id, name, artist, playlistName}
 let queuePlaylistName = ""
+const queuePlaylistNames = [
+  { id: "id1", name: 'Alice' },
+  { id: "id2", name: 'Bob' }
+];
+const queuePlaylistsMap = new Map(queuePlaylistNames.map(obj => [obj.id, obj]));
 let lastTrackId
 
 
@@ -112,8 +119,8 @@ async function playTrack(trackUri, isRetry = false) {
             // Check if the token is likely the problem
             const expiry = localStorage.getItem('token_expiry');
             if (Date.now() > expiry) {
-                showResult("Session expired. Refreshing...");
-                console.warn("Session expired. Refreshing...");
+                showResult("404 Session expired. Refreshing...");
+                console.warn("404 Session expired. Refreshing...");
                 await refreshAccessToken();
             }
 
@@ -182,19 +189,19 @@ async function playTrack(trackUri, isRetry = false) {
             // 3. Use the "Desktop Site" Hack
             // If the tab still suspends, enabling "Desktop Site" in Chrome's menu can sometimes trick Android into treating the tab with higher priority, similar to how YouTube Music is often kept alive in the background.
 
-            // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
-            // Add this whenever a song starts:
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: track.name,
-                    artist: track.artists[0].name,
-                    album: chosenplaylist.name,
-                    artwork: [{ src: track.album.images[0].url }]
-                });
+            // // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
+            // // Add this whenever a song starts:
+            // if ('mediaSession' in navigator) {
+            //     navigator.mediaSession.metadata = new MediaMetadata({
+            //         title: track.name,
+            //         artist: track.artists[0].name,
+            //         album: chosenplaylist.name,
+            //         artwork: [{ src: track.album.images[0].url }]
+            //     });
 
-                // Update the playback state so the play/pause button looks right
-                navigator.mediaSession.playbackState = "playing";
-            }
+            //     // Update the playback state so the play/pause button looks right
+            //     navigator.mediaSession.playbackState = "playing";
+            // }
 
         }
     } catch (err) {
@@ -202,7 +209,7 @@ async function playTrack(trackUri, isRetry = false) {
     }
 }
 
-    async function prepareNextQueueItem(attempt = 0) {
+async function prepareNextQueueItem(attempt = 0) {
 
     // Safety: Don't get stuck in an infinite loop if a playlist is 100% unplayable
     if (attempt > 5) {
@@ -259,17 +266,28 @@ async function playTrack(trackUri, isRetry = false) {
 
 
 
-        if (nextTrack && nextTrack.uri) {
-            console.log(`Queued up: ${nextTrack.name} for later.`);
-            queuePlaylistName = chosenplaylist.name
-            await addToQueue(nextTrack.uri);
+    if (nextTrack && nextTrack.uri) {
+        console.log(`Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`);
+        queuePlaylistsMap.set(nextTrack.id, { name: chosenplaylist.name });
+        await addToQueue(nextTrack.uri);
+        incrementPlaylistCount(chosenplaylist.id)
+
+        // 2. Add to our visual internal queue
+        internalQueue.push({
+            id: nextTrack.id,
+            name: nextTrack.name,
+            artist: nextTrack.artists[0].name,
+            playlist: chosenplaylist.name
+        });
+
+        renderQueue();            
     } else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
         console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
         safeTimeout(() => prepareNextQueueItem(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
     }
-    }
+}
 
 
 
@@ -291,6 +309,15 @@ async function addToQueue(trackUri) {
     }
 }
 
+function renderQueue() {
+    const queueList = document.getElementById('queue-list');
+    queueList.innerHTML = internalQueue.map(track => `
+        <li class="queue-item">
+            <span class="track-info"><strong>${track.name}</strong> - ${track.artist}</span>
+            <span class="source-playlist"; style="color: #8352f5;">- ${track.playlist}</span>
+        </li>
+    `).join('');
+}
 
 function addToHistory(track, playlistName) {
     const historyList = document.getElementById('history-list');
@@ -435,6 +462,9 @@ async function getStoredToken(key, retries = 5) {
 
 async function refreshAccessToken() {
     
+    if (isRefreshing) return; // Exit if a refresh is already in progress
+    isRefreshing = true;
+
     //const refreshToken = localStorage.getItem('refresh_token');
     const refreshToken = await getStoredToken('refresh_token');
     
@@ -449,6 +479,7 @@ async function refreshAccessToken() {
         // REMOVE THIS: redirectToSpotifyAuth();
         // The Issue: When Chrome Android "hiccups" or puts a tab to sleep, it can sometimes lose access to the in-memory state. If your refreshAccessToken triggers before the storage is ready, it returns null.
         // The Fix: You must ensure refresh_token is explicitly pulled from localStorage every single time, and add a "Guard" to your refreshAccessToken so it doesn't redirect to login just because of a temporary glitch.        
+        isRefreshing = false;
         return; // Just exit, don't redirect!
     }
 
@@ -472,7 +503,8 @@ async function refreshAccessToken() {
             // --- ADD THIS LINE ---
             // Record exactly when this token will die (current time + 3600 seconds)
             const expiryTime = Date.now() + (3600 * 1000); 
-            localStorage.setItem('token_expiry', expiryTime);            if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+            localStorage.setItem('token_expiry', expiryTime);
+            if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
             console.warn("Token Refreshed Successfully!");
 
@@ -480,6 +512,7 @@ async function refreshAccessToken() {
             document.getElementById('login-button').textContent = "Logged In";
             document.getElementById('login-button').disabled = false;
             document.getElementById('login-button').style.background = "#1DB954";
+            isRefreshing = false;
         }
     } catch (err) {
         console.error("Refresh failed, but staying on page:", err);
@@ -492,7 +525,9 @@ async function refreshAccessToken() {
         document.getElementById('login-button').textContent = "Login with Spotify";
         document.getElementById('login-button').disabled = false;
         document.getElementById('login-button').style.background = "#ff0000";
+        isRefreshing = false;
     }
+    isRefreshing = false;
 }
 
 async function resumeOnThisDevice() {
@@ -638,7 +673,7 @@ const playlistColorPalette = [
 
 let mixes = {}
 let activeMixId = null
-let selectionMode = "normal" // normal | balanced | percentage (mix) | relative (weight)
+let selectionMode = "balanced" // normal | balanced | percentage (mix) | relative (weight)
 let isProgrammaticSliderUpdate = false //to prevent infinite loops when sliders rebalance
 
 const multipliers = [0.25, 0.5, 0.75, 1.0, 1.25, 1.75, 2.5];
@@ -1097,11 +1132,33 @@ async function pickRandomSong(attempt = 0) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
         
+        incrementPlaylistCount(chosenplaylist.id)
+
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
+        queuePlaylistsMap.set(track.id, { name: chosenplaylist.name });
+
+        // If the song that just started is the one at the top of our queue, remove it
+        if (internalQueue.length > 0 && internalQueue[0].id === lastTrackId) {
+            internalQueue.shift(); 
+            renderQueue();
+        }
 
         lastTrackId = track.id
         playTrack(track.uri, false); //retry false
+            // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
+            // Add this whenever a song starts:
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: track.name,
+                    artist: track.artists[0].name,
+                    album: chosenplaylist.name,
+                    artwork: [{ src: track.album.images[0].url }]
+                });
+
+                // Update the playback state so the play/pause button looks right
+                navigator.mediaSession.playbackState = "playing";
+            }
     } else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
@@ -1268,13 +1325,33 @@ async function getTrackAtIndex(token, playlistId, index){
     }
 }
 
+function getRainbowColor(count, maxCount) {
+    if (maxCount === 0 || count === 0) return '#888'; // Grey for unplayed
+    
+    // Scale 0 to maxCount onto 0 to 280 (Red to Purple)
+    const hue = (count / maxCount) * 280;
+    return `hsl(${hue}, 90%, 70%)`;
+}
+
+function incrementPlaylistCount(playlistId) {
+    const playlist = playlists.find(p => p.id === playlistId);
+    if (playlist) {
+        playlist.pickCount = (playlist.pickCount || 0) + 1;
+        renderPlaylists(); // Refresh the rainbow colors
+    }
+}
 
 function renderPlaylists() {
     const container = document.getElementById("playlist-list")
     container.innerHTML = ""
 
-    
+
+    const maxCount = Math.max(...playlists.map(p => p.pickCount || 0), 1);
+  
     playlists.forEach((playlist, index) => {
+
+        // When loading or adding a playlist
+        playlist.pickCount = playlist.pickCount || 0;
         
         playlist._renderColor = getPlaylistColorByIndex(index)
         
@@ -1289,12 +1366,18 @@ function renderPlaylists() {
         div.style.borderBottom = "1px solid #282828";
         div.style.cursor = "grab";
 
+        const color = getRainbowColor(playlist.pickCount , maxCount);
+
+
         div.innerHTML = `
                 <span style="color: #535353; margin-right: 10px;">☰</span>
                 <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
                 <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
                 <span class="slider-value"></span>
                 <button class="delete-btn">Delete</button>
+                <span class="pick-counter" style="padding: 2px;background: #1a1a1a; color: ${color}; font-weight: bold;">
+                    ${playlist.pickCount }
+                </span>                
                 ${playlist.name} (${playlist.trackCount}) songs
         `
         // div.innerHTML = `
@@ -1408,6 +1491,38 @@ function renderPlaylists() {
         container.appendChild(div)
     })
 
+}
+
+let draggedItem = null;
+
+function addTouchListeners(item) {
+    item.addEventListener('touchstart', (e) => {
+        draggedItem = item;
+        item.style.opacity = '0.5';
+        // Prevent scrolling while dragging
+        e.preventDefault(); 
+    }, { passive: false });
+
+    item.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        // Find which element is under the finger
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const closestItem = target?.closest('.playlist-item');
+
+        if (closestItem && closestItem !== draggedItem) {
+            const container = closestItem.parentNode;
+            const rect = closestItem.getBoundingClientRect();
+            const next = (touch.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+            container.insertBefore(draggedItem, next ? closestItem.nextSibling : closestItem);
+        }
+    }, { passive: false });
+
+    item.addEventListener('touchend', () => {
+        draggedItem.style.opacity = '1';
+        draggedItem = null;
+        savePlaylistOrder(); // Your function to sync with localStorage
+    });
 }
 
 let dragSourceIndex = null;
@@ -1776,7 +1891,8 @@ function createDefaultMix() {
 
     mixes[id] = {
         name: "Default Mix",
-        playlists: structuredClone(playlists)
+        playlists: structuredClone(playlists),
+        selectionMode: "balanced"
     }
 
     activeMixId = id
@@ -1833,6 +1949,8 @@ async function requestWakeLock() {
 // Re-request when the user comes back to the tab
 document.addEventListener('visibilitychange', () => {
     console.warn("App visibility changed")
+    //await refreshAccessToken();
+
     if (wakeLock !== null && document.visibilityState === 'visible') {
         requestWakeLock();
     }
@@ -2070,7 +2188,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 console.warn("Device has gone offline:", device_id);
                 showResult("Connection lost. Trying to reconnect...");
                 // The SDK will try to reconnect itself, but we can nudge it:
-                player.connect(); 
+                player.connect().then(success => {
+                    if (success) {
+                        console.warn("Connection request sent to Spotify!");
+                    } else {
+                        console.error("Connection failed. Check your Premium status.");
+                    }
+                });
             });
 
             player.addListener('autoplay_failed', () => {
@@ -2117,7 +2241,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 console.warn("Session expired. Re-authenticating...");
                 await refreshAccessToken();
                 // After refresh, tell the player to try connecting again
-                player.connect();
+                player.connect().then(success => {
+                    if (success) {
+                        console.warn("Connection request sent to Spotify!");
+                    } else {
+                        console.error("Connection failed. Check your Premium status.");
+                    }
+                });
                 showResult("Player reconnected");
                 console.warn("Player reconnected");
             });
@@ -2196,6 +2326,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 //if (isAtEnd) {
                     console.log("Track naturally finished. Picking next...");
 
+                    // If the song that just started is the one at the top of our queue, remove it
+                    if (internalQueue.length > 0 && internalQueue[0].id === currentTrackId) {
+                        internalQueue.shift(); 
+                        renderQueue();
+                    }
+
                     // Force a small interaction signal
                     player.getVolume().then(v => {
                         player.setVolume(v > 0.1 ? v - 0.05 : v + 0.05).then(() => {
@@ -2229,17 +2365,44 @@ document.addEventListener("DOMContentLoaded", async () => {
                 
                 // --- THE FIX: Detect a new song has started ---
                 if (current_track.id !== lastTrackId) {
+
+                    // If the song that just started is the one at the top of our queue, remove it
+                    if (internalQueue.length > 0) {
+                        //internalQueue.shift(); 
+                        // Find the position of the song that just started in our internal queue
+                        const playingIndex = internalQueue.findIndex(item => item.id === lastTrackId);
+
+                        if (playingIndex !== -1) {
+                            // Remove the playing song AND any songs above it (in case we skipped)
+                            internalQueue.splice(0, playingIndex + 1 );
+                        }
+                        renderQueue();
+                    }
+                    
                     console.log("New song detected:", current_track.name);
                     lastTrackId = current_track.id;
                     
                     // Update UI (Now Playing, etc.)
                     //updateUI(currentTrack);
                     console.log("Playing:", current_track.name);
-                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistName}`);
+                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(current_track.id)?.name}`);
                     
                     // --- ADD TO HISTORY ---
-                    addToHistory(current_track, queuePlaylistName);
+                    addToHistory(current_track, queuePlaylistsMap.get(current_track.id)?.name);
 
+            // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
+            // Add this whenever a song starts:
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: current_track.name,
+                    artist: current_track.artists[0].name,
+                    album: queuePlaylistsMap.get(current_track.id)?.name,
+                    artwork: [{ src: current_track.album.images[0].url }]
+                });
+
+                // Update the playback state so the play/pause button looks right
+                navigator.mediaSession.playbackState = "playing";
+            }
 
 
                     // Force a small interaction signal
@@ -2321,7 +2484,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             setInterval(() => {
                 if (device_id && player) {
                     console.warn("Pinging Spotify to keep device active...");
-                    player.connect();
+                    player.connect().then(success => {
+                        if (success) {
+                            console.warn("Connection request sent to Spotify!");
+                        } else {
+                            console.error("Connection failed. Check your Premium status.");
+                        }
+                    });
                 }
             }, 15 * 60 * 1000); // Every 15 minutes
 
@@ -2351,13 +2520,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (playPauseBtn) {
-        playPauseBtn.onclick = () => {
-        console.log("PlayPauseBtn");
-            if (player){
-                console.log("togglePlay");
-                player.togglePlay();
+        playPauseBtn.onclick = async () => {
+            if (!player){
+                alert("Turn player on first")
+                return;
             }
-        };
+
+            // Get the current state to see if a song is already loaded
+            const state = await player.getCurrentState();
+
+            if (!state) {
+                // CASE 1: No song is loaded/playing yet
+                console.log("No track detected. Starting first pick...");
+                showResult("Initializing first mix...");
+                await pickRandomSong(); 
+            } else {
+                // CASE 2: A song exists, so just toggle play/pause
+                player.togglePlay().then(() => {
+                    console.log('Toggled playback');
+                });
+            }
+        }
     }
 
 
@@ -2383,6 +2566,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // document.getElementById('pick').onclick = () => {
     //     alert ("button clicked")
     // }
+
+    document.getElementById('skip-button').onclick = () => {
+        if (player) {
+            player.nextTrack().then(() => {
+                console.log('Skipped to the next track!');
+            }).catch(err => {
+                console.error('Skip failed:', err);
+            });
+        }
+    };
 
     document.getElementById('manual-retry-btn').onclick = () => {
         const uriInput = document.getElementById('manual-uri-input');
