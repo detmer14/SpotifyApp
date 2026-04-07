@@ -61,9 +61,19 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
         <div>
             <select id="mix-selector"></select>
+            <button id="delete-mix-btn" onclick="deleteCurrentMix()" style="background: #e91429; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer;">
+                🗑️ Delete
+            </button>
             <button id="share-mix-btn" style="background: #191414; color: white; border: 1px solid #1DB954; padding: 5px 10px; border-radius: 20px; cursor: pointer;">
                 🔗 Share Current Mix
             </button>
+            <!-- Import Button -->
+            <button id="import-trigger-btn" style="background: #333; color: white; border: 1px solid #555; padding: 8px 12px; border-radius: 20px; cursor: pointer;">
+                📥 Import Mix JSON
+            </button>
+            
+            <!-- Hidden file input that we'll "click" via JavaScript -->
+            <input type="file" id="import-file-input" accept=".json" style="display: none;">
 
         </div>
 
