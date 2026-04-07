@@ -14,6 +14,7 @@ const queuePlaylistNames = [
 const queuePlaylistsMap = new Map(queuePlaylistNames.map(obj => [obj.id, obj]));
 let lastTrackId
 
+let isDraggingProgress = false
 
 window.onSpotifyWebPlaybackSDKReady = () => {
     console.warn("Spotify SDK is ready to initialize!");
@@ -287,8 +288,9 @@ async function playFromSpecificPlaylist(chosenplaylist) {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: track.name,
-                    artist: track.artists[0].name,
+                    artist: `${track.artists[0].name} ${chosenplaylist.name}`,
                     album: chosenplaylist.name,
+                    chapterTitle: chosenplaylist.name,
                     artwork: [{ src: track.album.images[0].url }]
                 });
 
@@ -450,6 +452,46 @@ function addToHistory(track, playlistName) {
     }
 }
 
+// 2. Drag to Seek
+const progressBar = document.getElementById('progress-bar');
+// 1. Detect when the user starts dragging
+progressBar.oninput = () => {
+    isDraggingProgress = true;
+    // Optional: Update the time label live as you drag
+    document.getElementById('current-time').textContent = formatTime(progressBar.value);
+};
+progressBar.onchange = (e) => {
+    const newPosition = e.target.value;
+    player.seek(newPosition).then(() => {
+        isDraggingProgress = false;
+        console.log(`Seeked to ${newPosition}ms`);
+    });
+};
+
+// 3. Skip 15s Logic
+function seekRelative(offset) {
+    player.getCurrentState().then(state => {
+        if (!state) return;
+        const newPos = Math.max(0, Math.min(state.duration, state.position + offset));
+        player.seek(newPos);
+        console.log(`Manual seek: ${offsetMs > 0 ? '+' : ''}${offsetMs/1000}s`);
+    });
+}
+
+// 4. Volume Control
+const volumeBar = document.getElementById('volume-bar');
+volumeBar.oninput = (e) => {
+    const volume = e.target.value / 100;
+    player.setVolume(volume);
+};
+
+// Helper: Format ms to M:SS
+function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+}
 
 //To securely integrate your app, you should use the Authorization Code Flow with PKCE. This is the modern standard for client-side apps that cannot hide a "Client Secret".
 // --- AUTHENTICATION CONFIG ---
@@ -1307,8 +1349,9 @@ async function pickRandomSong(attempt = 0) {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: track.name,
-                    artist: track.artists[0].name,
+                    artist: `${track.artists[0].name} ${chosenplaylist.name}`,
                     album: chosenplaylist.name,
+                    chapterTitle: chosenplaylist.name,
                     artwork: [{ src: track.album.images[0].url }]
                 });
 
@@ -2670,19 +2713,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                     // --- ADD TO HISTORY ---
                     addToHistory(current_track, queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name);
 
-            // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
-            // Add this whenever a song starts:
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: current_track.name,
-                    artist: current_track.artists[0].name,
-                    album: queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name,
-                    artwork: [{ src: current_track.album.images[0].url }]
-                });
+                    // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
+                    // Add this whenever a song starts:
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: current_track.name,
+                            artist: `${current_track.artists[0].name} ${queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name}`,
+                            album: queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name,
+                            chapterTitle: queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name,
+                            artwork: [{ src: current_track.album.images[0].url }]
+                        });
 
-                // Update the playback state so the play/pause button looks right
-                navigator.mediaSession.playbackState = "playing";
-            }
+                        // Update the playback state so the play/pause button looks right
+                        navigator.mediaSession.playbackState = "playing";
+                    }
 
 
                     // Force a small interaction signal
@@ -2730,6 +2774,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         
                     //pickRandomSong(); 
                 }
+
+                // Update Metadata
+                document.getElementById('track-name').textContent = current_track.name;
+                document.getElementById('playlist-name').textContent = queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name;
+                document.getElementById('track-artist').textContent = current_track.artists[0].name;
+                document.getElementById('album-art').src = current_track.album.images[0].url;
+                document.getElementById('play-pause-btn').textContent = paused ? "▶" : "⏸";
+
+                // Update Progress Bar (if not dragging)
+                if (!isDraggingProgress) {
+                    const progressBar = document.getElementById('progress-bar');
+                    progressBar.max = duration;
+                    progressBar.value = position;
+                    document.getElementById('current-time').textContent = formatTime(position);
+                    document.getElementById('duration-time').textContent = formatTime(duration);
+                }
+
             });
 
             console.warn("Powering on...");
@@ -2957,7 +3018,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (list.style.maxHeight === "200px" || list.style.maxHeight === "") {
             // EXPAND
             //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
-            list.style.maxHeight = "1500px"; // Set to a height larger than your list
+            list.style.maxHeight = "2000px"; // Set to a height larger than your list
             list.style.overflowY = "visible";
             btn.textContent = "▲ Show Less";
         } else {
