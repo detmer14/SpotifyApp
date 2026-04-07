@@ -113,6 +113,13 @@ async function playTrack(trackUri, isRetry = false) {
             }),
         });
 
+        if(!response.ok){
+            console.error("Error: playTrack - safeSpotifyFetch blocked")
+            const errorBody = await response.json;
+            console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
+            //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
+
         if (response.status === 404) {
             console.warn("Device ID not found. Attempting to refresh device list...");
             showResult("Re-syncing with Spotify...");
@@ -234,6 +241,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
+    refreshPlaylistCount(chosenplaylist.id, index);
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
     
     if (track === "NETWORK_ERROR"){
@@ -264,7 +272,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
-        queuePlaylistsMap.set(track.id, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(track.external_ids?.isrc, { name: chosenplaylist.name });
 
         // If the song that just started is the one at the top of our queue, remove it
         if (internalQueue.length > 0 && internalQueue[0].id === lastTrackId) {
@@ -272,7 +280,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
             renderQueue();
         }
 
-        lastTrackId = track.id
+        lastTrackId = track.external_ids?.isrc
         playTrack(track.uri, false); //retry false
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
@@ -328,6 +336,7 @@ async function prepareNextQueueItem(attempt = 0) {
         console.log(`--------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`)
         
         const token = await getStoredToken('access_token');
+        refreshPlaylistCount(chosenplaylist.id, randomIndex);
         const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
 
 
@@ -338,13 +347,13 @@ async function prepareNextQueueItem(attempt = 0) {
     
     // 4. RATE LIMIT CHECK: Stop if safeSpotifyFetch triggered a 429
     if (nextTrack === "RATE_LIMIT_HIT") {
-        console.log("pickRandomSong: RATE_LIMIT_HIT, stopping loop");
+        console.warn("pickRandomSong: RATE_LIMIT_HIT, stopping loop");
         return;
     }
 
     if (nextTrack === null) {
         if (isSoftLocked) {
-            console.log("pickRandomSong: Mixer is soft-locked. Waiting for recovery...");
+            console.warn("pickRandomSong: Mixer is soft-locked. Waiting for recovery...");
             return; // Don't even attempt a retry loop
         }
         // ... normal restricted track retry logic ...
@@ -355,13 +364,13 @@ async function prepareNextQueueItem(attempt = 0) {
 
     if (nextTrack && nextTrack.uri) {
         console.log(`Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`);
-        queuePlaylistsMap.set(nextTrack.id, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(nextTrack.external_ids?.isrc, { name: chosenplaylist.name });
         await addToQueue(nextTrack.uri);
         incrementPlaylistCount(chosenplaylist.id)
 
         // 2. Add to our visual internal queue
         internalQueue.push({
-            id: nextTrack.id,
+            id: nextTrack.external_ids?.isrc,
             name: nextTrack.name,
             artist: nextTrack.artists[0].name,
             playlist: chosenplaylist.name
@@ -387,7 +396,13 @@ async function addToQueue(trackUri) {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
+        if(!response.ok){
+            console.error("Error: addToQueue - safeSpotifyFetch blocked")
+            const errorBody = await response.json();
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
+
         if (response && response.status === 202) {
             console.log("Successfully added next song to Spotify Queue.");
         }
@@ -509,6 +524,13 @@ async function getToken(code) {
     };
 
     const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
+
+    if(!response.ok){
+        console.error("Error: getToken - safeSpotifyFetch blocked")
+        const errorBody = await response.json();
+        console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
+        //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+    }
     const data = await response.json();
 
         if (response.ok) {
@@ -585,6 +607,12 @@ async function refreshAccessToken() {
         const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
         const data = await response.json();
 
+        if(!response.ok){
+            console.error("Error: refreshAccessToken - safeSpotifyFetch blocked")
+            const errorBody = data;
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
+
         if (data.access_token) {
             localStorage.setItem('access_token', data.access_token);
             
@@ -628,7 +656,7 @@ async function resumeOnThisDevice() {
         
         // 2. Tell Spotify to move the active session to this device_id
         const token = localStorage.getItem('access_token');
-        await safeSpotifyFetch(`https://api.spotify.com/v1/me/player`, {
+        const res = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player`, {
             method: 'PUT',
             body: JSON.stringify({ device_ids: [device_id], play: true }),
             headers: {
@@ -637,6 +665,11 @@ async function resumeOnThisDevice() {
             }
         });
 
+        if(!res.ok){
+            console.error("Error: resumeOnThisDevice - safeSpotifyFetch blocked")
+            const errorBody = await response.json();
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
         // The SDK will try to reconnect itself, but we can nudge it:
         player.connect().then(success => {
             if (success) {
@@ -664,6 +697,12 @@ async function getCurrentUserId() {
     const response = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
         headers: { 'Authorization': `Bearer ${token}` }
     });
+
+    if(!response.ok){
+        console.error("Error: getCurrentUserId - safeSpotifyFetch blocked")
+        const errorBody = await response.json();
+        throw new Error(errorBody.error.message || "Forbidden or Not Found");
+    }
     const data = await response.json();
     localStorage.setItem('spotify_user_id', data.id);
     return data.id;
@@ -692,12 +731,25 @@ async function safeSpotifyFetch(url, options) {
     }
 
     const res = await fetch(url, options);
+    if(!res.ok){
+        console.error("Error: safeSpotifyFetch - safeSpotifyFetch blocked")
+        const errorBody = await res.json();;
+        console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
+        //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+    }
     
     if (res.status === 429) {
         rateLimitStrikes++;
         // Soft Lock Logic
         isSoftLocked = true;
-        const retryAfter = res.headers.get("Retry-After") || 5;
+
+        // The primary reason response.headers.get("Retry-After") fails in a browser context is that Spotify's API does not currently include Access-Control-Expose-Headers: Retry-After in its response. 
+        let retryAfter = res.headers.get("Retry-After") || 5;
+        
+        // Calculate delay: 2^attempt * 1000ms (1s, 2s, 4s, 8s...)
+        // Add 'jitter' (randomness) to prevent synchronized retries
+        retryAfter = (Math.pow(2, attempt) + Math.random()) * 10; // 10s, 20s, 40s, 80s
+
         showResult(`Rate limited. Waiting ${retryAfter}s...`);
         console.warn(`Rate limited. Waiting ${retryAfter}s...`);
         showResult(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
@@ -706,8 +758,11 @@ async function safeSpotifyFetch(url, options) {
         
         if (rateLimitStrikes >= MAX_STRIKES) {
             showResult("CRITICAL: Repeated rate limits. Hard-resetting mixer.");
+            console.warn("CRITICAL: Repeated rate limits. Hard-resetting mixer.");
             emergencyStop(); // Kill everything
             rateLimitStrikes = 0; // Reset for next Power On
+            isSoftLocked = false;
+            console.log("Soft Lock lifted.");
             return null;
         }
 
@@ -719,7 +774,7 @@ async function safeSpotifyFetch(url, options) {
             console.log("Soft Lock lifted.");
             // If we go 2 minutes without another 429, clear a strike
             setTimeout(() => { if(rateLimitStrikes > 0) rateLimitStrikes--; }, 120000);
-        }, wait * 1000);
+        }, retryAfter * 1000);
 
         return null;
     }
@@ -853,7 +908,7 @@ function setSelectionMode(mode){
     }
         playlists.forEach((p, index) => {
             setTimeout(() => {
-                refreshPlaylistCount(p.id, index);
+        //        refreshPlaylistCount(p.id, index);
             }, 2000 * index);
         })
     saveAppState()
@@ -1206,6 +1261,7 @@ async function pickRandomSong(attempt = 0) {
 
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
+    refreshPlaylistCount(chosenplaylist.id, index);
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
     
     if (track === "NETWORK_ERROR"){
@@ -1236,7 +1292,7 @@ async function pickRandomSong(attempt = 0) {
 
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
-        queuePlaylistsMap.set(track.id, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(track.external_ids?.isrc, { name: chosenplaylist.name });
 
         // If the song that just started is the one at the top of our queue, remove it
         if (internalQueue.length > 0 && internalQueue[0].id === lastTrackId) {
@@ -1244,7 +1300,7 @@ async function pickRandomSong(attempt = 0) {
             renderQueue();
         }
 
-        lastTrackId = track.id
+        lastTrackId = track.external_ids?.isrc
         playTrack(track.uri, false); //retry false
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
@@ -1359,9 +1415,13 @@ async function getTrackAtIndex(token, playlistId, index){
             return "RATE_LIMIT_HIT"; 
         }
 
-        if (!res.ok) return null;
-
+        if(!res.ok){
+            console.error("Error: getTrackAtIndex - safeSpotifyFetch blocked")
+            const errorBody = await res.json();
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
         const data = await res.json()
+
 //console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
         // 2026 Debug: Log the full structure if it's still empty
         if (!data.items || data.items.length === 0) {
@@ -1589,9 +1649,9 @@ function renderPlaylists() {
         div.appendChild(refreshBtn);
 
         const playBtn = document.createElement("play-now-btn");
-        refreshBtn.textContent = "▶";
-        refreshBtn.onclick = () => playFromSpecificPlaylist(playlist);
-        div.appendChild(refreshBtn);
+        playBtn.textContent = "▶";
+        playBtn.onclick = () => playFromSpecificPlaylist(playlist);
+        div.appendChild(playBtn);
 
 
         container.appendChild(div)
@@ -1747,24 +1807,101 @@ document.getElementById('add-playlist').oncancel = () => {
     //countInput.value = ''
 }
 
+function deleteCurrentMix() {
+    const mixName = mixes[activeMixId].name;
+    
+    // 1. Safety Confirmation (Always a good idea for destructive actions)
+    if (!confirm(`Are you sure you want to permanently delete the mix "${mixName}"?`)) {
+        return;
+    }
+
+    // 2. Remove the mix from your memory object
+    delete mixes[activeMixId];
+
+    // 3. Find a new mix to switch to
+    const remainingIds = Object.keys(mixes);
+    if (remainingIds.length > 0) {
+        activeMixId = remainingIds[0];
+    } else {
+        // If all are gone, create a fresh default mix
+        createDefaultMix(); 
+    }
+
+    // 4. Commit changes to localStorage and refresh UI
+    saveAppState();
+    renderMixSelector(); // Update the dropdown list
+    renderPlaylists();    // Update the playlist view for the new active mix
+    
+    showResult(`Deleted mix: ${mixName}`);
+    console.log(`Deleted mix: ${mixName}`);
+}
+
 function generateShareLink() {
     if (!activeMixId || !mixes[activeMixId]) return alert("Select a mix first!");
 
     const mixData = mixes[activeMixId];
     // We stringify the mix and encode it so it's safe for a URL
     const jsonString = JSON.stringify(mixData);
-    const base64Data = btoa(unescape(encodeURIComponent(jsonString))); 
+    //const base64Data = btoa(unescape(encodeURIComponent(jsonString))); 
     
-    const shareUrl = `${window.location.origin}/?import_mix=${base64Data}`;
+    //const shareUrl = `${window.location.origin}/?import_mix=${base64Data}`;
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl).then(() => {
-        showResult("Share link copied to clipboard!");
-        alert("Share link copied! Send this URL to a friend.");
+    // // Copy to clipboard
+    // navigator.clipboard.writeText(shareUrl).then(() => {
+    //     showResult("Share link copied to clipboard!");
+    //     alert("Share link copied! Send this URL to a friend.");
+    // }).catch(err => {
+    //     console.error("Link copy failed:", err);
+    //     alert("Copy failed. Here is your link: " + shareUrl);
+    // });
+    // Copy to clipboard or show in a prompt
+    navigator.clipboard.writeText(jsonString).then(() => {
+        showResult("Mix Code copied! Paste this on your other device.");
+        alert("Mix Code copied! Paste this on your other device.");
     }).catch(err => {
-        console.error("Link copy failed:", err);
-        alert("Copy failed. Here is your link: " + shareUrl);
+        console.error("Mix copy failed:", err);
+        alert("Mix Copy failed.");
     });
+}
+
+async function importMix() {
+    try {
+        // Request text from the system clipboard
+        const text = await navigator.clipboard.readText();
+        if (!text) {
+            showResult("📋 Clipboard is empty.");
+            alert("📋 Clipboard is empty.");
+            return;
+        }
+        // Decode from Base64
+        const sharedMix = JSON.parse(text);
+        
+        // Give it a unique ID so it doesn't overwrite existing mixes
+        const newId = "shared_" + Date.now();
+        
+        loadAppState()
+        // Add to your global mixes object
+        if (!mixes) mixes = {}; 
+        mixes[newId] = sharedMix;
+        activeMixId = newId;
+
+        playlists = structuredClone(mixes[activeMixId].playlists)
+            // CRITICAL: Save to storage immediately so loadAppState() doesn't overwrite it
+            //localStorage.setItem('mixes', JSON.stringify(mixes)); 
+            //localStorage.setItem('activeMixId', newId);
+            // CRITICAL: Save to storage immediately so loadAppState() doesn't overwrite it
+            // Save and clean the URL
+            saveAppState();
+            renderMixSelector();
+        alert("Mix imported successfully! Refreshing...");
+        showResult(`Imported Mix: ${sharedMix.name}`);
+        console.log(`Imported Mix: ${sharedMix.name}`);
+        //window.location.reload();
+    } catch (e) {
+            console.error("Failed to import shared mix:", e);
+            showResult("Error: Invalid share link.");
+        alert("Invalid Mix Code. Please try again.");
+    }
 }
 
 async function fetchUserPlaylists() {
@@ -1857,11 +1994,13 @@ async function getSpotifyPlaylistData(playlistId) {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            const errorBody = await response.json();
+        if(!response.ok){
+            console.error("Error: getSpotifyPlaylistData - safeSpotifyFetch blocked")
+            const errorBody = response.json();
             throw new Error(errorBody.error.message || "Forbidden or Not Found");
         }
         const data = await response.json();
+
         let namedata
 
         console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
@@ -1966,6 +2105,12 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
         const response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+
+        if(!response.ok){
+            console.error("Error: refreshPlaylistCount - safeSpotifyFetch blocked")
+            const errorBody = await response.json();;
+            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
         const data = await response.json();
         
         if (data.total !== undefined) {
@@ -2434,9 +2579,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 // 1. Check if the song has actually changed to a new ID
-                if (current_track.id !== currentTrackId) {
+                if (current_track.external_ids?.isrc !== currentTrackId) {
                     console.log("New track detected:", current_track.name);
-                    currentTrackId = current_track.id;
+                    currentTrackId = current_track.external_ids?.isrc;
                     lastPickTime = Date.now() //reset timer for new song
                     //return; //exit: we just started a song, don't pick a new one!
                     // Update your 'Now Playing' UI here if needed
@@ -2499,7 +2644,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }   
                 
                 // --- THE FIX: Detect a new song has started ---
-                if (current_track.id !== lastTrackId) {
+                if (current_track.external_ids?.isrc !== lastTrackId) {
 
                     // If the song that just started is the one at the top of our queue, remove it
                     if (internalQueue.length > 0) {
@@ -2515,15 +2660,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                     }
                     
                     console.log("New song detected:", current_track.name);
-                    lastTrackId = current_track.id;
+                    lastTrackId = current_track.external_ids?.isrc;
                     
                     // Update UI (Now Playing, etc.)
                     //updateUI(currentTrack);
                     console.log("Playing:", current_track.name);
-                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(current_track.id)?.name}`);
+                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name}`);
                     
                     // --- ADD TO HISTORY ---
-                    addToHistory(current_track, queuePlaylistsMap.get(current_track.id)?.name);
+                    addToHistory(current_track, queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name);
 
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
@@ -2531,7 +2676,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: current_track.name,
                     artist: current_track.artists[0].name,
-                    album: queuePlaylistsMap.get(current_track.id)?.name,
+                    album: queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name,
                     artwork: [{ src: current_track.album.images[0].url }]
                 });
 
@@ -2771,7 +2916,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         playlists.forEach((playlist, index) => {
             setTimeout(() => {
-                refreshPlaylistCount(playlist.id, index);
+        //        refreshPlaylistCount(playlist.id, index);
             }, 2000 * index);
          })
         
@@ -2796,7 +2941,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log(`All playlists ${isChecked ? 'enabled' : 'disabled'}`);
     });
 
-    document.getElementById('share-mix-btn').onclick = generateShareLink;
+    const importBtn = document.getElementById('import-trigger-btn');
+    //const fileInput = document.getElementById('import-file-input');
+
+    document.getElementById('share-mix-btn').onclick = generateShareLink; // don't add () to this function or it assigns this to the button listener and will trigger at the beginning.
+    // When you click the pretty button, it "clicks" the hidden file input
+    importBtn.onclick = () => importMix();
+    // When the user actually picks a file, run the import logic
+    //fileInput.onchange = (event) => importMix(event);
 
     document.getElementById('toggle-list-btn').onclick = function() {
         const list = document.getElementById('playlist-list');
