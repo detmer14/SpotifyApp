@@ -219,6 +219,7 @@ async function playTrack(trackUri, isRetry = false) {
 }
 
 async function playFromSpecificPlaylist(chosenplaylist) {
+    const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
     const index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
         showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
@@ -242,7 +243,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
-    refreshPlaylistCount(chosenplaylist.id, index);
+    refreshPlaylistCount(chosenplaylist.id, playlistIndex);
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
     
     if (track === "NETWORK_ERROR"){
@@ -322,6 +323,7 @@ async function prepareNextQueueItem(attempt = 0) {
             console.warn("No playlist selected for auto-pick.");
             return; // Don't alert here, just stop
         }
+        const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
         const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
 
@@ -338,7 +340,7 @@ async function prepareNextQueueItem(attempt = 0) {
         console.log(`--------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`)
         
         const token = await getStoredToken('access_token');
-        refreshPlaylistCount(chosenplaylist.id, randomIndex);
+        refreshPlaylistCount(chosenplaylist.id, playlistIndex);
         const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
 
 
@@ -1281,6 +1283,8 @@ async function pickRandomSong(attempt = 0) {
         console.warn("No playlist selected for auto-pick.");
         return; // Don't alert here, just stop
     }
+    const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
+
     index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
         showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
         console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
@@ -1303,7 +1307,7 @@ async function pickRandomSong(attempt = 0) {
 
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
-    refreshPlaylistCount(chosenplaylist.id, index);
+    refreshPlaylistCount(chosenplaylist.id, playlistIndex);
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
     
     if (track === "NETWORK_ERROR"){
@@ -1691,7 +1695,7 @@ function renderPlaylists() {
         refreshBtn.onclick = () => refreshPlaylistCount(playlist.id, index);
         div.appendChild(refreshBtn);
 
-        const playBtn = document.createElement("play-now-btn");
+        const playBtn = document.createElement("button");
         playBtn.textContent = "▶";
         playBtn.onclick = () => playFromSpecificPlaylist(playlist);
         div.appendChild(playBtn);
@@ -2686,6 +2690,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     //pickRandomSong();                     
                 }   
                 
+                console.warn(`${current_track.external_ids?.isrc}`)
+                //console.warn(`${current_track.external_ids?.isrc} ${lastTrackId}`)
                 // --- THE FIX: Detect a new song has started ---
                 if (current_track.external_ids?.isrc !== lastTrackId) {
 
