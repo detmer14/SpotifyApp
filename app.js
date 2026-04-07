@@ -210,6 +210,92 @@ async function playTrack(trackUri, isRetry = false) {
     }
 }
 
+async function playFromSpecificPlaylist(chosenplaylist) {
+
+    const index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
+        showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
+
+    if (MOCK_MODE) {
+        showResult(`--------------- Playlist ${chosenplaylist.name}, song #${index + 1}`)
+        return
+    }
+
+    // --- NEW: SPOTIFY ID VALIDATION ---
+    // If the ID is just a name like "A" or "MyMix", we only do "Mock" mode
+    const isSpotifyId = /^[a-zA-Z0-9]{22}$/.test(chosenplaylist.id);
+
+    if (!isSpotifyId) {
+        const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
+        showResult(`[MOCK MODE] Playlist: ${chosenplaylist.name}, Track #${randomIndex + 1}`);
+        console.log(`Bypassing Spotify API for non-Spotify Playlist: ${chosenplaylist.id}`);
+        return; // STOP HERE: Do not call getTrackAtIndex or playTrack
+    }
+
+    // real Spotify playback...
+    const token = localStorage.getItem('access_token');
+    const track = await getTrackAtIndex(token, chosenplaylist.id, index)
+    
+    if (track === "NETWORK_ERROR"){
+        console.log("pickRandomSong: NETWORK_ERROR, stopping loop")
+        return; // Stop the loop immediately!
+    }
+    
+    // 4. RATE LIMIT CHECK: Stop if safeSpotifyFetch triggered a 429
+    if (track === "RATE_LIMIT_HIT") {
+        console.log("pickRandomSong: RATE_LIMIT_HIT, stopping loop");
+        return;
+    }
+
+    if (track === null) {
+        if (isSoftLocked) {
+            console.log("pickRandomSong: Mixer is soft-locked. Waiting for recovery...");
+            return; // Don't even attempt a retry loop
+        }
+        // ... normal restricted track retry logic ...
+    }
+
+    // Safety check: only call playTrack if we actually got a track back
+    if (track && track.uri) {
+        console.log("Playing:", track.name);
+        showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
+        
+        incrementPlaylistCount(chosenplaylist.id)
+
+        // --- ADD TO HISTORY ---
+        addToHistory(track, chosenplaylist.name);
+        queuePlaylistsMap.set(track.id, { name: chosenplaylist.name });
+
+        // If the song that just started is the one at the top of our queue, remove it
+        if (internalQueue.length > 0 && internalQueue[0].id === lastTrackId) {
+            internalQueue.shift(); 
+            renderQueue();
+        }
+
+        lastTrackId = track.id
+        playTrack(track.uri, false); //retry false
+            // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
+            // Add this whenever a song starts:
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: track.name,
+                    artist: track.artists[0].name,
+                    album: chosenplaylist.name,
+                    artwork: [{ src: track.album.images[0].url }]
+                });
+
+                // Update the playback state so the play/pause button looks right
+                navigator.mediaSession.playbackState = "playing";
+            }
+    } else {
+        console.log("Could not fetch that specific track. Try again!");
+        // If track was null (failed safety checks), try again!
+        console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
+        safeTimeout(() => pickRandomSong(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
+    }
+
+}
+
 async function prepareNextQueueItem(attempt = 0) {
 
     // Safety: Don't get stuck in an infinite loop if a playlist is 100% unplayable
@@ -765,7 +851,11 @@ function setSelectionMode(mode){
     if(mode === "percentage"){
         normalizePercentagesAfterToggle()
     }
-
+        playlists.forEach((p, index) => {
+            setTimeout(() => {
+                refreshPlaylistCount(p.id, index);
+            }, 2000 * index);
+        })
     saveAppState()
     renderPlaylists()
 }
@@ -1498,6 +1588,11 @@ function renderPlaylists() {
         refreshBtn.onclick = () => refreshPlaylistCount(playlist.id, index);
         div.appendChild(refreshBtn);
 
+        const playBtn = document.createElement("play-now-btn");
+        refreshBtn.textContent = "▶";
+        refreshBtn.onclick = () => playFromSpecificPlaylist(playlist);
+        div.appendChild(refreshBtn);
+
 
         container.appendChild(div)
     })
@@ -1754,11 +1849,11 @@ async function getSpotifyPlaylistData(playlistId) {
     //const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,tracks.total`;
     //const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,total`;
     //const url = `https://api.spotify.com/v1/playlists/${playlistId}`;
-    const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,owner.id,tracks.total`;
+    let url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,owner.id,tracks.total`;
 
     try {
         showResult(`await fetch(${url}` )
-        const response = await safeSpotifyFetch(url, {
+        let response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1767,6 +1862,8 @@ async function getSpotifyPlaylistData(playlistId) {
             throw new Error(errorBody.error.message || "Forbidden or Not Found");
         }
         const data = await response.json();
+        let namedata
+
         console.log("Spotify API Response:", data); // OPEN YOUR CONSOLE (F12) TO SEE THIS
         console.log("Keys available in this object:", Object.keys(data));
         console.log("Full Tracks Object:", data.tracks); // Check if this is an object or a number
@@ -1777,6 +1874,21 @@ async function getSpotifyPlaylistData(playlistId) {
         // CHECK OWNERSHIP
         const isOwner = data.owner.id === currentUserId;
 
+        // Use the /items endpoint we fixed earlier to get the real count
+        url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
+
+        try {
+            response = await safeSpotifyFetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            namedata = await response.json();
+            
+            if (namedata.total !== undefined) {
+                showResult(`Updated ${data.name} to ${namedata.total} songs.`);
+            }
+        } catch (err) {
+            console.error("Refresh failed:", err);
+        }
 
         // We also need the playlist NAME, so we do one more quick fetch 
         // or just use the ID as a placeholder if name isn't critical yet.
@@ -1805,7 +1917,7 @@ async function getSpotifyPlaylistData(playlistId) {
             name: data.name || "Spotify Playlist",
             //trackCount: data.total || 0, // 'total' is a top-level field in the /tracks endpoint
             // This 'total' field is usually available even for unowned playlists
-            trackCount: data.tracks?.total || data.total_tracks || 0,
+            trackCount: namedata?.total || namedata.total_tracks || 0,
             enabled: true,
             sliderValue: 50
         };
@@ -1860,6 +1972,7 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
             playlists[playlistIndex].trackCount = data.total;
             saveAppState();
             renderPlaylists();
+            console.log(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
             showResult(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
         }
     } catch (err) {
@@ -2564,6 +2677,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- INITIALIZE DATA AND UI HERE ---
     loadAppState();
+
+            
     setSelectionMode(selectionMode); 
     
     if(!activeMixId){
@@ -2644,19 +2759,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderMixSelector()
     }
 
-    document.getElementById("mix-selector").onchange = e => {
+    document.getElementById("mix-selector").onchange = async(e) => {
         activeMixId = e.target.value
         const selectedMix = mixes[activeMixId];
 
         playlists = structuredClone(mixes[activeMixId].playlists)
-        selectionMode = selectedMix.selectionMode || "normal" //restore the mode
+        selectionMode = selectedMix.selectionMode || "balanced" //restore the mode
 
         //update the radio buttons to match
         document.querySelector(`input[name="selectionMode"][value="${selectionMode}"]`).checked = true;
 
+        playlists.forEach((playlist, index) => {
+            setTimeout(() => {
+                refreshPlaylistCount(playlist.id, index);
+            }, 2000 * index);
+         })
+        
         renderPlaylists()
         saveAppState()
     }
+
+    document.getElementById('master-playlist-toggle').addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        
+        // 1. Update the 'enabled' state for EVERY playlist in your array
+        playlists.forEach(playlist => {
+            playlist.enabled = isChecked;
+        });
+
+        // 2. Re-render the list so the individual checkboxes reflect the change
+        renderPlaylists();
+
+        // 3. Save to localStorage so it persists
+        saveAppState();
+        
+        console.log(`All playlists ${isChecked ? 'enabled' : 'disabled'}`);
+    });
 
     document.getElementById('share-mix-btn').onclick = generateShareLink;
 
