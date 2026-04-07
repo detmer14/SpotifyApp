@@ -3,6 +3,7 @@
 let player;
 let device_id;
 let isRefreshing = false;
+let userInitiatedPause = false;
 let lastPickTime = 0;
 let internalQueue = []; // Array of {id, name, artist, playlistName}
 let queuePlaylistName = ""
@@ -354,6 +355,7 @@ function addToHistory(track, playlistName) {
 //const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
 const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
 //const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
+//const redirectUri = 'http://192.168.1.141:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'netlifylocation';
 const redirectUri = window.location.origin + '/'; 
@@ -532,6 +534,7 @@ async function refreshAccessToken() {
 
 async function resumeOnThisDevice() {
     console.warn("Attempting to reclaim playback session...");
+    showResumeOverlay(false);
     
     try {
         // 1. Re-prime the browser's audio (Required for mobile)
@@ -547,8 +550,15 @@ async function resumeOnThisDevice() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
-        showResumeOverlay(false);
+
+        // The SDK will try to reconnect itself, but we can nudge it:
+        player.connect().then(success => {
+            if (success) {
+                console.warn("Connection request sent to Spotify!");
+            } else {
+                console.error("Connection failed. Check your Premium status.");
+            }
+        });
         showResult("Mixer resumed on this phone.");
         console.warn("Mixer resumed on this phone.");
     } catch (err) {
@@ -1325,11 +1335,11 @@ async function getTrackAtIndex(token, playlistId, index){
     }
 }
 
-function getRainbowColor(count, maxCount) {
-    if (maxCount === 0 || count === 0) return '#888'; // Grey for unplayed
-    
+function getRainbowColor(count, minCount, maxCount) {
+ 
     // Scale 0 to maxCount onto 0 to 280 (Red to Purple)
-    const hue = (count / maxCount) * 280;
+    //alert(`${minCount}`)
+    let hue = (((count - minCount) / (maxCount - minCount)) * 280);
     return `hsl(${hue}, 90%, 70%)`;
 }
 
@@ -1347,6 +1357,7 @@ function renderPlaylists() {
 
 
     const maxCount = Math.max(...playlists.map(p => p.pickCount || 0), 1);
+    const minCount = Math.min(...playlists.map(p => p.pickCount || 0), 1);
   
     playlists.forEach((playlist, index) => {
 
@@ -1366,7 +1377,7 @@ function renderPlaylists() {
         div.style.borderBottom = "1px solid #282828";
         div.style.cursor = "grab";
 
-        const color = getRainbowColor(playlist.pickCount , maxCount);
+        const color = getRainbowColor(playlist.pickCount , minCount, maxCount);
 
 
         div.innerHTML = `
@@ -2187,14 +2198,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             player.addListener('not_ready', ({ device_id }) => {
                 console.warn("Device has gone offline:", device_id);
                 showResult("Connection lost. Trying to reconnect...");
-                // The SDK will try to reconnect itself, but we can nudge it:
-                player.connect().then(success => {
-                    if (success) {
-                        console.warn("Connection request sent to Spotify!");
-                    } else {
-                        console.error("Connection failed. Check your Premium status.");
-                    }
-                });
+                // // The SDK will try to reconnect itself, but we can nudge it:
+                // player.connect().then(success => {
+                //     if (success) {
+                //         console.warn("Connection request sent to Spotify!");
+                //     } else {
+                //         console.error("Connection failed. Check your Premium status.");
+                //     }
+                // });
+
+                resumeOnThisDevice();
             });
 
             player.addListener('autoplay_failed', () => {
@@ -2266,7 +2279,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 } = state;
 
                 // Check if another device (like the Spotify App) took over
-                if (state.playback_id === "" && !state.is_paused) {
+                //if (state.playback_id === "" && !state.is_paused) {
+                if (state.playback_id === "" && !state.paused) {
                     // This usually means the 'Session' moved elsewhere
                     console.warn("Playback hijacked by another device.");
                     showResumeOverlay(true);
@@ -2281,10 +2295,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const playPauseBtn = document.getElementById('play-pause');
                 if (playPauseBtn) {
                     if (state.paused) {
+                        if (!userInitiatedPause) {
+                            console.warn("Ghost pause detected! Forcing resume...");
+                            setTimeout(() => {
+                                player.resume();
+                            }, 1000);
+                        }
                         // If music is paused, show "Play" button (Green)
                         playPauseBtn.textContent = "▶ Play";
                         playPauseBtn.style.background = "#1DB954"; // Spotify Green
                     } else {
+                        // Reset the flag whenever the music is actually playing
+                        userInitiatedPause = false;
                         // If music is playing, show "Pause" button (Orange/Red)
                         playPauseBtn.textContent = "⏸ Pause";
                         playPauseBtn.style.background = "#FF5722"; // Deep Orange
@@ -2433,12 +2455,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-
-
-
-
-
-
                     // REFILL THE QUEUE: Now that we are on Song 2, queue up Song 3
                     // We wait 5 seconds to make sure the transition is stable
                     setTimeout(() => {
@@ -2505,6 +2521,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // When the user hits "Pause"
                 navigator.mediaSession.setActionHandler('pause', () => {
+                    userInitiatedPause = true;
                     if (player) player.pause();
                     navigator.mediaSession.playbackState = "paused";
                 });
@@ -2535,6 +2552,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showResult("Initializing first mix...");
                 await pickRandomSong(); 
             } else {
+                userInitiatedPause = true; 
                 // CASE 2: A song exists, so just toggle play/pause
                 player.togglePlay().then(() => {
                     console.log('Toggled playback');
@@ -2649,7 +2667,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (list.style.maxHeight === "200px" || list.style.maxHeight === "") {
             // EXPAND
             //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
-            list.style.maxHeight = "1000px"; // Set to a height larger than your list
+            list.style.maxHeight = "1500px"; // Set to a height larger than your list
             list.style.overflowY = "visible";
             btn.textContent = "▲ Show Less";
         } else {
