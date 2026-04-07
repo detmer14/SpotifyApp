@@ -112,7 +112,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         </div> -->
         <div id="playlist-container" style="background: #ddf1fd; padding: 10px; border-radius: 8px;">
             <!-- Your existing list -->
-            <div id="playlist-list" style="font-size: 0.9em; max-height: 800px; overflow-y: auto; transition: max-height 0.3s ease;">
+            <div id="playlist-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto; transition: max-height 0.3s ease;">
                 <!-- Playlists go here -->
             </div>
             
@@ -124,6 +124,64 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
     </section>
 
+    <div id="now-playing-container" style="background: #181818; padding: 20px; border-radius: 12px; margin-top: 20px; text-align: center;">
+        <!-- Album Art -->
+        <img id="album-art" src="" style="width: 200px; height: 200px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 15px;">
+        
+        <!-- Track Info -->
+        <div style="margin-bottom: 20px;">
+            <div id="track-name" style="font-weight: bold; font-size: 1.2em; color: white;">No Song Playing</div>
+            <div id="track-artist" style="color: #b3b3b3; font-size: 0.9em;">---</div>
+            <div id="playlist-name" style="font-weight: bold; font-size: 1.2em; color: white;">No Playlist</div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <span id="current-time" style="font-size: 0.8em; color: #b3b3b3; width: 40px;">0:00</span>
+            <input type="range" id="progress-bar" min="0" max="100" value="0" style="flex-grow: 1; cursor: pointer;">
+            <span id="duration-time" style="font-size: 0.8em; color: #b3b3b3; width: 40px;">0:00</span>
+        </div>
+
+        <!-- Main Controls
+        <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 20px;">
+            <button onclick="seekRelative(-15000)" style="background:none; border:none; color:white; font-size:1.5em; cursor:pointer;">↺ 15s</button>
+            <button id="play-pause-btn" onclick="togglePlay()" style="background:#1DB954; color:white; border:none; width:50px; height:50px; border-radius:50%; font-size:1.2em; cursor:pointer;">▶</button>
+            <button onclick="player.nextTrack()" style="background:none; border:none; color:white; font-size:1.5em; cursor:pointer;">↻</button>
+            <button onclick="seekRelative(15000)" style="background:none; border:none; color:white; font-size:1.5em; cursor:pointer;">15s ⏩</button>
+        </div> -->
+        <!-- Main Controls Container -->
+        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px;">
+            
+            <!-- Seek Back 15s -->
+            <button class="circular-control-btn" onclick="seekRelative(-15000)" title="Back 15s">
+                <span style="font-size: 1.2em; position: relative; top: -1px;">↺</span>
+                <span style="font-size: 0.6em; position: absolute; top: 18px;">15</span>
+            </button>
+
+            <!-- Play/Pause (Circular Green) -->
+            <button id="play-pause-btn" class="circular-control-btn" onclick="player.togglePlay()" title="Play/Pause">
+                ▶
+            </button>
+
+            <!-- Next Song -->
+            <button class="circular-control-btn" onclick="player.nextTrack()" title="Next Song">
+                ⏭
+            </button>
+
+            <!-- Seek Forward 15s -->
+            <button class="circular-control-btn" onclick="seekRelative(15000)" title="Forward 15s">
+                <span style="font-size: 1.2em; position: relative; top: -1px;">↻</span>
+                <span style="font-size: 0.6em; position: absolute; top: 18px;">15</span>
+            </button>
+        </div>
+        <!-- Volume Control -->
+        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+            <span style="color:#b3b3b3;">🔈</span>
+            <input type="range" id="volume-bar" min="0" max="100" value="50" style="width: 100px; cursor: pointer;">
+            <span style="color:#b3b3b3;">🔊</span>
+        </div>
+    </div>
+    
     <section>
         <h1> </h1>
         <button id="pick">Pick Random Song</button>
