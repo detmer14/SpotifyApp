@@ -270,11 +270,34 @@ async function playFromSpecificPlaylist(chosenplaylist) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
         
+        let currentISRC
+        const url = `https://api.spotify.com/v1/tracks/${track.id}`
+        try {
+            const response = await safeSpotifyFetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                console.error("Error: playFromSpecificPlaylist trackid.isrc - safeSpotifyFetch blocked")
+                const errorData = await response.json();
+                // Handle common 404 or 403 errors for private playlists
+                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
+                // throw new Error(errorData.error.message || "Playlist not found");
+            }
+            const fullTrackData = await response.json();
+            
+            // NOW you have access to the ISRC!
+            currentISRC = fullTrackData.external_ids?.isrc;
+            console.log("Verified ISRC:", currentISRC);
+
+        } catch (err) {
+            console.error("Failed to fetch ISRC:", err);
+        }
+
         incrementPlaylistCount(chosenplaylist.id)
 
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
-        queuePlaylistsMap.set(track.external_ids?.isrc, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(currentISRC, { name: chosenplaylist.name });
 
         // If the song that just started is the one at the top of our queue, remove it
         if (internalQueue.length > 0 && internalQueue[0].id === lastTrackId) {
@@ -282,7 +305,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
             renderQueue();
         }
 
-        lastTrackId = track.external_ids?.isrc
+        lastTrackId = currentISRC
         playTrack(track.uri, false); //retry false
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
@@ -316,6 +339,7 @@ async function prepareNextQueueItem(attempt = 0) {
         return;
     }
 
+            const token = await getStoredToken('access_token');
 
         // This is basically a "Silent" version of pickRandomSong
         const chosenplaylist = pickPlaylistByMode();
@@ -339,7 +363,6 @@ async function prepareNextQueueItem(attempt = 0) {
 
         console.log(`--------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`)
         
-        const token = await getStoredToken('access_token');
         refreshPlaylistCount(chosenplaylist.id, playlistIndex);
         const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
 
@@ -367,14 +390,39 @@ async function prepareNextQueueItem(attempt = 0) {
 
 
     if (nextTrack && nextTrack.uri) {
+
         console.log(`Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`);
-        queuePlaylistsMap.set(nextTrack.external_ids?.isrc, { name: chosenplaylist.name });
+        
+        let currentISRC
+        const url = `https://api.spotify.com/v1/tracks/${nextTrack.id}`
+        try {
+            const response = await safeSpotifyFetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                console.error("Error: prepareNextQueueItem trackid.isrc - safeSpotifyFetch blocked")
+                const errorData = await response.json();
+                // Handle common 404 or 403 errors for private playlists
+                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
+                // throw new Error(errorData.error.message || "Playlist not found");
+            }
+            const fullTrackData = await response.json();
+            
+            // NOW you have access to the ISRC!
+            currentISRC = fullTrackData.external_ids?.isrc;
+            console.log("Verified ISRC:", currentISRC);
+
+        } catch (err) {
+            console.error("Failed to fetch ISRC:", err);
+        }
+        
+        queuePlaylistsMap.set(currentISRC, { name: chosenplaylist.name });
         await addToQueue(nextTrack.uri);
         incrementPlaylistCount(chosenplaylist.id)
 
         // 2. Add to our visual internal queue
         internalQueue.push({
-            id: nextTrack.external_ids?.isrc,
+            id: currentISRC,
             name: nextTrack.name,
             artist: nextTrack.artists[0].name,
             playlist: chosenplaylist.name
@@ -1334,11 +1382,35 @@ async function pickRandomSong(attempt = 0) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
         
+        let currentISRC
+        const url = `https://api.spotify.com/v1/tracks/${track.id}`
+        try {
+            const response = await safeSpotifyFetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                console.error("Error: pickRandomSong trackid.isrc - safeSpotifyFetch blocked")
+                const errorData = await response.json();
+                // Handle common 404 or 403 errors for private playlists
+                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
+                // throw new Error(errorData.error.message || "Playlist not found");
+            }
+            const fullTrackData = await response.json();
+            
+            // NOW you have access to the ISRC!
+            currentISRC = fullTrackData.external_ids?.isrc;
+            console.log("Verified ISRC:", currentISRC, track.name);
+
+        } catch (err) {
+            console.error("Failed to fetch ISRC:", err);
+        }
+
+        
         incrementPlaylistCount(chosenplaylist.id)
 
         // --- ADD TO HISTORY ---
         addToHistory(track, chosenplaylist.name);
-        queuePlaylistsMap.set(track.external_ids?.isrc, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(currentISRC, { name: chosenplaylist.name });
 
         // If the song that just started is the one at the top of our queue, remove it
         if (internalQueue.length > 0 && internalQueue[0].id === lastTrackId) {
@@ -1346,7 +1418,7 @@ async function pickRandomSong(attempt = 0) {
             renderQueue();
         }
 
-        lastTrackId = track.external_ids?.isrc
+        lastTrackId = currentISRC
         playTrack(track.uri, false); //retry false
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
@@ -2379,6 +2451,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const playPauseBtn = document.getElementById('play-pause');
 
     let currentTrackId = null;
+    let currentTrackIdISRC = null;
+    let currentISRC
+
     let songStartTime = 0;
 
     if (initBtn) {
@@ -2624,11 +2699,39 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.warn("player state changed but no currentTrack")
                     return;
                 }
-
+        
                 // 1. Check if the song has actually changed to a new ID
-                if (current_track.external_ids?.isrc !== currentTrackId) {
+                if (current_track.id !== currentTrackId) {
                     console.log("New track detected:", current_track.name);
-                    currentTrackId = current_track.external_ids?.isrc;
+
+                    const token = localStorage.getItem('access_token');        
+                    const url = `https://api.spotify.com/v1/tracks/${current_track.id}`
+                    try {
+                        const response = await safeSpotifyFetch(url, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (!response.ok) {
+                            console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
+                            const errorData = await response.json();
+                            // Handle common 404 or 403 errors for private playlists
+                            console.error(`${errorData.error.message}` || "Forbidden or Not Found")
+                            // throw new Error(errorData.error.message || "Playlist not found");
+                        }
+                        const fullTrackData = await response.json();
+                        
+                        // NOW you have access to the ISRC!
+                        currentISRC = fullTrackData.external_ids?.isrc;
+                        console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
+                        console.log("Played ID:", current_track.id);
+                        console.log("Original ID:", current_track.linked_from?.id);
+
+                    } catch (err) {
+                        console.error("Failed to fetch ISRC:", err);
+                    }
+
+
+                    currentTrackId = current_track.id
+                    currentTrackIdISRC = currentISRC
                     lastPickTime = Date.now() //reset timer for new song
                     //return; //exit: we just started a song, don't pick a new one!
                     // Update your 'Now Playing' UI here if needed
@@ -2654,7 +2757,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.log("Track naturally finished. Picking next...");
 
                     // If the song that just started is the one at the top of our queue, remove it
-                    if (internalQueue.length > 0 && internalQueue[0].id === currentTrackId) {
+                    if (internalQueue.length > 0 && internalQueue[0].id === currentTrackIdISRC) {
                         internalQueue.shift(); 
                         renderQueue();
                     }
@@ -2690,10 +2793,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     //pickRandomSong();                     
                 }   
                 
-                console.warn(`${current_track.external_ids?.isrc}`)
-                //console.warn(`${current_track.external_ids?.isrc} ${lastTrackId}`)
+                console.warn(`${currentISRC}`)
+                console.warn(`${currentISRC} ${lastTrackId}`)
                 // --- THE FIX: Detect a new song has started ---
-                if (current_track.external_ids?.isrc !== lastTrackId) {
+                if (currentISRC !== lastTrackId) {
 
                     // If the song that just started is the one at the top of our queue, remove it
                     if (internalQueue.length > 0) {
@@ -2709,24 +2812,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                     }
                     
                     console.log("New song detected:", current_track.name);
-                    lastTrackId = current_track.external_ids?.isrc;
+                    lastTrackId = currentISRC
                     
                     // Update UI (Now Playing, etc.)
                     //updateUI(currentTrack);
                     console.log("Playing:", current_track.name);
-                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name}`);
+                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentISRC)?.name}`);
                     
                     // --- ADD TO HISTORY ---
-                    addToHistory(current_track, queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name);
+                    addToHistory(current_track, queuePlaylistsMap.get(currentISRC)?.name);
 
                     // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
                     // Add this whenever a song starts:
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.metadata = new MediaMetadata({
                             title: current_track.name,
-                            artist: `${current_track.artists[0].name} ${queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name}`,
-                            album: queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name,
-                            chapterTitle: queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name,
+                            artist: `${current_track.artists[0].name} ${queuePlaylistsMap.get(currentISRC)?.name}`,
+                            album: queuePlaylistsMap.get(currentISRC)?.name,
+                            chapterTitle: queuePlaylistsMap.get(currentISRC)?.name,
                             artwork: [{ src: current_track.album.images[0].url }]
                         });
 
@@ -2783,7 +2886,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // Update Metadata
                 document.getElementById('track-name').textContent = current_track.name;
-                document.getElementById('playlist-name').textContent = queuePlaylistsMap.get(current_track.external_ids?.isrc)?.name;
+                document.getElementById('playlist-name').textContent = queuePlaylistsMap.get(currentISRC)?.name;
                 document.getElementById('track-artist').textContent = current_track.artists[0].name;
                 document.getElementById('album-art').src = current_track.album.images[0].url;
                 document.getElementById('play-pause-btn').textContent = paused ? "▶" : "⏸";
