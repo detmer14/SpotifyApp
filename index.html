@@ -33,9 +33,9 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             <button id="init-player" style="background: #ff0000; color: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold; cursor: pointer;">
                 🔌 Power On Mixer
             </button>
-            <button id="play-pause-btn" style="display: none; background: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
+            <!-- <button id="play-pause-btn" style="display: none; background: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
                 Play/Pause
-            </button>
+            </button> -->
             // Example Button HTML
             <button id="play-pause" style="background: #1DB954; color: white; padding: 10px 20px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer;">
                 ▶ Play
@@ -159,7 +159,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             </button>
 
             <!-- Play/Pause (Circular Green) -->
-            <button id="play-pause-btn" class="circular-control-btn" onclick="player.togglePlay()" title="Play/Pause">
+            <button id="play-pause-btn" class="circular-control-btn" onclick="userInitiatedPause = true; player.togglePlay();" title="Play/Pause">
                 ▶
             </button>
 
