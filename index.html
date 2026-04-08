@@ -29,19 +29,18 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         </div>
 
         <!-- Add this inside your <body>, maybe in your header -->
-        <div id="player-controls" style="margin: 10px; text-align: center;">
+        <!-- <div id="player-controls" style="padding: 10px; text-align: center; display: flex; justify-content: center; align-items: center; "> -->
             <button id="init-player" style="background: #ff0000; color: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold; cursor: pointer;">
                 🔌 Power On Mixer
             </button>
             <!-- <button id="play-pause-btn" style="display: none; background: white; padding: 12px; border-radius: 25px; border: none; font-weight: bold;">
                 Play/Pause
             </button> -->
-            // Example Button HTML
             <button id="play-pause" style="background: #1DB954; color: white; padding: 10px 20px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer;">
                 ▶ Play
             </button>
 
-        </div>
+        <!-- </div> -->
     </header>
 
     <h1>Ben Burt Spotify Playlist Mixer</h1>
@@ -117,7 +116,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             </div>
             
             <!-- The Toggle Button -->
-            <button id="toggle-list-btn" style="width: 100%; background: none; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
+            <button id="toggle-list-btn" style="display: block; margin: 5px auto 0; width: 80%; background: #66ff00; border-radius: 30px; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
                 ▼ Show All
             </button>
         </div>
@@ -136,9 +135,9 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         </div>
 
         <!-- Progress Bar -->
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; justify-content: center;">
             <span id="current-time" style="font-size: 0.8em; color: #b3b3b3; width: 40px;">0:00</span>
-            <input type="range" id="progress-bar" min="0" max="100" value="0" style="flex-grow: 1; cursor: pointer;">
+            <input type="range" id="progress-bar" min="0" max="100" value="0" style="cursor: pointer; width: 50%">
             <span id="duration-time" style="font-size: 0.8em; color: #b3b3b3; width: 40px;">0:00</span>
         </div>
 
@@ -155,7 +154,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             <!-- Seek Back 15s -->
             <button class="circular-control-btn" onclick="seekRelative(-15000)" title="Back 15s">
                 <span style="font-size: 1.2em; position: relative; top: -1px;">↺</span>
-                <span style="font-size: 0.6em; position: absolute; top: 18px;">15</span>
+                <span style="font-size: 0.6em; position: absolute; top: 5px;">15</span>
             </button>
 
             <!-- Play/Pause (Circular Green) -->
@@ -171,21 +170,21 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             <!-- Seek Forward 15s -->
             <button class="circular-control-btn" onclick="seekRelative(15000)" title="Forward 15s">
                 <span style="font-size: 1.2em; position: relative; top: -1px;">↻</span>
-                <span style="font-size: 0.6em; position: absolute; top: 18px;">15</span>
+                <span style="font-size: 0.6em; position: absolute; top: 5px;">15</span>
             </button>
         </div>
         <!-- Volume Control -->
         <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
             <span style="color:#b3b3b3;">🔈</span>
-            <input type="range" id="volume-bar" min="0" max="100" value="50" style="width: 100px; cursor: pointer;">
+            <input type="range" id="volume-bar" min="0" max="100" value="50" style="width: 30%; cursor: pointer;">
             <span style="color:#b3b3b3;">🔊</span>
         </div>
     </div>
     
     <section>
         <h1> </h1>
-        <button id="pick">Pick Random Song</button>
-        <button id="skip-button" class="mixer-control">Skip to Next</button>
+        <button id="pick" style="padding: 8px 15px; border-radius: 30px; cursor: pointer;">Pick Random Song</button>
+        <button id="skip-button"  style="padding: 8px 15px; border-radius: 30px; cursor: pointer;" class="mixer-control">Skip to Next</button>
         <p id="result"></p>
     </section>
 
