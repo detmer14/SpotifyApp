@@ -114,25 +114,25 @@ async function playTrack(trackUri, isRetry = false) {
             }),
         });
 
-        if(response == "MAX_CALLS_PER_MINUTE"){
+        if(response === "MAX_CALLS_PER_MINUTE"){
             console.warn("playTrack - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
             return("MAX_CALLS_PER_MINUTE")
         }
-        if(response == "SOFT_LOCKED"){
+        if(response === "SOFT_LOCKED"){
             console.warn("playTrack - safeSpotifyFetch - SOFT_LOCKED")
             return("SOFT_LOCKED")
         }
-        if(response == "429_MAX_STRIKES"){
+        if(response === "429_MAX_STRIKES"){
             console.warn("playTrack - safeSpotifyFetch - 429_MAX_STRIKES")
             return("429_MAX_STRIKES")
         }
-        if(response == "429_STRIKE"){
+        if(response === "429_STRIKE"){
             console.warn("playTrack - safeSpotifyFetch - 429_STRIKE")
             return("429_STRIKE")
         }
 
         if (response.status === 404) {
-            console.warn("Device ID not found. Attempting to refresh device list...");
+            console.warn("playTrack Device ID not found. Attempting to refresh device list...");
             showResult("Re-syncing with Spotify...");
 
             // Check if the token is likely the problem
@@ -150,16 +150,22 @@ async function playTrack(trackUri, isRetry = false) {
                 await player.connect();
                 
                 // 2. Wait a split second for the 'ready' event to update the device_id
-                setTimeout(() => {
+                setTimeout(async () => {
                     console.warn("playTrack - 404 Retrying playback with refreshed device...");
-                    const playTrackReturn = playTrack(trackUri, true); // retry = true to prevent infinite loops
-                    
+                    const playTrackReturn = await playTrack(trackUri, true); // retry = true to prevent infinite loops
+                    if(playTrackReturn === "SUCCESS"){
+                        return "SUCCESS"
+                    }
+                    else{
+                        console.warn("playTrack - 404 retry playback fail:", playTrackReturn)
+                        return "404_DEVICE_ID_NOT_FOUND.RETRY.FAIL"
+                    }
                 }, 1000);
             } else {
                 console.warn("playTrack - 404 persisted after retry. Stopping loop.");
                 showResult("Connection lost. Please Power Off and On again.");
                 // EXIT HERE. No more setTimeouts.
-            }            
+            }
 //            if(!response.ok){
                 console.error("Error: playTrack - safeSpotifyFetch blocked")
                 const errorBody = await response.json();
@@ -170,18 +176,26 @@ async function playTrack(trackUri, isRetry = false) {
         }
 
         if (response.status === 403) {
+            let returnCodePickRetry = "NONE"
             console.warn("403: Song restricted. Skipping to a new one...");
             showResult("Song restricted by Spotify. Picking another...");
             //alert("Spotify Premium is required for this feature.");
             // AUTO-RECOVERY: Just trigger a new pick!
-            safeTimeout(() => pickRandomSong(), 500); 
 //            if(!response.ok){
                 console.error("Error: playTrack - safeSpotifyFetch blocked")
                 const errorBody = await response.json();
                 console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
                 //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 //            }
-            return("403_SONG_RESTRICTED.RETRY");
+            safeTimeout(() => (returnCodePickRetry = pickRandomSong()), 500);
+            console.warn("playTrack - 403 Song restricted - RETRY:", returnCodePickRetry)
+            if(returnCodePickRetry === "SUCCESS"){
+                return("SUCCESS")
+            }
+
+            console.warn("playTrack - 403 Song restricted - RETRY:FAIL:", returnCodePickRetry)
+            return("403_SONG_RESTRICTED.RETRY.FAIL");
+
         } else if (response.status === 204  || response.status === 200) {
             // Wait 300ms for Spotify's servers to process the change, 
             // then force the local player to start.
@@ -192,6 +206,7 @@ async function playTrack(trackUri, isRetry = false) {
                     }).catch(err => {
                         // If this fails, the browser is likely blocking autoplay
                         console.error("Autoplay blocked by browser. Manual click required.", err);
+                        showResult("Autoplay blocked by browser. Manual click required.", err);
                     });
 
                     //player.togglePlay();
@@ -235,10 +250,11 @@ async function playTrack(trackUri, isRetry = false) {
             //     // Update the playback state so the play/pause button looks right
             //     navigator.mediaSession.playbackState = "playing";
             // }
+            return("SUCCESS")
 
         }
     } catch (err) {
-        console.error("Playback error:", err);
+        console.error("playTrack - Playback error:", err);
     }
 }
 
@@ -294,7 +310,13 @@ async function playFromSpecificPlaylist(chosenplaylist) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
         
-        playTrack(track.uri, false); //retry false
+        const playTrackReturn = await playTrack(track.uri, false); //retry false
+
+            if(playTrackReturn !== "SUCCESS"){
+                console.warn("playFromSpecificPlaylist playTrack - safeSpotifyFetch - FAIL:", playTrackReturn)
+                return("FAIL")
+            }
+
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
             if ('mediaSession' in navigator) {
@@ -320,22 +342,43 @@ async function playFromSpecificPlaylist(chosenplaylist) {
         try {
             const response = await safeSpotifyFetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
-            });
+            })
+            
+            if(response === "MAX_CALLS_PER_MINUTE"){
+                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+            }
+            if(response === "SOFT_LOCKED"){
+                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - SOFT_LOCKED")
+            }
+            if(response === "429_MAX_STRIKES"){
+                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+            }
+            if(response === "429_STRIKE"){
+                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_STRIKE")
+            }
+
+
             if (!response.ok) {
                 console.error("Error: playFromSpecificPlaylist trackid.isrc - safeSpotifyFetch blocked")
                 const errorData = await response.json();
                 // Handle common 404 or 403 errors for private playlists
                 console.error(`${errorData.error.message}` || "Forbidden or Not Found")
                 // throw new Error(errorData.error.message || "Playlist not found");
+
+
+                //Use existing current_id instead of currentISRC
+
+                currentISRC = track.id
+            } else{
+                const fullTrackData = await response.json();
+                
+                // NOW you have access to the ISRC!
+                currentISRC = fullTrackData.external_ids?.isrc;
+                console.log("Verified ISRC:", currentISRC);
             }
-            const fullTrackData = await response.json();
-            
-            // NOW you have access to the ISRC!
-            currentISRC = fullTrackData.external_ids?.isrc;
-            console.log("Verified ISRC:", currentISRC);
 
         } catch (err) {
-            console.error("Failed to fetch ISRC:", err);
+            console.error("playFromSpecificPlaylist Failed to fetch ISRC:", err);
         }
 
         queuePlaylistsMap.set(currentISRC, { name: chosenplaylist.name });
@@ -419,7 +462,13 @@ async function prepareNextQueueItem(attempt = 0) {
 
         console.log(`Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`);
 
-        await addToQueue(nextTrack.uri);
+        const returnAddToQueue = await addToQueue(nextTrack.uri);
+
+        if(returnAddToQueue !== "SUCCESS"){
+            console.warn("prepareNextQueueItem - addToQueue FAIL:", returnAddToQueue)
+            return("FAIL")
+        }
+
         incrementPlaylistCount(chosenplaylist.id)
 
         let currentISRC
@@ -428,21 +477,38 @@ async function prepareNextQueueItem(attempt = 0) {
             const response = await safeSpotifyFetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+
+            if(response === "MAX_CALLS_PER_MINUTE"){
+                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+            }
+            if(response === "SOFT_LOCKED"){
+                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - SOFT_LOCKED")
+            }
+            if(response === "429_MAX_STRIKES"){
+                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+            }
+            if(response === "429_STRIKE"){
+                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - 429_STRIKE")
+            }
+
             if (!response.ok) {
                 console.error("Error: prepareNextQueueItem trackid.isrc - safeSpotifyFetch blocked")
                 const errorData = await response.json();
                 // Handle common 404 or 403 errors for private playlists
                 console.error(`${errorData.error.message}` || "Forbidden or Not Found")
                 // throw new Error(errorData.error.message || "Playlist not found");
-            }
-            const fullTrackData = await response.json();
-            
-            // NOW you have access to the ISRC!
-            currentISRC = fullTrackData.external_ids?.isrc;
-            console.log("Verified ISRC:", currentISRC);
+                //Use existing current_id instead of currentISRC
 
+                currentISRC = track.id
+            } else{
+                const fullTrackData = await response.json();
+                
+                // NOW you have access to the ISRC!
+                currentISRC = fullTrackData.external_ids?.isrc;
+                console.log("Verified ISRC:", currentISRC);
+            }
         } catch (err) {
-            console.error("Failed to fetch ISRC:", err);
+            console.error("prepareNextQueueItem Failed to fetch ISRC:", err);
         }
         
         queuePlaylistsMap.set(currentISRC, { name: chosenplaylist.name });
@@ -476,13 +542,30 @@ async function addToQueue(trackUri) {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (response && response.status === 202) {
+        if(response === "MAX_CALLS_PER_MINUTE"){
+            console.warn("addToQueue - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        }
+        if(response === "SOFT_LOCKED"){
+            console.warn("addToQueue - safeSpotifyFetch - SOFT_LOCKED")
+        }
+        if(response === "429_MAX_STRIKES"){
+            console.warn("addToQueue - safeSpotifyFetch - 429_MAX_STRIKES")
+        }
+        if(response === "429_STRIKE"){
+            console.warn("addToQueue - safeSpotifyFetch - 429_STRIKE")
+        }
+
+        if (response && (response.status === 200 || response.status === 202 || response.status === 204))  {
             console.log("Successfully added next song to Spotify Queue.");
+            return("SUCCESS")
         }
         if(!response.ok){
             console.error("Error: addToQueue - safeSpotifyFetch blocked")
             const errorBody = await response.json();
             throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        }
+        else{
+            console.error("Something else happened:", response)
         }
 
     } catch (err) {
@@ -644,6 +727,20 @@ async function getToken(code) {
 
     const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
 
+    if(response === "MAX_CALLS_PER_MINUTE"){
+        console.warn("getToken - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+    }
+    if(response === "SOFT_LOCKED"){
+        console.warn("getToken - safeSpotifyFetch - SOFT_LOCKED")
+    }
+    if(response === "429_MAX_STRIKES"){
+        console.warn("getToken - safeSpotifyFetch - 429_MAX_STRIKES")
+    }
+    if(response === "429_STRIKE"){
+        console.warn("getToken - safeSpotifyFetch - 429_STRIKE")
+    }
+
+
     if(!response.ok){
         // Log the actual error message from Spotify (e.g., "invalid_grant")
         console.error("Token Error:", data.error, data.error_description);
@@ -726,6 +823,19 @@ async function refreshAccessToken() {
     try {
         const response = await safeSpotifyFetch("https://accounts.spotify.com/api/token", payload);
 
+        if(response === "MAX_CALLS_PER_MINUTE"){
+            console.warn("refreshAccessToken - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        }
+        if(response === "SOFT_LOCKED"){
+            console.warn("refreshAccessToken - safeSpotifyFetch - SOFT_LOCKED")
+        }
+        if(response === "429_MAX_STRIKES"){
+            console.warn("refreshAccessToken - safeSpotifyFetch - 429_MAX_STRIKES")
+        }
+        if(response === "429_STRIKE"){
+            console.warn("refreshAccessToken - safeSpotifyFetch - 429_STRIKE")
+        }
+        
         if(!response.ok){
             console.error("Error: refreshAccessToken - safeSpotifyFetch blocked")
             const errorBody = await response.json();
@@ -752,7 +862,7 @@ async function refreshAccessToken() {
             isRefreshing = false;
         }
     } catch (err) {
-        console.error("Refresh failed, but staying on page:", err);
+        console.error("refreshAccessToken - Refresh failed, but staying on page:", err);
         // Don't redirect here! Just let the user click 'Login' manually if they need to.
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -786,6 +896,19 @@ async function resumeOnThisDevice() {
             }
         });
 
+        if(response === "MAX_CALLS_PER_MINUTE"){
+            console.warn("resumeOnThisDevice - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        }
+        if(response === "SOFT_LOCKED"){
+            console.warn("resumeOnThisDevice - safeSpotifyFetch - SOFT_LOCKED")
+        }
+        if(response === "429_MAX_STRIKES"){
+            console.warn("resumeOnThisDevice - safeSpotifyFetch - 429_MAX_STRIKES")
+        }
+        if(response === "429_STRIKE"){
+            console.warn("resumeOnThisDevice - safeSpotifyFetch - 429_STRIKE")
+        }
+
         if(!res.ok){
             console.error("Error: resumeOnThisDevice - safeSpotifyFetch blocked")
             const errorBody = await response.json();
@@ -802,7 +925,7 @@ async function resumeOnThisDevice() {
         showResult("Mixer resumed on this phone.");
         console.warn("Mixer resumed on this phone.");
     } catch (err) {
-        console.error("Failed to resume session:", err);
+        console.error("resumeOnThisDevice - Failed to resume session:", err);
     }
 }
 
@@ -818,6 +941,19 @@ async function getCurrentUserId() {
     const response = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
         headers: { 'Authorization': `Bearer ${token}` }
     });
+
+    if(response === "MAX_CALLS_PER_MINUTE"){
+        console.warn("getCurrentUserId - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+    }
+    if(response === "SOFT_LOCKED"){
+        console.warn("getCurrentUserId - safeSpotifyFetch - SOFT_LOCKED")
+    }
+    if(response === "429_MAX_STRIKES"){
+        console.warn("getCurrentUserId - safeSpotifyFetch - 429_MAX_STRIKES")
+    }
+    if(response === "429_STRIKE"){
+        console.warn("getCurrentUserId - safeSpotifyFetch - 429_STRIKE")
+    }
 
     if(!response.ok){
         console.error("Error: getCurrentUserId - safeSpotifyFetch blocked")
@@ -1305,7 +1441,7 @@ function pickByPercentage(activePlaylists){
     const total = activePlaylists.reduce((sum, p) => sum + (p.sliderValue ?? 0), 0)
 
     // If total is 0, fallback to pickUniformly instead of returning null
-    if(total == 0) return pickUniformly(activePlaylists)
+    if(total === 0) return pickUniformly(activePlaylists)
 
     let r = Math.random() * total
 
@@ -1342,12 +1478,12 @@ async function pickRandomSong(attempt = 0) {
     if (attempt > 5) {
         showResult("Error: Hit too many restricted tracks. Try a different playlist.");
         console.log("Error: Hit too many restricted tracks. Try a different playlist.");
-        return;
+        return("TOO_MANY_RESTRICTED_TRACKS_IN_PLAYLIST");
     }
 
     if(activePlaylists.length === 0){
         alert("Select at least one playlist")
-        return
+        return "NO_PLAYLIST_ENABLED"
     }
 
     let cumulative = 0
@@ -1357,7 +1493,7 @@ async function pickRandomSong(attempt = 0) {
     chosenplaylist = pickPlaylistByMode()
     if (!chosenplaylist) {
         console.warn("No playlist selected for auto-pick.");
-        return; // Don't alert here, just stop
+        return "NO_PLAYLIST_CHOSEN_NO_ACTIVE_PLAYLISTS"; // Don't alert here, just stop
     }
     const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
@@ -1367,7 +1503,7 @@ async function pickRandomSong(attempt = 0) {
 
     if (MOCK_MODE) {
         showResult(`--------------- Playlist ${chosenplaylist.name}, song #${index + 1}`)
-        return
+        return "SUCCESS"
     }
 
     // --- NEW: SPOTIFY ID VALIDATION ---
@@ -1378,7 +1514,7 @@ async function pickRandomSong(attempt = 0) {
         const randomIndex = Math.floor(Math.random() * chosenplaylist.trackCount);
         showResult(`[MOCK MODE] Playlist: ${chosenplaylist.name}, Track #${randomIndex + 1}`);
         console.log(`Bypassing Spotify API for non-Spotify Playlist: ${chosenplaylist.id}`);
-        return; // STOP HERE: Do not call getTrackAtIndex or playTrack
+        return "SUCCESS"; // STOP HERE: Do not call getTrackAtIndex or playTrack
     }
 
     // real Spotify playback...
@@ -1410,7 +1546,41 @@ async function pickRandomSong(attempt = 0) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
 
-        playTrack(track.uri, false); //retry false
+        const playTrackReturn = await playTrack(track.uri, false); //retry false
+            // if(playTrackReturn === "NO_DEVICE_TURN_POWER_ON.RETRY.FAIL"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - NO_DEVICE_TURN_POWER_ON.RETRY.FAIL")
+            //     returnCode = "NO_DEVICE_TURN_POWER_ON.RETRY.FAIL"
+            // }
+            // if(playTrackReturn === "MAX_CALLS_PER_MINUTE"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+            //     returnCode = "MAX_CALLS_PER_MINUTE"
+            // }
+            // if(playTrackReturn === "SOFT_LOCKED"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - SOFT_LOCKED")
+            //     returnCode = "SOFT_LOCKED"
+            // }
+            // if(playTrackReturn === "429_MAX_STRIKES"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - 429_MAX_STRIKES")
+            //     returnCode = "429_MAX_STRIKES"
+            // }
+            // if(playTrackReturn === "429_STRIKE"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - 429_STRIKE")
+            //     returnCode = "429_STRIKE"
+            // }
+            // if(playTrackReturn === "403_SONG_RESTRICTED.RETRY.FAIL"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - 403_SONG_RESTRICTED.RETRY.FAIL")
+            //     returnCode = "403_SONG_RESTRICTED.RETRY.FAIL"
+            // }
+            // if(playTrackReturn === "404_DEVICE_ID_NOT_FOUND"){
+            //     console.warn("pickRandomSong playTrack - safeSpotifyFetch - 404_DEVICE_ID_NOT_FOUND")
+            //     returnCode = "404_DEVICE_ID_NOT_FOUND"
+            // }
+            
+            if(playTrackReturn !== "SUCCESS"){
+                console.warn("pickRandomSong playTrack - safeSpotifyFetch - FAIL:", playTrackReturn)
+                return("FAIL")
+            }
+
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
             if ('mediaSession' in navigator) {
@@ -1439,21 +1609,18 @@ async function pickRandomSong(attempt = 0) {
             const response = await safeSpotifyFetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if(response == "MAX_CALLS_PER_MINUTE"){
-                console.warn("playTrack - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
-                returnCode = "MAX_CALLS_PER_MINUTE"
+
+            if(response === "MAX_CALLS_PER_MINUTE"){
+                console.warn("pickRandomSong ISRS - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
             }
-            if(response == "SOFT_LOCKED"){
-                console.warn("playTrack - safeSpotifyFetch - SOFT_LOCKED")
-                returnCode = "SOFT_LOCKED"
+            if(response === "SOFT_LOCKED"){
+                console.warn("pickRandomSong ISRC - safeSpotifyFetch - SOFT_LOCKED")
             }
-            if(response == "429_MAX_STRIKES"){
-                console.warn("playTrack - safeSpotifyFetch - 429_MAX_STRIKES")
-                returnCode = "429_MAX_STRIKES"
+            if(response === "429_MAX_STRIKES"){
+                console.warn("pickRandomSong ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
             }
-            if(response == "429_STRIKE"){
-                console.warn("playTrack - safeSpotifyFetch - 429_STRIKE")
-                returnCode = "429_STRIKE"
+            if(response === "429_STRIKE"){
+                console.warn("pickRandomSong ISRC - safeSpotifyFetch - 429_STRIKE")
             }
 
             if (!response.ok) {
@@ -1462,16 +1629,21 @@ async function pickRandomSong(attempt = 0) {
                 // Handle common 404 or 403 errors for private playlists
                 console.error(`${errorData.error.message}` || "Forbidden or Not Found")
                 // throw new Error(errorData.error.message || "Playlist not found");
-                return returnCode;
+
+                //Use existing current_id instead of currentISRC
+
+                currentISRC = track.id
+            } else{
+                const fullTrackData = await response.json();
+                
+                // NOW you have access to the ISRC!
+                currentISRC = fullTrackData.external_ids?.isrc;
+                console.log("Verified ISRC:", currentISRC, track.name);
             }
-            const fullTrackData = await response.json();
-            
-            // NOW you have access to the ISRC!
-            currentISRC = fullTrackData.external_ids?.isrc;
-            console.log("Verified ISRC:", currentISRC, track.name);
 
         } catch (err) {
             console.error("Failed to fetch ISRC:", err);
+            return "ISRC_FAILURE"
         }
 
         queuePlaylistsMap.set(currentISRC, { name: chosenplaylist.name });
@@ -1483,11 +1655,15 @@ async function pickRandomSong(attempt = 0) {
         }
 
         lastTrackId = currentISRC
+
+        return("SUCCESS")
+
     } else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
         console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
         safeTimeout(() => pickRandomSong(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
+        return("GETTRACKATINDEX_FAIL")
     }
 }
 
@@ -1574,10 +1750,23 @@ async function getTrackAtIndex(token, playlistId, index){
             }
         )
 
+        if(res === "MAX_CALLS_PER_MINUTE"){
+            console.warn("getTrackAtIndex - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        }
+        if(res === "SOFT_LOCKED"){
+            console.warn("getTrackAtIndex - safeSpotifyFetch - SOFT_LOCKED")
+        }
+        if(res === "429_MAX_STRIKES"){
+            console.warn("getTrackAtIndex - safeSpotifyFetch - 429_MAX_STRIKES")
+        }
+        if(res === "429_STRIKE"){
+            console.warn("getTrackAtIndex - safeSpotifyFetch - 429_STRIKE")
+        }
+
         // --- THE RATE LIMIT CHECK ---
         if (res.status === 429) {
             const retryAfter = res.headers.get("Retry-After") || 5;
-            console.error(`RATE LIMIT HIT: Spotify says wait ${retryAfter}s`);
+            console.error(`getTrackAtIndex - RATE LIMIT HIT: Spotify says wait ${retryAfter}s`);
             
             // This is the signal pickRandomSong is waiting for
             return "RATE_LIMIT_HIT"; 
@@ -1593,11 +1782,11 @@ async function getTrackAtIndex(token, playlistId, index){
 //console.log("EXACT ITEM CONTENT:", JSON.stringify(data.items[0], null, 2));
         // 2026 Debug: Log the full structure if it's still empty
         if (!data.items || data.items.length === 0) {
-            console.log("Empty items array. Full Response:", data);
+            console.log("getTrackAtIndex - Empty items array. Full Response:", data);
             return null;
         }        
         
-        console.log("Keys available in this object:", Object.keys(data.items));
+        //console.log("Keys available in this object:", Object.keys(data.items));
 
         // Check if items exists and is not empty
         if (data.items && data.items.length > 0) {
@@ -1639,7 +1828,7 @@ async function getTrackAtIndex(token, playlistId, index){
 
             return track; 
         } else {
-            console.error("No track found at this index:", index);
+            console.error("getTrackAtIndex - No track found at this index:", index);
             return null;
         }
     } catch(err){
@@ -2161,7 +2350,20 @@ async function getSpotifyPlaylistData(playlistId) {
         let response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
+        if(response === "MAX_CALLS_PER_MINUTE"){
+            console.warn("getSpotifyPlaylistData - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        }
+        if(response === "SOFT_LOCKED"){
+            console.warn("getSpotifyPlaylistData - safeSpotifyFetch - SOFT_LOCKED")
+        }
+        if(response === "429_MAX_STRIKES"){
+            console.warn("getSpotifyPlaylistData - safeSpotifyFetch - 429_MAX_STRIKES")
+        }
+        if(response === "429_STRIKE"){
+            console.warn("getSpotifyPlaylistData - safeSpotifyFetch - 429_STRIKE")
+        }
+
         if(!response.ok){
             console.error("Error: getSpotifyPlaylistData - safeSpotifyFetch blocked")
             const errorBody = response.json();
@@ -2188,13 +2390,27 @@ async function getSpotifyPlaylistData(playlistId) {
             response = await safeSpotifyFetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+
+            if(response === "MAX_CALLS_PER_MINUTE"){
+                console.warn("getSpotifyPlaylistData checkOwnership - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+            }
+            if(response === "SOFT_LOCKED"){
+                console.warn("getSpotifyPlaylistData checkOwnership - safeSpotifyFetch - SOFT_LOCKED")
+            }
+            if(response === "429_MAX_STRIKES"){
+                console.warn("getSpotifyPlaylistData checkOwnership - safeSpotifyFetch - 429_MAX_STRIKES")
+            }
+            if(response === "429_STRIKE"){
+                console.warn("getSpotifyPlaylistData checkOwnership - safeSpotifyFetch - 429_STRIKE")
+            }
+
             namedata = await response.json();
             
             if (namedata.total !== undefined) {
                 showResult(`Updated ${data.name} to ${namedata.total} songs.`);
             }
         } catch (err) {
-            console.error("Refresh failed:", err);
+            console.error("getSpotifyPlaylistData - Refresh failed:", err);
         }
 
         // We also need the playlist NAME, so we do one more quick fetch 
@@ -2229,7 +2445,7 @@ async function getSpotifyPlaylistData(playlistId) {
             sliderValue: 50
         };
     } catch (err) {
-        showResult("Error: " + err.message);
+        showResult("getSpotifyPlaylistData - Error: " + err.message);
         return null;
     }
 }
@@ -2274,6 +2490,19 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        if(response === "MAX_CALLS_PER_MINUTE"){
+            console.warn("refreshPlaylistCount - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        }
+        if(response === "SOFT_LOCKED"){
+            console.warn("refreshPlaylistCount - safeSpotifyFetch - SOFT_LOCKED")
+        }
+        if(response === "429_MAX_STRIKES"){
+            console.warn("refreshPlaylistCount - safeSpotifyFetch - 429_MAX_STRIKES")
+        }
+        if(response === "429_STRIKE"){
+            console.warn("refreshPlaylistCount - safeSpotifyFetch - 429_STRIKE")
+        }
+
         if(!response.ok){
             console.error("Error: refreshPlaylistCount - safeSpotifyFetch blocked")
             const errorBody = await response.json();;
@@ -2289,7 +2518,7 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
             showResult(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
         }
     } catch (err) {
-        console.error("Refresh failed:", err);
+        console.error("refreshPlaylistCount - Refresh failed:", err);
     }
 }
 
@@ -2767,23 +2996,42 @@ document.addEventListener("DOMContentLoaded", async () => {
                         const response = await safeSpotifyFetch(url, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
+
+                        if(response === "MAX_CALLS_PER_MINUTE"){
+                            console.warn("player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+                        }
+                        if(response === "SOFT_LOCKED"){
+                            console.warn("player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED")
+                        }
+                        if(response === "429_MAX_STRIKES"){
+                            console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+                        }
+                        if(response === "429_STRIKE"){
+                            console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE")
+                        }
+
                         if (!response.ok) {
                             console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
                             const errorData = await response.json();
                             // Handle common 404 or 403 errors for private playlists
                             console.error(`${errorData.error.message}` || "Forbidden or Not Found")
                             // throw new Error(errorData.error.message || "Playlist not found");
+
+                            //Use existing current_id instead of currentISRC
+
+                            currentISRC = originalTrackId
+                        } else{
+                            const fullTrackData = await response.json();
+                            
+                            // NOW you have access to the ISRC!
+                            currentISRC = fullTrackData.external_ids?.isrc;
+                            console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
                         }
-                        const fullTrackData = await response.json();
-                        
-                        // NOW you have access to the ISRC!
-                        currentISRC = fullTrackData.external_ids?.isrc;
-                        console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
                         console.log("Played ID:", current_track.id);
                         console.log("Original ID:", current_track.linked_from?.id);
 
                     } catch (err) {
-                        console.error("Failed to fetch ISRC:", err);
+                        console.error("player_state_changed - Failed to fetch ISRC:", err);
                     }
 
 
@@ -3043,7 +3291,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // CASE 1: No song is loaded/playing yet
                 console.log("No track detected. Starting first pick...");
                 showResult("Initializing first mix...");
-                await pickRandomSong(); 
+                const returnPickRandom = await pickRandomSong(); 
+
+                if(returnPickRandom !== "SUCCESS"){
+                    console.warn("playPauseBtn - pickRandomSong - FAIL:", returnPickRandom)
+                }
 
                     setTimeout(() => {
                         prepareNextQueueItem();
@@ -3103,7 +3355,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     };
 
-    document.getElementById('manual-retry-btn').onclick = () => {
+    document.getElementById('manual-retry-btn').onclick = async () => {
         const uriInput = document.getElementById('manual-uri-input');
         const uri = uriInput.value.trim();
 
@@ -3113,7 +3365,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             showResult(`Manual Play: ${uri}`);
             
             // Use your existing playTrack function
-            playTrack(uri, false);
+            const playTrackReturn = await playTrack(uri, false);
+            if(playTrackReturn !== "SUCCESS"){
+                console.warn("manual-retry-btn playTrack - safeSpotifyFetch - FAIL:", playTrackReturn)
+            }
+
             
             // Optional: Clear the input after playing
             uriInput.value = '';
