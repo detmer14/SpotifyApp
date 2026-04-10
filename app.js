@@ -168,9 +168,12 @@ async function playTrack(trackUri, isRetry = false) {
             }
 //            if(!response.ok){
                 console.error("Error: playTrack - safeSpotifyFetch blocked")
-                const errorBody = await response.json();
-                console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
-                //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 //            }
             return("404_DEVICE_NOT_FOUND");
         }
@@ -183,9 +186,12 @@ async function playTrack(trackUri, isRetry = false) {
             // AUTO-RECOVERY: Just trigger a new pick!
 //            if(!response.ok){
                 console.error("Error: playTrack - safeSpotifyFetch blocked")
-                const errorBody = await response.json();
-                console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
-                //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 //            }
             safeTimeout(() => (returnCodePickRetry = pickRandomSong()), 500);
             console.warn("playTrack - 403 Song restricted - RETRY:", returnCodePickRetry)
@@ -333,10 +339,12 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
             if (!response.ok) {
                 console.error("Error: playFromSpecificPlaylist trackid.isrc - safeSpotifyFetch blocked")
-                const errorData = await response.json();
-                // Handle common 404 or 403 errors for private playlists
-                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
-                // throw new Error(errorData.error.message || "Playlist not found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 
 
                 //Use existing current_id instead of currentISRC
@@ -394,8 +402,8 @@ async function playFromSpecificPlaylist(chosenplaylist) {
     } else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
-        console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
-        safeTimeout(() => pickRandomSong(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
+        // console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
+        // safeTimeout(() => pickRandomSong(attempt + 1), 1000) //setTimeout ensures you never make more than one retry per second 
     }
 
 }
@@ -494,13 +502,16 @@ async function prepareNextQueueItem(attempt = 0) {
 
             if (!response.ok) {
                 console.error("Error: prepareNextQueueItem trackid.isrc - safeSpotifyFetch blocked")
-                const errorData = await response.json();
-                // Handle common 404 or 403 errors for private playlists
-                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
-                // throw new Error(errorData.error.message || "Playlist not found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                                // throw new Error(errorData.error.message || "Playlist not found");
                 //Use existing current_id instead of currentISRC
 
-                trackISRC = track.id
+                trackISRC = nextTrack.id
             } else{
                 const fullTrackData = await response.json();
                 
@@ -562,8 +573,14 @@ async function addToQueue(trackUri) {
         }
         if(!response.ok){
             console.error("Error: addToQueue - safeSpotifyFetch blocked")
-            const errorBody = await response.json();
-            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                             //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+                }
         }
         else{
             console.error("Something else happened:", response)
@@ -745,10 +762,12 @@ async function getToken(code) {
 
     if(!response.ok){
         // Log the actual error message from Spotify (e.g., "invalid_grant")
-        console.error("Token Error:", data.error, data.error_description);
-        console.error("Error: getToken - safeSpotifyFetch blocked")
-        const errorBody = await response.json();
-        console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
         //throw new Error(errorBody.error.message || "Forbidden or Not Found");
     }
     
@@ -840,8 +859,15 @@ async function refreshAccessToken() {
         
         if(!response.ok){
             console.error("Error: refreshAccessToken - safeSpotifyFetch blocked")
-            const errorBody = await response.json();
-            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+
+            throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+                }
         }
 
         const data = await response.json();
@@ -898,23 +924,30 @@ async function resumeOnThisDevice() {
             }
         });
 
-        if(response === "MAX_CALLS_PER_MINUTE"){
+        if(res === "MAX_CALLS_PER_MINUTE"){
             console.warn("resumeOnThisDevice - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
         }
-        if(response === "SOFT_LOCKED"){
+        if(res === "SOFT_LOCKED"){
             console.warn("resumeOnThisDevice - safeSpotifyFetch - SOFT_LOCKED")
         }
-        if(response === "429_MAX_STRIKES"){
+        if(res === "429_MAX_STRIKES"){
             console.warn("resumeOnThisDevice - safeSpotifyFetch - 429_MAX_STRIKES")
         }
-        if(response === "429_STRIKE"){
+        if(res === "429_STRIKE"){
             console.warn("resumeOnThisDevice - safeSpotifyFetch - 429_STRIKE")
         }
 
         if(!res.ok){
             console.error("Error: resumeOnThisDevice - safeSpotifyFetch blocked")
-            const errorBody = await response.json();
-            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (res && typeof res.text === 'function') {
+                const text = await res.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                            //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+
+            throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+                }
         }
         // The SDK will try to reconnect itself, but we can nudge it:
         player.connect().then(success => {
@@ -959,8 +992,13 @@ async function getCurrentUserId() {
 
     if(!response.ok){
         console.error("Error: getCurrentUserId - safeSpotifyFetch blocked")
-        const errorBody = await response.json();
-        throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                       throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+                }
     }
     const data = await response.json();
     localStorage.setItem('spotify_user_id', data.id);
@@ -1035,8 +1073,12 @@ async function safeSpotifyFetch(url, options) {
         }, retryAfter * 1000);
 //        if(!res.ok){
             console.error("Error: safeSpotifyFetch - safeSpotifyFetch blocked")
-            const errorBody = await res.json();;
-            console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
+                if (res && typeof res.text === 'function') {
+                const text = await res.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }
             //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 //        }
         return "429_STRIKE";
@@ -1102,8 +1144,12 @@ async function safeSpotifyFetchISRC(url, options) {
         }, retryAfter * 1000);
 //        if(!res.ok){
             console.error("Error: safeSpotifyFetchISRC - safeSpotifyFetchISRC blocked")
-            const errorBody = await res.json();;
-            console.error(`${errorBody.error.message}` || "Forbidden or Not Found")
+                if (res && typeof res.text === 'function') {
+                const text = await res.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }
             //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 //        }
         return "429_STRIKE";
@@ -1644,9 +1690,12 @@ async function pickRandomSong(attempt = 0) {
 
             if (!response.ok) {
                 console.error("Error: pickRandomSong trackid.isrc - safeSpotifyFetch blocked")
-                const errorData = await response.json();
-                // Handle common 404 or 403 errors for private playlists
-                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }
                 // throw new Error(errorData.error.message || "Playlist not found");
 
                 //Use existing current_id instead of trackISRC
@@ -1822,8 +1871,14 @@ async function getTrackAtIndex(token, playlistId, index){
 
         if(!res.ok){
             console.error("Error: getTrackAtIndex - safeSpotifyFetch blocked")
-            const errorBody = await res.json();
-            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (res && typeof res.text === 'function') {
+                const text = await res.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                
+            throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+                }
         }
         const data = await res.json()
 
@@ -2413,9 +2468,14 @@ async function getSpotifyPlaylistData(playlistId) {
         }
 
         if(!response.ok){
-            console.error("Error: getSpotifyPlaylistData - safeSpotifyFetch blocked")
-            const errorBody = response.json();
-            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                
+            throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+                }
         }
         const data = await response.json();
 
@@ -2553,8 +2613,14 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
 
         if(!response.ok){
             console.error("Error: refreshPlaylistCount - safeSpotifyFetch blocked")
-            const errorBody = await response.json();;
-            throw new Error(errorBody.error.message || "Forbidden or Not Found");
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                
+            throw new Error(errorData.error.message || "Forbidden or Not Found");
+                }
         }
         const data = await response.json();
         
@@ -3044,7 +3110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         const token = localStorage.getItem('access_token');        
                         const url = `https://api.spotify.com/v1/tracks/${originalTrackId}`
                         try {
-                            const response = await safeSpotifyFetch(url, {
+                            const response = await safeSpotifyFetchISRC(url, {
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
 
@@ -3062,16 +3128,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                             }
 
                             if (!response.ok) {
-                                console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
-                                const errorData = await response.json();
-                                // Handle common 404 or 403 errors for private playlists
-                                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
-                                // throw new Error(errorData.error.message || "Playlist not found");
+                                //console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
 
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }
                                 //Use existing current_id instead of currentISRC
 
                                 //currentISRC = originalTrackId //ah but this would have been lastid
                                 currentISRC = current_track.id //ah but this would have been lastid
+                                console.log("currentISRC set to current_track.id instead:", currentISRC)
                             } else{
                                 const fullTrackData = await response.json();
                                 
@@ -3093,7 +3161,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         //return; //exit: we just started a song, don't pick a new one!
                         // Update your 'Now Playing' UI here if needed
                     }
-                } else {
+                } 
+                else {
                     // 2. Only flip back to false when the IDs are identical
                     if (currentTrackIdChanging) {
                         console.log("Track ID synced.");
@@ -3150,7 +3219,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     lastPickTime = now; // Mark the time of this pick
                     // Clear the ID so the next track can be detected as a change
-                    currentTrackId = null; 
+                    //currentTrackId = null; 
                     player.activateElement(); 
                     //pickRandomSong();                     
                 }   
@@ -3161,6 +3230,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.warn("currentTrackIdISRC:", currentTrackIdISRC)
                 }
                 // --- THE FIX: Detect a new song has started ---
+                console.log(`currentTrackIdISRC: ${currentTrackIdISRC} lastTrackID: ${lastTrackId}`)
                 if (currentTrackIdISRC !== lastTrackId) {
 
                     // If the song that just started is the one at the top of our queue, remove it
