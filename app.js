@@ -3035,63 +3035,63 @@ document.addEventListener("DOMContentLoaded", async () => {
         
                 // 1. Check if the song has actually changed to a new ID
                 if (current_track.id !== currentTrackId){
-                        if(!currentTrackIdChanging){
-                            currentTrackIdChanging = true; //only check ISRC ID once - so we don't get rate limited
+                    if(!currentTrackIdChanging){
+                        currentTrackIdChanging = true; //only check ISRC ID once - so we don't get rate limited
 
-                            console.log("New track detected:", current_track.name);
+                        console.log("New track detected:", current_track.name);
 
-                            console.error("player_state_changed - Checking ISRC")
-                            const token = localStorage.getItem('access_token');        
-                            const url = `https://api.spotify.com/v1/tracks/${originalTrackId}`
-                            try {
-                                const response = await safeSpotifyFetch(url, {
-                                    headers: { 'Authorization': `Bearer ${token}` }
-                                });
+                        console.error("player_state_changed - Checking ISRC")
+                        const token = localStorage.getItem('access_token');        
+                        const url = `https://api.spotify.com/v1/tracks/${originalTrackId}`
+                        try {
+                            const response = await safeSpotifyFetch(url, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
 
-                                if(response === "MAX_CALLS_PER_MINUTE"){
-                                    console.warn("player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
-                                }
-                                if(response === "SOFT_LOCKED"){
-                                    console.warn("player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED")
-                                }
-                                if(response === "429_MAX_STRIKES"){
-                                    console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
-                                }
-                                if(response === "429_STRIKE"){
-                                    console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE")
-                                }
-
-                                if (!response.ok) {
-                                    console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
-                                    const errorData = await response.json();
-                                    // Handle common 404 or 403 errors for private playlists
-                                    console.error(`${errorData.error.message}` || "Forbidden or Not Found")
-                                    // throw new Error(errorData.error.message || "Playlist not found");
-
-                                    //Use existing current_id instead of currentISRC
-
-                                    //currentISRC = originalTrackId //ah but this would have been lastid
-                                    currentISRC = current_track.id //ah but this would have been lastid
-                                } else{
-                                    const fullTrackData = await response.json();
-                                    
-                                    // NOW you have access to the ISRC!
-                                    currentISRC = fullTrackData.external_ids?.isrc;
-                                    console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
-                                }
-                                console.log("Played ID:", current_track.id);
-                                console.log("Original ID:", current_track.linked_from?.id);
-
-                            } catch (err) {
-                                console.error("player_state_changed - Failed to fetch ISRC:", err);
+                            if(response === "MAX_CALLS_PER_MINUTE"){
+                                console.warn("player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+                            }
+                            if(response === "SOFT_LOCKED"){
+                                console.warn("player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED")
+                            }
+                            if(response === "429_MAX_STRIKES"){
+                                console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+                            }
+                            if(response === "429_STRIKE"){
+                                console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE")
                             }
 
+                            if (!response.ok) {
+                                console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
+                                const errorData = await response.json();
+                                // Handle common 404 or 403 errors for private playlists
+                                console.error(`${errorData.error.message}` || "Forbidden or Not Found")
+                                // throw new Error(errorData.error.message || "Playlist not found");
 
-                            currentTrackId = originalTrackId
-                            currentTrackIdISRC = currentISRC //but this will be current instead of linked_from ()
-                            lastPickTime = Date.now() //reset timer for new song
-                            //return; //exit: we just started a song, don't pick a new one!
-                            // Update your 'Now Playing' UI here if needed
+                                //Use existing current_id instead of currentISRC
+
+                                //currentISRC = originalTrackId //ah but this would have been lastid
+                                currentISRC = current_track.id //ah but this would have been lastid
+                            } else{
+                                const fullTrackData = await response.json();
+                                
+                                // NOW you have access to the ISRC!
+                                currentISRC = fullTrackData.external_ids?.isrc;
+                                console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
+                            }
+                            console.log("Played ID:", current_track.id);
+                            console.log("Original ID:", current_track.linked_from?.id);
+
+                        } catch (err) {
+                            console.error("player_state_changed - Failed to fetch ISRC:", err);
+                        }
+
+
+                        currentTrackId = current_track.id //so we won't check ISRC more than once
+                        currentTrackIdISRC = currentISRC //but this will be current instead of linked_from ()
+                        lastPickTime = Date.now() //reset timer for new song
+                        //return; //exit: we just started a song, don't pick a new one!
+                        // Update your 'Now Playing' UI here if needed
                     }
                 } else {
                     // 2. Only flip back to false when the IDs are identical
@@ -3116,7 +3116,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
                 if (isAtEnd && hasPlayedEnough) {
-                //if (isAtEnd) {
                     console.log("Track naturally finished. Picking next...");
 
                     // If the song that just started is the one at the top of our queue, remove it
