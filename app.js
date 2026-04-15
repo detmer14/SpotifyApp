@@ -192,11 +192,6 @@ async function fetchUserProfile() {
     // Store the ID (e.g., "spotify_user_88")
     if(data.id){
         currentSpotifyUser = data.id; 
-    }
-    else{
-        currentSpotifyUser = "fail"
-    }
-    
     // Optional: Log that they logged in
     // SEND THE LOG
     logEvent("WARN", `fetchUserProfile - User Session Started`, {
@@ -205,7 +200,10 @@ async function fetchUserProfile() {
         strikeCount: rateLimitStrikes,
         activeMix: activeMixId
     });
-
+    }
+    else{
+        currentSpotifyUser = "fail"
+    }
 }
 
 
