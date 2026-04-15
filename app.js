@@ -22,9 +22,7 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
 
     await fetchUserProfile()
 
-    logEvent("NOTICE", "App Loaded - onSpotifyWebPlaybackSDKReady", {
-        platform: navigator.platform,
-        userAgent: navigator.userAgent,
+    logEvent("WARN", "App Loaded - onSpotifyWebPlaybackSDKReady", {
         error: "APP_LOADED",
         step: "onSpotifyWebPlaybackSDKReady",
         screenSize: `${window.innerWidth}x${window.innerHeight}`
@@ -110,35 +108,71 @@ async function emergencyStop() {
 async function logEvent(level, message, metadata = {}) {
     const SOURCE_TOKEN = "K77AoFCVGv9iKQyCyLEdvjYe";
 
-    try {
-        await fetch("https://in.logs.betterstack.com", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${SOURCE_TOKEN}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                dt: new Date().toISOString(), // Timestamp
-                level: level,
-                user_id: currentSpotifyUser,
-                user_url: `https://open.spotify.com/user/${currentSpotifyUser}`,
-                message: message,
-                ...metadata
-            })
-        });
+    if(!loggingLocked){
 
-        // Emergency (emerg): indicates that the system is unusable and requires immediate attention.
-        // Alert (alert): indicates that immediate action is necessary to resolve a critical issue.
-        // Critical (crit): signifies critical conditions in the program that demand intervention to prevent system failure.
-        // Error (error): indicates error conditions that impair some operation but are less severe than critical situations.
-        // Warning (warn): signifies potential issues that may lead to errors or unexpected behavior in the future if not addressed.
-        // Notice (notice): applies to normal but significant conditions that may require monitoring.
-        // Informational (info): includes messages that provide a record of the normal operation of the system.
-        // Debug (debug): intended for logging detailed information about the system for debugging purposes.
+        try {
+            const res = await fetch("https://in.logs.betterstack.com", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${SOURCE_TOKEN}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    dt: new Date().toISOString(), // Timestamp
+                    level: level,
+                    user_id: currentSpotifyUser,
+                    user_url: `https://open.spotify.com/user/${currentSpotifyUser}`,
+                    platform: navigator.platform,
+                    userAgent: navigator.userAgent,
+                    message: message,
+                    ...metadata
+                })
+            });
 
-        //console.log("📈 Event logged to BetterStack");
-    } catch (err) {
-        // We fail silently so a logging error never crashes your music player
+            if (res.status === 429) {
+                loggingLocked = true;
+                console.warn(`Logging 429 - rate limited`)
+            }
+            if ([401, 403, 405].includes(res.status)) {
+                loggingLocked = true;
+                console.warn(`Logging 400, 401, 402 - pre-flight failure`)
+
+                // A 401 Unauthorized status is not specifically a CORS error, though it often appears alongside one. 
+                // If you see a CORS error and a 401 status together, it typically means the browser’s CORS Preflight 
+                // request (an OPTIONS call) was rejected by your server's security layer before the actual request 
+                // could be made
+
+                // Preflight Failure (401/403/405): Before sending complex requests (like those with 
+                //     JSON or custom headers), browsers send an OPTIONS preflight request. 
+                //     If your server requires authentication for all requests, it may return a 401 Unauthorized for 
+                //     this preflight because the browser does not send credentials with it. This causes the 
+                //     browser to block the subsequent "real" request and report a CORS error.
+                // Redirect Issues (301/302): If a server redirects a preflight request, the browser will block it 
+                //     with a CORS error because redirects are not allowed during the preflight phase.
+            }
+            
+
+
+
+            // Emergency (emerg): indicates that the system is unusable and requires immediate attention.
+            // Alert (alert): indicates that immediate action is necessary to resolve a critical issue.
+            // Critical (crit): signifies critical conditions in the program that demand intervention to prevent system failure.
+            // Error (error): indicates error conditions that impair some operation but are less severe than critical situations.
+            // Warning (warn): signifies potential issues that may lead to errors or unexpected behavior in the future if not addressed.
+            // Notice (notice): applies to normal but significant conditions that may require monitoring.
+            // Informational (info): includes messages that provide a record of the normal operation of the system.
+            // Debug (debug): intended for logging detailed information about the system for debugging purposes.
+
+            // Fatal & Error: Highlighted in Red to demand immediate attention for critical failures.
+            // Warning: Highlighted in Yellow to surface emerging issues or undesirable conditions that aren't yet critical errors.
+            // Info: Typically displayed in Green or standard text, indicating interesting runtime events like startup or shutdown.
+            // Debug & Trace: Usually highlighted in Gray or muted tones to keep detailed diagnostic information in the background unless intentionally viewed. 
+
+
+            //console.log("📈 Event logged to BetterStack");
+        } catch (err) {
+            // We fail silently so a logging error never crashes your music player
+        }
     }
 }
 
@@ -157,7 +191,7 @@ async function fetchUserProfile() {
     
     // Optional: Log that they logged in
     // SEND THE LOG
-    logEvent("INFO", `fetchUserProfile - User Session Started`, {
+    logEvent("WARN", `fetchUserProfile - User Session Started`, {
         step: "fetchUserProfile",
         error: `FETCH_USER_PROFILE`,
         strikeCount: rateLimitStrikes,
@@ -439,7 +473,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
         showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
         console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
             // SEND THE LOG
-            logEvent("INFO", `playFromSpecificPlaylist - Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, {
+            logEvent("TRACE", `playFromSpecificPlaylist - Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, {
                 step: "playFromSpecificPlaylist",
                 error: `PLAYLIST_CHOSEN`,
                 strikeCount: rateLimitStrikes,
@@ -596,7 +630,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
                 trackISRC = fullTrackData.external_ids?.isrc;
                 console.log("Verified ISRC:", trackISRC, track.name);
             // SEND THE LOG
-            logEvent("INFO", `playFromSpecificPlaylist ISRC - Verified ISRC: ${trackISRC}`, {
+            logEvent("TRACE", `playFromSpecificPlaylist ISRC - Verified ISRC: ${trackISRC}`, {
                 step: "playFromSpecificPlaylist",
                 error: `ISRC_VERIFIED`,
                 strikeCount: rateLimitStrikes,
@@ -717,7 +751,7 @@ async function prepareNextQueueItem(attempt = 0) {
 
         console.log(`--------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`)
             // SEND THE LOG
-            logEvent("INFO", `prepareNextQueueItem - Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`, {
+            logEvent("TRACE", `prepareNextQueueItem - Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`, {
                 step: "prepareNextQueueItem",
                 error: `QUEUE_TRACK`,
                 strikeCount: rateLimitStrikes,
@@ -773,7 +807,7 @@ async function prepareNextQueueItem(attempt = 0) {
 
         console.log(`Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`);
             // SEND THE LOG
-            logEvent("INFO", `prepareNextQueueItem - getTrackAtIndex: Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`, {
+            logEvent("TRACE", `prepareNextQueueItem - getTrackAtIndex: Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`, {
                 step: "prepareNextQueueItem",
                 error: `QUEUE_TRACK`,
                 strikeCount: rateLimitStrikes,
@@ -1327,7 +1361,7 @@ async function refreshAccessToken() {
 
             console.warn("Token Refreshed Successfully!");
             // SEND THE LOG
-            logEvent("NOTICE", `refreshAccessToken - Token Refreshed Successfully!`, {
+            logEvent("WARN", `refreshAccessToken - Token Refreshed Successfully!`, {
                 step: "refreshAccessToken",
                 error: `REFRESH_TOKEN_SUCCESS`,
                 strikeCount: rateLimitStrikes,
@@ -1467,6 +1501,7 @@ let apiCallCounter = 0;
 const MAX_CALLS_PER_MINUTE = 30; // Safe threshold for Dev Mode
 
 let isSoftLocked = false;
+let loggingLocked = false;
 let isSoftLockedISRC = false
 let rateLimitStrikes = 0;
 let rateLimitStrikesISRC = 0;
@@ -1475,7 +1510,7 @@ const MAX_STRIKES = 3; // 3 strikes and you're out (Emergency Stop)
 
 async function safeSpotifyFetch(url, options) {
             // SEND THE LOG
-            logEvent("INFO", `safeSpotifyFetch - CALL`, {
+            logEvent("TRACE", `safeSpotifyFetch - CALL`, {
                 step: "safeSpotifyFetch",
                 error: "SAFESPOTIFYFETCH_CALL",
                 strikeCount: rateLimitStrikes,
@@ -1483,7 +1518,7 @@ async function safeSpotifyFetch(url, options) {
                 activeMix: activeMixId
             });
             // SEND THE LOG
-            logEvent("INFO", `safeSpotifyFetch - CALL_TOTAL`, {
+            logEvent("TRACE", `safeSpotifyFetch - CALL_TOTAL`, {
                 step: "safeSpotifyFetch",
                 error: "SAFESPOTIFYFETCH_CALL_TOTAL",
                 strikeCount: rateLimitStrikes,
@@ -1601,7 +1636,7 @@ async function safeSpotifyFetch(url, options) {
 }
 async function safeSpotifyFetchISRC(url, options) {
             // SEND THE LOG
-            logEvent("INFO", `safeSpotifyFetch ISRC - CALL`, {
+            logEvent("TRACE", `safeSpotifyFetch ISRC - CALL`, {
                 step: "safeSpotifyFetchISRC",
                 error: "SAFESPOTIFYFETCH_ISRC_CALL",
                 strikeCount: rateLimitStrikes,
@@ -1609,7 +1644,7 @@ async function safeSpotifyFetchISRC(url, options) {
                 activeMix: activeMixId
             });
             // SEND THE LOG
-            logEvent("INFO", `safeSpotifyFetch ISRC - CALL_TOTAL`, {
+            logEvent("TRACE", `safeSpotifyFetch ISRC - CALL_TOTAL`, {
                 step: "safeSpotifyFetchISRC",
                 error: "SAFESPOTIFYFETCH_CALL_TOTAL",
                 strikeCount: rateLimitStrikes,
@@ -2180,7 +2215,7 @@ async function pickRandomSong(attempt = 0) {
         showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
         console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
             // SEND THE LOG
-            logEvent("INFO", `pickRandomSong - Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, {
+            logEvent("TRACE", `pickRandomSong - Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, {
                 step: "pickRandomSong",
                 error: `PLAYLIST_CHOSEN`,
                 strikeCount: rateLimitStrikes,
@@ -2253,7 +2288,7 @@ async function pickRandomSong(attempt = 0) {
         console.log("Playing:", track.name);
         showResult(`Now Playing: ${track.name} by ${track.artists[0].name}`);
             // SEND THE LOG
-            logEvent("INFO", `pickRandomSong - getTrackAtIndex - Now Playing: ${track.name} by ${track.artists[0].name}`, {
+            logEvent("TRACE", `pickRandomSong - getTrackAtIndex - Now Playing: ${track.name} by ${track.artists[0].name}`, {
                 step: "pickRandomSong",
                 error: `GETTRACK_SUCCESS`,
                 strikeCount: rateLimitStrikes,
@@ -2337,7 +2372,7 @@ async function pickRandomSong(attempt = 0) {
                 trackISRC = fullTrackData.external_ids?.isrc;
                 console.log("Verified ISRC:", trackISRC, track.name);
             // SEND THE LOG
-            logEvent("INFO", `pickRandomSong ISRC - Verified ISRC: ${trackISRC} ${track.name}`, {
+            logEvent("TRACE", `pickRandomSong ISRC - Verified ISRC: ${trackISRC} ${track.name}`, {
                 step: "pickRandomSong",
                 error: `ISRC_VERIFIED`,
                 strikeCount: rateLimitStrikes,
@@ -2612,7 +2647,7 @@ async function getTrackAtIndex(token, playlistId, index){
                 console.log("Found Track:", track.name, "URI:", track.uri);
                 console.log("Success! Found:", track.name, "by", track.artists[0].name);
             // SEND THE LOG
-            logEvent("INFO", `getTrackAtIndex - safeSpotifyFetch - Success! Found: ${track.name} by ${track.artists[0].name}`, {
+            logEvent("TRACE", `getTrackAtIndex - safeSpotifyFetch - Success! Found: ${track.name} by ${track.artists[0].name}`, {
                 step: "getTrackAtIndex",
                 error: `SUCCESS_TRACK_FOUND`,
                 track_name: track.name,
@@ -2737,8 +2772,8 @@ function renderPlaylists() {
     container.innerHTML = ""
 
 
-    const maxCount = Math.max(...playlists.map(p => p.pickCount || 0), 1);
-    const minCount = Math.min(...playlists.map(p => p.pickCount || 0), 1);
+    const maxCount = Math.max(...playlists.map(p => p.pickCount || 0));
+    const minCount = Math.min(...playlists.map(p => p.pickCount || 0));
   
     playlists.forEach((playlist, index) => {
 
@@ -3088,7 +3123,7 @@ function generateShareLink() {
     // Copy to clipboard or show in a prompt
     navigator.clipboard.writeText(jsonString).then(() => {
                         // SEND THE LOG
-                        logEvent("INFO", `generateShareLink | Mix Code copied! Paste this on your other device.`, {
+                        logEvent("WARN", `generateShareLink | Mix Code copied! Paste this on your other device.`, {
                             step: "generateShareLink",
                             error: "GENERATE_SHARE_LINK_SUCCESS",
                             device_id: device_id,
@@ -3142,9 +3177,10 @@ async function importMix() {
             saveAppState();
             renderMixSelector();
                         // SEND THE LOG
-                        logEvent("INFO", `importMix | Mix imported successfully! Refreshing...`, {
+                        logEvent("WARN", `importMix | Mix imported successfully! Refreshing...`, {
                             step: "importMix",
                             error: "IMPORT_MIX_SUCCESS",
+                            mix_name: sharedMix.name,
                             device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
@@ -3552,7 +3588,7 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
             console.log(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
             showResult(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
             // SEND THE LOG
-            logEvent("INFO", `refreshPlaylistCount - REFRESHPLAYLIST_SUCCESS - Updated ${playlists[playlistIndex].name} to ${data.total} songs.`, {
+            logEvent("TRACE", `refreshPlaylistCount - REFRESHPLAYLIST_SUCCESS - Updated ${playlists[playlistIndex].name} to ${data.total} songs.`, {
                 step: "refreshPlaylistCount",
                 error: `REFRESHPLAYLIST_SUCCESS`,
                 playlist: playlists[playlistIndex].name,
@@ -3704,7 +3740,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     else if (code) {
         console.warn("New login detected. Swapping code for token...");
             // SEND THE LOG
-            logEvent("INFO", `New Login Detected - Swapping login code for token`, {
+            logEvent("WARN", `New Login Detected - Swapping login code for token`, {
                 step: "newlogin",
                 error: `NEW_LOGIN_DETECTED`,
                 strikeCount: rateLimitStrikes,
@@ -3777,7 +3813,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             showResult(`Imported Mix: ${sharedMix.name}`);
             console.log(`Imported Mix: ${sharedMix.name}`);
             // SEND THE LOG
-            logEvent("INFO", `Imported Mix from URL: ${sharedMix.name}`, {
+            logEvent("WARN", `Imported Mix from URL: ${sharedMix.name}`, {
                 step: "import_mix_url",
                 error: `IMPORT_MIX_URL_SUCCESS`,
                 strikeCount: rateLimitStrikes,
@@ -3787,7 +3823,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Failed to import shared mix:", e);
             showResult("Error: Invalid share link.");
             // SEND THE LOG
-            logEvent("INFO", `Failed to import shared mix: ${e}`, {
+            logEvent("WARN", `Failed to import shared mix: ${e}`, {
                 step: "import_mix_url",
                 error: `IMPORT_MIX_URL_FAIL`,
                 error_message: e,
@@ -3919,7 +3955,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     oscillator.start();
                     console.log("🔊 Silent Audio Heartbeat active (Safe for Mobile)");
             // SEND THE LOG
-            logEvent("INFO", `Audio_Heartbeat - Silent Audio Heartbeat active (Safe for Mobile)`, {
+            logEvent("DEBUG", `Audio_Heartbeat - Silent Audio Heartbeat active (Safe for Mobile)`, {
                 step: "Audio_Heartbeat",
                 error: `AUDIO_HEARBEAT_SUCCESS`,
                 strikeCount: rateLimitStrikes,
@@ -3968,7 +4004,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.getElementById('play-pause').style.display = "inline-block";
 
                 // SEND THE LOG
-                logEvent("NOTICE", `ready listener - device_id: ${device_id}`, {
+                logEvent("WARN", `ready listener - device_id: ${device_id}`, {
                     step: "ready_listener",
                     error: "READY_LISTENER",
                     device_id: device_id,
@@ -4188,7 +4224,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                         console.log("New track detected:", current_track.name);
                         // SEND THE LOG
-                        logEvent("INFO", `current_track.id changed - New track detected: ${current_track.name}`, {
+                        logEvent("TRACE", `current_track.id changed - New track detected: ${current_track.name}`, {
                             step: "current_track_id_changed",
                             error: "CURRENT_TRACK_ID_CHANGED",
                             track: current_track.name,
@@ -4376,7 +4412,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.log("New song detected:", current_track.name);
                     console.warn("lastTrackId - Detected new song:", lastTrackId, current_track.name)
                         // SEND THE LOG
-                        logEvent("INFO", `currentTrackIdISRC changed - New song detected: ${current_track.name}`, {
+                        logEvent("TRACE", `currentTrackIdISRC changed - New song detected: ${current_track.name}`, {
                             step: "currentTrackIdISRC_changed",
                             error: "currentTrackIdISRC_CHANGED",
                             track: current_track.name,
@@ -4497,7 +4533,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (success) {
                     console.warn("Connection request sent to Spotify!");
                         // SEND THE LOG
-                        logEvent("NOTICE", `initial_player_connection | Connection request sent to Spotify! SUCCESS`, {
+                        logEvent("WARN", `initial_player_connection | Connection request sent to Spotify! SUCCESS`, {
                             step: "initial_player_connection",
                             error: "INITIAL_PLAYER_CONNECTION_SUCCESS",
                             device_id: device_id,
@@ -4560,7 +4596,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         if (success) {
                             console.warn("Connection request sent to Spotify!");
                         // SEND THE LOG
-                        logEvent("NOTICE", `ping_spotify_connection | Connection request sent to Spotify! SUCCESS`, {
+                        logEvent("WARN", `ping_spotify_connection | Connection request sent to Spotify! SUCCESS`, {
                             step: "ping_spotify_connection",
                             error: "PING_SPOTIFY_CONNECTION_SUCCESS",
                             device_id: device_id,
@@ -4588,6 +4624,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // When the user hits "Next" on the lock screen
                 navigator.mediaSession.setActionHandler('nexttrack', () => {
                     console.warn("Lock screen: Next Track clicked.");
+                        // SEND THE LOG
+                        logEvent("INFO", `mediaSession_skip_button | Skipped to the next track!`, {
+                            step: "mediaSession_skip_button",
+                            error: "MEDIA_SESSION_SKIP_BUTTON",
+                            skip: "SKIP",
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
                     //pickRandomSong(); 
                     player.nextTrack();
                 });
@@ -4685,6 +4730,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         logEvent("INFO", `internal_skip_button | Skipped to the next track!`, {
                             step: "internal_skip_button",
                             error: "INTERNAL_SKIP_BUTTON",
+                            skip: "SKIP",
                             device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
@@ -4756,7 +4802,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveAppState()
         renderMixSelector()
                         // SEND THE LOG
-                        logEvent("INFO", `save_mix | ${name}`, {
+                        logEvent("WARN", `save_mix | ${name}`, {
                             step: "save_mix",
                             error: "SAVE_MIX",
                             mix_name: name,
