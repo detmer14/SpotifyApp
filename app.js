@@ -110,6 +110,9 @@ async function logEvent(level, message, metadata = {}) {
 
     if(!loggingLocked){
 
+        if(currentSpotifyUser === "fail"){
+            fetchUserProfile();
+        }
         try {
             const res = await fetch("https://in.logs.betterstack.com", {
                 method: "POST",
@@ -187,7 +190,12 @@ async function fetchUserProfile() {
     const data = await res.json();
     
     // Store the ID (e.g., "spotify_user_88")
-    currentSpotifyUser = data.id; 
+    if(data.id){
+        currentSpotifyUser = data.id; 
+    }
+    else{
+        currentSpotifyUser = "fail"
+    }
     
     // Optional: Log that they logged in
     // SEND THE LOG
