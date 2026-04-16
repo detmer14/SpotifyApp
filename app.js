@@ -182,29 +182,37 @@ async function logEvent(level, message, metadata = {}) {
 let currentSpotifyUser = "guest"; // Default
 
 async function fetchUserProfile() {
-    const token = localStorage.getItem('access_token');
-    //const res = await fetch('https://api.spotify.com/v1/me', {
-    const res = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-    
-    // Store the ID (e.g., "spotify_user_88")
-    if(data.id){
-        currentSpotifyUser = data.id; 
-    // Optional: Log that they logged in
-    // SEND THE LOG
-    logEvent("WARN", `fetchUserProfile - User Session Started`, {
-        step: "fetchUserProfile",
-        error: `FETCH_USER_PROFILE`,
-        strikeCount: rateLimitStrikes,
-        activeMix: activeMixId
-    });
-    }
-    else{
-        currentSpotifyUser = "fail"
+    if(!updatingCurrentSpotifyUser){
+        
+        updatingCurrentSpotifyUser = true
+
+        const token = localStorage.getItem('access_token');
+        //const res = await fetch('https://api.spotify.com/v1/me', {
+        const res = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        // Store the ID (e.g., "spotify_user_88")
+        if(data.id){
+            currentSpotifyUser = data.id; 
+            // Optional: Log that they logged in
+            // SEND THE LOG
+            logEvent("WARN", `fetchUserProfile - User Session Started`, {
+                step: "fetchUserProfile",
+                error: `FETCH_USER_PROFILE`,
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        }
+        else{
+            currentSpotifyUser = "fail"
+        }
+
+        updatingCurrentSpotifyUser = false;
     }
 }
+
 
 
 async function playTrack(trackUri, isRetry = false) {
