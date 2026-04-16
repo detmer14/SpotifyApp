@@ -180,6 +180,7 @@ async function logEvent(level, message, metadata = {}) {
 }
 
 let currentSpotifyUser = "guest"; // Default
+let updatingCurrentSpotifyUser = "false"
 
 async function fetchUserProfile() {
     if(!updatingCurrentSpotifyUser){
