@@ -19,15 +19,6 @@ let isDraggingProgress = false
 window.onSpotifyWebPlaybackSDKReady = async () => {
     console.warn("Spotify SDK is ready to initialize!");
     const token = localStorage.getItem('access_token');
-
-    await fetchUserProfile()
-
-    logEvent("WARN", "App Loaded - onSpotifyWebPlaybackSDKReady", {
-        error: "APP_LOADED",
-        step: "onSpotifyWebPlaybackSDKReady",
-        screenSize: `${window.innerWidth}x${window.innerHeight}`
-    });
-
 };
 
 let activeTimeouts = []; // Array to track all pending retries
@@ -110,8 +101,8 @@ async function logEvent(level, message, metadata = {}) {
 
     if(!loggingLocked){
 
-        if(currentSpotifyUser === "fail"){
-            fetchUserProfile();
+        if((currentSpotifyUser === "fail") || (currentSpotifyUser === "guest")){
+            await fetchUserProfile();
         }
         try {
             const res = await fetch("https://in.logs.betterstack.com", {
@@ -180,7 +171,7 @@ async function logEvent(level, message, metadata = {}) {
 }
 
 let currentSpotifyUser = "guest"; // Default
-let updatingCurrentSpotifyUser = "false"
+let updatingCurrentSpotifyUser = false
 
 async function fetchUserProfile() {
     if(!updatingCurrentSpotifyUser){
@@ -198,6 +189,7 @@ async function fetchUserProfile() {
         if(data.id){
             currentSpotifyUser = data.id; 
             // Optional: Log that they logged in
+            console.warn(`fetchUserProfile - User Session Started: ${currentSpotifyUser}`)
             // SEND THE LOG
             logEvent("WARN", `fetchUserProfile - User Session Started`, {
                 step: "fetchUserProfile",
@@ -207,13 +199,13 @@ async function fetchUserProfile() {
             });
         }
         else{
+            console.warn(`fetchUserProfile FAIL`)
             currentSpotifyUser = "fail"
         }
 
         updatingCurrentSpotifyUser = false;
     }
 }
-
 
 
 async function playTrack(trackUri, isRetry = false) {
@@ -395,7 +387,8 @@ async function playTrack(trackUri, isRetry = false) {
             console.warn("playTrack - 403 Song restricted - RETRY:FAIL:", returnCodePickRetry)
             return("403_SONG_RESTRICTED.RETRY.FAIL");
 
-        } else if (response.status === 204  || response.status === 200) {
+        } 
+        else if (response.status === 204  || response.status === 200) {
             // SEND THE LOG
             logEvent("INFO", `playTrack - safeSpotifyFetch - 200 204 SUCCESS`, {
                 step: "playTrack",
@@ -429,11 +422,14 @@ async function playTrack(trackUri, isRetry = false) {
                 }
             }, 1000);
 
-            console.log("Current song started. Pre-picking next song for the queue...");
-            // Wait 3 seconds to let the current song settle, then queue the next one
-            setTimeout(() => {
-                prepareNextQueueItem();
-            }, 3000);
+            
+            if(internalQueue.length < 2){ //no need to overload the queue
+                console.log("Current song started. Pre-picking next song for the queue...");
+                // Wait 3 seconds to let the current song settle, then queue the next one
+                setTimeout(() => {
+                    prepareNextQueueItem();
+                }, 3000);
+            }   
             console.log("Playback started successfully.");
 
             // 1. Set Chrome Battery Usage to "Unrestricted"
@@ -820,9 +816,9 @@ async function prepareNextQueueItem(attempt = 0) {
 
     if (nextTrack && nextTrack.uri) {
 
-        console.log(`Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`);
+        console.log(`Queued up: ${nextTrack.name} -  ${chosenplaylist.name} for later.`);
             // SEND THE LOG
-            logEvent("TRACE", `prepareNextQueueItem - getTrackAtIndex: Queued up: ${nextTrack.name} ${chosenplaylist.name} for later.`, {
+            logEvent("TRACE", `prepareNextQueueItem - getTrackAtIndex: Queued up: [${nextTrack.name} - ${chosenplaylist.name}] for later.`, {
                 step: "prepareNextQueueItem",
                 error: `QUEUE_TRACK`,
                 strikeCount: rateLimitStrikes,
@@ -1873,7 +1869,9 @@ function pickRandomTrackInfo() {
 // }
 
 function setSelectionMode(mode){
+    console.log(`selectionMode: ${selectionMode} mode: ${mode}`)
     selectionMode = mode
+    document.querySelector(`input[name="selectionMode"][value="${selectionMode}"]`).checked = true;
 
     if(mode === "normal"){
         playlists.forEach(p => {
@@ -2782,6 +2780,165 @@ function incrementPlaylistCount(playlistId) {
     }
 }
 
+function renderStoredMixes() {
+    const container = document.getElementById('stored-mixes-list');
+    
+    // // 1. Grab the big state object
+    // const stored = localStorage.getItem("spotifyAppState");
+    // if (!stored) return;
+
+    // const state = JSON.parse(stored);
+    // const mixes = state.mixes || {}; // This is your object of mixes
+    const mixIds = Object.keys(mixes); // These are your mix names/IDs
+
+    // 2. Map through the keys of the mixes object
+    container.innerHTML = mixIds.map(id => {
+        return `
+            <div class="mix-row" style="border-bottom: 1px solid #282828;">
+                <input type="checkbox" class="combine-check" value="${id}" 
+                       data-name="${mixes[id].name}" onchange="updateNewMixName()">
+                <span class="mix-label" style="padding: 10px">${mixes[id].name}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// Pre-populates the input box with "MixA + MixB"
+function updateNewMixName() {
+    const selectedNames = Array.from(document.querySelectorAll('.combine-check:checked'))
+                               .map(cb => cb.dataset.name);
+    document.getElementById('combine-mix-name').value = selectedNames.join(' + ');
+}
+
+function combineSelectedMixes() {
+    const selectedKeys = Array.from(document.querySelectorAll('.combine-check:checked')).map(cb => cb.value);
+    const newName = document.getElementById('combine-mix-name').value || "New Combined Mix";
+    
+    if (selectedKeys.length < 2) return alert("Select at least two mixes to combine.");
+
+    //let combinedPlaylists = new Map();
+    let newcombinedPlaylists = []
+
+    selectedKeys.forEach(key => {
+        const mixData = mixes[key];
+        // Assuming each mix is an array of playlist objects
+        console.log(`new key`)
+        mixData.playlists.forEach(p => {
+            console.log(`${p.name}`)
+            // Use Spread Operator to create a shallow CLONE of the playlist
+            // This prevents "mutating" the original playlist object
+            //combinedPlaylists.set(p.id, { ...p }); 
+            const newPlaylist = structuredClone(p)
+            newcombinedPlaylists.push(newPlaylist)
+        });
+    });
+
+    // 1. Create a clean array from your Map
+    //const finalPlaylists = Array.from(combinedPlaylists.values());
+
+    // 2. Create the Mix OBJECT (not just an array)
+    // const newMixObject = {
+    //     name: newName,
+    //     playlists: newcombinedPlaylists // Put the array inside the 'playlists' property
+    // };
+
+
+    const newId = Date.now().toString()
+
+    mixes[newId] = {
+        name: newName,
+        playlists: structuredClone(newcombinedPlaylists),
+        selectionMode: "balanced"
+    }
+
+    //mixes[newId] = newMixObject;
+    activeMixId = newId;
+    playlists = structuredClone(mixes[activeMixId].playlists)
+
+    saveAppState()
+    renderMixSelector()
+    renderPlaylists()
+                        // SEND THE LOG
+                        logEvent("WARN", `combineSelectedMixes | ${mixes[newId].name}`, {
+                            step: "combineSelectedMixes",
+                            error: "COMBINE_MIXES",
+                            mix_name: mixes[newId].name,
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
+    
+    console.warn(`Created new mix: ${newName}`);
+    alert(`Created new mix: ${newName}`);
+    renderStoredMixes(); // Refresh the list
+}
+
+// Add this button to your existing UI controls
+// <button onclick="addActiveToCombineList()">Add Current to Combiner</button>
+
+function addActiveToCombineList() {
+    //const activeMixName = document.getElementById('mix-dropdown').value;
+    const checkbox = document.querySelector(`.combine-check[value="${activeMixId}"]`);
+    
+
+    // const select = document.getElementById("mix-selector")
+
+    // Object.entries(mixes).forEach(([id, mix]) => {
+    //     const opt = document.createElement("option")
+    //     opt.value = id
+    //     opt.textContent = mix.name
+    //     if(id === activeMixId) opt.selected = true
+    //     select.appendChild(opt)
+    // })
+
+
+    if (checkbox) {
+        checkbox.checked = true;
+        updateNewMixName();
+        // Scroll to the combiner section so the user sees it happened
+        document.getElementById('mix-combiner-section').scrollIntoView({ behavior: 'smooth' });
+                        // SEND THE LOG
+                        logEvent("WARN", `addActiveToCombineList | ${mixes[activeMixId].name}`, {
+                            step: "addActiveToCombineList",
+                            error: "SELECTED_CURRENT_MIX_COMBINE",
+                            mix_name: mixes[activeMixId].name,
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
+    }
+}
+
+function createDefaultMix() {
+    console.warn("Creating Default Mix")
+    const id = Date.now().toString()
+
+    mixes[id] = {
+        name: "Default Mix",
+        playlists: structuredClone(playlists),
+        selectionMode: "balanced"
+    }
+
+    activeMixId = id
+    saveAppState()
+    renderMixSelector()
+}
+
+function renderMixSelector(){
+    const select = document.getElementById("mix-selector")
+    select.innerHTML = ""
+
+    Object.entries(mixes).forEach(([id, mix]) => {
+        //console.log(`here's a mix`)
+        const opt = document.createElement("option")
+        opt.value = id
+        opt.textContent = mix.name
+        if(id === activeMixId) opt.selected = true
+        select.appendChild(opt)
+    })
+}
+
+
 function renderPlaylists() {
     const container = document.getElementById("playlist-list")
     container.innerHTML = ""
@@ -2882,9 +3039,10 @@ function renderPlaylists() {
             //If in normal mode, moving slider switches to slider mode
             if((selectionMode === "normal") || (selectionMode === "balanced")){
                 selectionMode = "percentage"
+                setSelectionMode(selectionMode)
 
                 //update radio button
-                document.querySelector('input[value="percentage"]').checked = true
+                //document.querySelector('input[value="percentage"]').checked = true
                 //normalizePercentagesAfterToggle() //REMOVED - This will snap values back instead of using the user's slider value
                 showResult("Percentage mode enabled")
             }
@@ -3107,6 +3265,8 @@ function deleteCurrentMix() {
         // If all are gone, create a fresh default mix
         createDefaultMix(); 
     }
+
+    renderStoredMixes();  // Update the combiner list too!
 
     // 4. Commit changes to localStorage and refresh UI
     saveAppState();
@@ -3632,12 +3792,17 @@ function loadAppState() {
         const state = JSON.parse(stored)
         mixes = state.mixes || {}
         activeMixId = state.activeMixId || null
+        selectionMode = mixes[activeMixId].selectionMode
     }
 
     if(!activeMixId){
         createDefaultMix()
     } 
     else{
+        console.log(`loadapp mix: ${mixes[activeMixId].name}`)
+        if(!mixes[activeMixId].playlists){
+            createDefaultMix();
+        }
         playlists = structuredClone(mixes[activeMixId].playlists)
     }
 
@@ -3653,34 +3818,6 @@ function saveAppState() {
     mixes[activeMixId].selectionMode = selectionMode; // Save the mode!
 
     localStorage.setItem("spotifyAppState", JSON.stringify({mixes, activeMixId}))
-}
-
-function createDefaultMix() {
-    console.warn("Creating Default Mix")
-    const id = Date.now().toString()
-
-    mixes[id] = {
-        name: "Default Mix",
-        playlists: structuredClone(playlists),
-        selectionMode: "balanced"
-    }
-
-    activeMixId = id
-    saveAppState()
-    renderMixSelector()
-}
-
-function renderMixSelector(){
-    const select = document.getElementById("mix-selector")
-    select.innerHTML = ""
-
-    Object.entries(mixes).forEach(([id, mix]) => {
-        const opt = document.createElement("option")
-        opt.value = id
-        opt.textContent = mix.name
-        if(id === activeMixId) opt.selected = true
-        select.appendChild(opt)
-    })
 }
 
 
@@ -3739,6 +3876,16 @@ document.addEventListener('visibilitychange', () => {
 
 document.addEventListener("DOMContentLoaded", async () => {
 
+    await fetchUserProfile()
+    console.log(`DOM content loaded`)
+
+    //logEvent("WARN", "App Loaded - onSpotifyWebPlaybackSDKReady", {
+    logEvent("WARN", "App Loaded - DOMContentLoaded", {
+        error: "APP_LOADED",
+        step: "DOMContentLoaded",
+        screenSize: `${window.innerWidth}x${window.innerHeight}`
+    });
+    
     // 1. FIRST: Check for a new login code from Spotify
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -3752,7 +3899,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await refreshAccessToken();
     } 
     // 2. If it's a brand new login (Code present, No Refresh Token)
-    else if (code) {
+    else if(code) {
         console.warn("New login detected. Swapping code for token...");
             // SEND THE LOG
             logEvent("WARN", `New Login Detected - Swapping login code for token`, {
@@ -4146,6 +4293,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showResult("Player reconnected");
                 console.warn("Player reconnected");
             });
+                let lastState = {
+                    position: 0,
+                    duration: 0,
+                    paused: true,
+                    timestamp: 0
+                };
 
             // Add this inside your initBtn.onclick, near your other listeners:
             player.addListener('player_state_changed', async (state) => {
@@ -4160,7 +4313,46 @@ document.addEventListener("DOMContentLoaded", async () => {
                     track_window: {current_track}
                 } = state;
 
-                console.log("current_track.id: ", current_track.id)
+                    // const theprogressBar = document.getElementById('progress-bar');
+                    // theprogressBar.max = duration;
+                    // theprogressBar.value = position;
+                    // document.getElementById('current-time').textContent = formatTime(position);
+                    // document.getElementById('duration-time').textContent = formatTime(duration);
+
+
+                lastState = {
+                    position: state.position,
+                    duration: state.duration,
+                    paused: state.paused,
+                    timestamp: performance.now() // Precise local time
+                };
+                function updateProgressBar() {
+                    //console.log(`updating`)
+                    if (!lastState.paused && !isDraggingProgress) {
+                        // Calculate how much time has passed since the last official SDK update
+                        const elapsedSinceUpdate = performance.now() - lastState.timestamp;
+                        const currentPosition = Math.min(lastState.position + elapsedSinceUpdate, lastState.duration);
+                        
+                        const progressPercent = (currentPosition / lastState.duration) * 100;
+
+                        // Update your UI elements
+                        const bar = document.getElementById('progress-bar');
+                        const timeDisplay = document.getElementById('current-time');
+
+                        //if (bar) bar.style.width = `${progressPercent}%`;
+                        if (bar) bar.value = currentPosition
+                        if (timeDisplay) timeDisplay.textContent = formatTime(currentPosition);
+                    }
+
+                    // Keep the loop running
+                    requestAnimationFrame(updateProgressBar);
+                }
+
+                // Start the loop once
+                requestAnimationFrame(updateProgressBar);
+
+
+                    console.log("current_track.id: ", current_track.id)
 
                 // Check if another device (like the Spotify App) took over
                 //if (state.playback_id === "" && !state.is_paused) {
@@ -4243,6 +4435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "current_track_id_changed",
                             error: "CURRENT_TRACK_ID_CHANGED",
                             track: current_track.name,
+                            track_artist: current_track.artists[0].name,
                             track_id: current_track.id,
                             previous_track_id: currentTrackId,
                             strikeCount: rateLimitStrikes,
@@ -4431,6 +4624,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "currentTrackIdISRC_changed",
                             error: "currentTrackIdISRC_CHANGED",
                             track: current_track.name,
+                            track_artist: current_track.artists[0].name,
                             track_id: current_track.id,
                             track_id_isrc: currentTrackIdISRC,
                             previous_track_id: currentTrackId,
@@ -4450,6 +4644,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "now_playing",
                             error: "NOW_PLAYING",
                             track: current_track.name,
+                            track_artist: current_track.artists[0].name,
                             track_id: current_track.id,
                             track_id_isrc: currentTrackIdISRC,
                             previous_track_id: currentTrackId,
@@ -4654,6 +4849,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // When the user hits "Pause"
                 navigator.mediaSession.setActionHandler('pause', () => {
+                        // SEND THE LOG
+                        logEvent("INFO", `mediaSession_pause | Paused playback`, {
+                            step: "mediaSession_pause",
+                            error: "MEDIA_SESSION_PAUSE",
+                            pause: "PAUSE",
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
                     userInitiatedPause = true;
                     if (player) player.pause();
                     navigator.mediaSession.playbackState = "paused";
@@ -4661,6 +4865,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // When the user hits "Play"
                 navigator.mediaSession.setActionHandler('play', () => {
+                        // SEND THE LOG
+                        logEvent("INFO", `mediaSession_play | Resumed playback`, {
+                            step: "mediaSession_play",
+                            error: "MEDIA_SESSION_PLAY",
+                            play: "PLAY",
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
                     if (player) player.resume();
                     navigator.mediaSession.playbackState = "playing";
                 });
@@ -4706,6 +4919,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // CASE 2: A song exists, so just toggle play/pause
                 player.togglePlay().then(() => {
                     console.log('Toggled playback');
+                        logEvent("INFO", `playPauseBtn_main | Toggled playback`, {
+                            step: "playPauseBtn_main",
+                            error: "PLAY_PAUSE_BTN_MAIN",
+                            pause: "PAUSE",
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
                 });
             }
         }
@@ -4715,9 +4936,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --- INITIALIZE DATA AND UI HERE ---
     loadAppState();
 
-            
+    renderStoredMixes(); 
+
+
+    // renderMixSelector()  
+    // renderPlaylists()          
     setSelectionMode(selectionMode); 
-    
+    //document.querySelector(`input[name="selectionMode"][value="${selectionMode}"]`).checked = true;
+
     if(!activeMixId){
         createDefaultMix();
     }
@@ -4809,13 +5035,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const id = Date.now().toString()
 
         mixes[id] = {
-            name,
-            playlists: structuredClone(playlists)
+            name: name,
+            playlists: structuredClone(playlists),
+            selectionMode: "balanced"
         }
 
         activeMixId = id
         saveAppState()
         renderMixSelector()
+        renderStoredMixes(); // Refresh the list
                         // SEND THE LOG
                         logEvent("WARN", `save_mix | ${name}`, {
                             step: "save_mix",
@@ -4834,9 +5062,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         playlists = structuredClone(mixes[activeMixId].playlists)
         selectionMode = selectedMix.selectionMode || "balanced" //restore the mode
+        setSelectionMode(selectionMode)
 
         //update the radio buttons to match
-        document.querySelector(`input[name="selectionMode"][value="${selectionMode}"]`).checked = true;
+        //document.querySelector(`input[name="selectionMode"][value="${selectionMode}"]`).checked = true;
 
         playlists.forEach((playlist, index) => {
             setTimeout(() => {
@@ -4896,6 +5125,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             // COLLAPSE
             list.style.maxHeight = "200px";
+            list.style.overflowY = "auto";
+            btn.textContent = "▼ Show All";
+        }
+    };
+    document.getElementById('toggle-list-btn-mix').onclick = function() {
+        const list = document.getElementById('stored-mixes-list');
+        const btn = this;
+
+        if (list.style.maxHeight === "50px" || list.style.maxHeight === "") {
+            // EXPAND
+            //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
+            list.style.maxHeight = "3000px"; // Set to a height larger than your list
+            list.style.overflowY = "visible";
+            btn.textContent = "▲ Show Less";
+        } else {
+            // COLLAPSE
+            list.style.maxHeight = "50px";
             list.style.overflowY = "auto";
             btn.textContent = "▼ Show All";
         }
