@@ -45,31 +45,66 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
     <h1>Ben Burt Spotify Playlist Mixer</h1>
     <!-- <button id="pick">Pick Random Song</button> -->
+    <section id="mix-combiner-section">
+        <h3>Combine Mixes:</h3>
+        <div id="stored-mixes-container" style="background: #ddf1fd; padding: 10px; border-radius: 8px;">
+            <!-- Your existing list -->
+            <div id="stored-mixes-list" class="mix-list-container" style="font-weight: bold; padding: 20px; max-height: 50px; overflow-y: auto; transition: max-height 0.3s ease;">
+                <!-- Lines for each mix will be injected here -->
+            </div>
+        </div>
+            <!-- The Toggle Button -->
+            <button id="toggle-list-btn-mix" style="display: block; margin: 5px auto 0; width: 80%; background: #66ff00; border-radius: 30px; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
+                ▼ Show All
+            </button>
+        
+        <div class="combine-controls">
+            <input type="text" id="combine-mix-name" placeholder="New Mix Name" class="mix-input" style="font-size: 1.5rem;">
+            <button onclick="combineSelectedMixes()" 
+                class="action-btn combine"
+                style="background: #0061cf  ; color: white; border: 1px solid #1DB954; padding: 8px 15px; border-radius: 20px; cursor: pointer;""
+                >
+                Combine Selected
+            </button>
+        </div>
+    </section>
     <section>
         <h3>Playlists:</h3>
         <div id="playlist-inputs">
-            <input type="text" id="new-playlist-name" placeholder="Playlist Name">
-            <input type="number" id="new-playlist-count" placeholder="Track Count" min="1">
-            <button id="add-playlist">Add Playlist</button>
+            <input type="text" id="new-playlist-name" style="font-size: 1.5rem;" placeholder="Playlist Name">
+            <input type="number" id="new-playlist-count" style="font-size: 1.5rem; width: 150px" placeholder="Track Count" min="1">
+            <button id="add-playlist"
+                style="background: #0061cf; color: white; border: 1px solid #1DB954; padding: 8px 15px; border-radius: 20px; cursor: pointer;"
+            >Add Playlist</button>
         </div>
 
         <div id="mix-controls">            
-            <input id="new-mix-name" placeholder="Mix name">
-            <button id="save-mix">Save Mix</button>
+            <input id="new-mix-name" style="font-size: 1.5rem;" placeholder="Mix name">
+            <button id="save-mix"
+                style="background: #0061cf; color: white; border: 1px solid #1DB954; padding: 8px 15px; border-radius: 20px; cursor: pointer;"
+            >Save Mix</button>
         </div>
 
         <div>
-            <select id="mix-selector"></select>
+            <select id="mix-selector" style="font-size: 1.5rem;" ></select>
+            <button id="add-to-combiner-btn" 
+                    class="action-btn" 
+                    style="background: #0061cf; color: white; border: 1px solid #1DB954; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer;"
+                    onclick="addActiveToCombineList()" 
+                    title="Add current mix to the combiner tool below">
+                Add to Combiner
+            </button>
             <button id="delete-mix-btn" onclick="deleteCurrentMix()" style="background: #e91429; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer;">
                 🗑️ Delete
             </button>
-            <button id="share-mix-btn" style="background: #191414; color: white; border: 1px solid #1DB954; padding: 5px 10px; border-radius: 20px; cursor: pointer;">
+            <button id="share-mix-btn" style="background: #0061cf; color: white; border: 1px solid #1DB954; padding: 8px 15px; border-radius: 20px; cursor: pointer;">
                 🔗 Share Current Mix
             </button>
             <!-- Import Button -->
-            <button id="import-trigger-btn" style="background: #333; color: white; border: 1px solid #555; padding: 8px 12px; border-radius: 20px; cursor: pointer;">
+            <button id="import-trigger-btn" style="background: #0061cf; color: white; border: 1px solid #555; padding: 8px 15px; border-radius: 20px; cursor: pointer;">
                 📥 Import Mix JSON
             </button>
+
             
             <!-- Hidden file input that we'll "click" via JavaScript -->
             <input type="file" id="import-file-input" accept=".json" style="display: none;">
