@@ -214,7 +214,7 @@ async function playTrack(trackUri, isRetry = false) {
     if (!device_id) {
         device_id = localStorage.getItem('last_active_device');
     }
-    if (!device_id) return alert("Click 'Power On' first!");
+    if (!device_id) alert("Click 'Power On' first!");
     if (!device_id) {
         showResult("No device found. Please Power On.");
         return "NO_DEVICE_TURN_POWER_ON";
@@ -566,99 +566,100 @@ async function playFromSpecificPlaylist(chosenplaylist) {
             });
         
         let trackISRC
-        const url = `https://api.spotify.com/v1/tracks/${track.id}`
-        try {
-            const response = await safeSpotifyFetchISRC(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+        // const url = `https://api.spotify.com/v1/tracks/${track.id}`
+        // try {
+        //     const response = await safeSpotifyFetchISRC(url, {
+        //         headers: { 'Authorization': `Bearer ${token}` }
+        //     })
             
-            if(response === "MAX_CALLS_PER_MINUTE"){
-                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
-            // SEND THE LOG
-            logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE`, {
-                step: "playFromSpecificPlaylist",
-                error: `MAX_CALLS_PER_MINUTE`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-            }
-            if(response === "SOFT_LOCKED"){
-                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - SOFT_LOCKED")
-            // SEND THE LOG
-            logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - SOFT_LOCKED`, {
-                step: "playFromSpecificPlaylist",
-                error: `SOFT_LOCKED`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-            }
-            if(response === "429_MAX_STRIKES"){
-                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
-            // SEND THE LOG
-            logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_MAX_STRIKES`, {
-                step: "playFromSpecificPlaylist",
-                error: `429_MAX_STRIKES`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-            }
-            if(response === "429_STRIKE"){
-                console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_STRIKE")
-            // SEND THE LOG
-            logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_STRIKE`, {
-                step: "playFromSpecificPlaylist",
-                error: `429_STRIKE`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-            }
+        //     if(response === "MAX_CALLS_PER_MINUTE"){
+        //         console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        //     // SEND THE LOG
+        //     logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `MAX_CALLS_PER_MINUTE`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        //     }
+        //     if(response === "SOFT_LOCKED"){
+        //         console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - SOFT_LOCKED")
+        //     // SEND THE LOG
+        //     logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - SOFT_LOCKED`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `SOFT_LOCKED`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        //     }
+        //     if(response === "429_MAX_STRIKES"){
+        //         console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+        //     // SEND THE LOG
+        //     logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_MAX_STRIKES`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `429_MAX_STRIKES`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        //     }
+        //     if(response === "429_STRIKE"){
+        //         console.warn("playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_STRIKE")
+        //     // SEND THE LOG
+        //     logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - 429_STRIKE`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `429_STRIKE`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        //     }
 
 
-            if (!response.ok) {
-                console.error("Error: playFromSpecificPlaylist trackid.isrc - safeSpotifyFetch blocked")
-            // SEND THE LOG
-            logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - BLOCKED`, {
-                step: "playFromSpecificPlaylist",
-                error: `ISRC_FETCH_BLOCKED`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-                if (response && typeof response.text === 'function') {
-                const text = await response.text(); // Get raw text first (never crashes)
-                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+        //     if (!response.ok) {
+        //         console.error("Error: playFromSpecificPlaylist trackid.isrc - safeSpotifyFetch blocked")
+        //     // SEND THE LOG
+        //     logEvent("ERROR", `playFromSpecificPlaylist ISRC - safeSpotifyFetch - BLOCKED`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `ISRC_FETCH_BLOCKED`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        //         if (response && typeof response.text === 'function') {
+        //         const text = await response.text(); // Get raw text first (never crashes)
+        //         const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
 
-                console.error(errorData?.error?.message || "Forbidden or Not Found");  
-                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        //         console.error(errorData?.error?.message || "Forbidden or Not Found");  
+        //         }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 
 
                 //Use existing current_id instead of currentISRC
 
                 trackISRC = track.id
-            } else{
-                const fullTrackData = await response.json();
+        //     } 
+        //     else{
+        //         const fullTrackData = await response.json();
                 
-                // NOW you have access to the ISRC!
-                trackISRC = fullTrackData.external_ids?.isrc;
-                console.log("Verified ISRC:", trackISRC, track.name);
-            // SEND THE LOG
-            logEvent("TRACE", `playFromSpecificPlaylist ISRC - Verified ISRC: ${trackISRC}`, {
-                step: "playFromSpecificPlaylist",
-                error: `ISRC_VERIFIED`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-            }
+        //         // NOW you have access to the ISRC!
+        //         trackISRC = fullTrackData.external_ids?.isrc;
+        //         console.log("Verified ISRC:", trackISRC, track.name);
+        //     // SEND THE LOG
+        //     logEvent("TRACE", `playFromSpecificPlaylist ISRC - Verified ISRC: ${trackISRC}`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `ISRC_VERIFIED`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        //     }
 
-        } catch (err) {
-            console.error("playFromSpecificPlaylist Failed to fetch ISRC:", err);
-            // SEND THE LOG
-            logEvent("ERROR", `playFromSpecificPlaylist ISRC - Failed to fetch ISRC: ${err}`, {
-                step: "playFromSpecificPlaylist",
-                error: `ISRC_FAILURE`,
-                strikeCount: rateLimitStrikes,
-                activeMix: activeMixId
-            });
-        }
+        // } catch (err) {
+        //     console.error("playFromSpecificPlaylist Failed to fetch ISRC:", err);
+        //     // SEND THE LOG
+        //     logEvent("ERROR", `playFromSpecificPlaylist ISRC - Failed to fetch ISRC: ${err}`, {
+        //         step: "playFromSpecificPlaylist",
+        //         error: `ISRC_FAILURE`,
+        //         strikeCount: rateLimitStrikes,
+        //         activeMix: activeMixId
+        //     });
+        // }
 
         queuePlaylistsMap.set(trackISRC, { name: chosenplaylist.name });
 
@@ -842,47 +843,47 @@ async function prepareNextQueueItem(attempt = 0) {
         incrementPlaylistCount(chosenplaylist.id)
 
         let trackISRC
-        const url = `https://api.spotify.com/v1/tracks/${nextTrack.id}`
-        try {
-            const response = await safeSpotifyFetchISRC(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+        // const url = `https://api.spotify.com/v1/tracks/${nextTrack.id}`
+        // try {
+        //     const response = await safeSpotifyFetchISRC(url, {
+        //         headers: { 'Authorization': `Bearer ${token}` }
+        //     });
 
-            if(response === "MAX_CALLS_PER_MINUTE"){
-                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
-            }
-            if(response === "SOFT_LOCKED"){
-                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - SOFT_LOCKED")
-            }
-            if(response === "429_MAX_STRIKES"){
-                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
-            }
-            if(response === "429_STRIKE"){
-                console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - 429_STRIKE")
-            }
+        //     if(response === "MAX_CALLS_PER_MINUTE"){
+        //         console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+        //     }
+        //     if(response === "SOFT_LOCKED"){
+        //         console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - SOFT_LOCKED")
+        //     }
+        //     if(response === "429_MAX_STRIKES"){
+        //         console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+        //     }
+        //     if(response === "429_STRIKE"){
+        //         console.warn("prepareNextQueueItem ISRC - safeSpotifyFetch - 429_STRIKE")
+        //     }
 
-            if (!response.ok) {
-                console.error("Error: prepareNextQueueItem trackid.isrc - safeSpotifyFetch blocked")
-                if (response && typeof response.text === 'function') {
-                const text = await response.text(); // Get raw text first (never crashes)
-                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+        //     if (!response.ok) {
+        //         console.error("Error: prepareNextQueueItem trackid.isrc - safeSpotifyFetch blocked")
+        //         if (response && typeof response.text === 'function') {
+        //         const text = await response.text(); // Get raw text first (never crashes)
+        //         const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
 
-                console.error(errorData?.error?.message || "Forbidden or Not Found");  
-                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
-                                // throw new Error(errorData.error.message || "Playlist not found");
-                //Use existing current_id instead of currentISRC
+        //         console.error(errorData?.error?.message || "Forbidden or Not Found");  
+        //         }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        //                         // throw new Error(errorData.error.message || "Playlist not found");
+        //         //Use existing current_id instead of currentISRC
 
                 trackISRC = nextTrack.id
-            } else{
-                const fullTrackData = await response.json();
+        //     } else{
+        //         const fullTrackData = await response.json();
                 
-                // NOW you have access to the ISRC!
-                trackISRC = fullTrackData.external_ids?.isrc;
-                console.log("Verified ISRC:", trackISRC);
-            }
-        } catch (err) {
-            console.error("prepareNextQueueItem Failed to fetch ISRC:", err);
-        }
+        //         // NOW you have access to the ISRC!
+        //         trackISRC = fullTrackData.external_ids?.isrc;
+        //         console.log("Verified ISRC:", trackISRC);
+        //     }
+        // } catch (err) {
+        //     console.error("prepareNextQueueItem Failed to fetch ISRC:", err);
+        // }
         
         queuePlaylistsMap.set(trackISRC, { name: chosenplaylist.name });
 
@@ -1020,7 +1021,7 @@ function renderQueue() {
 }
 
 function addToHistory(track, playlistName) {
-    console.warn("addToHistory")
+    //console.warn("addToHistory")
     const historyList = document.getElementById('history-list');
     if (!historyList) return;
 
@@ -2191,6 +2192,38 @@ function pickByWeightAlgorithm(activePlaylists){
 
 
 async function pickRandomSong(attempt = 0) {
+
+
+    if (!player){
+            // SEND THE LOG
+            logEvent("ERROR", `pickRandomSong - Error: PLAYER_NOT_POWERED_ON`, {
+                step: "pickRandomSong",
+                error: `PLAYER_NOT_POWERED_ON`,
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        alert("Turn player on first")
+        return "PLAYER_NOT_POWERED_ON";
+    }
+
+    // 1. Re-activate the element to satisfy autoplay rules
+    // Nudge the browser to keep the audio context alive
+    player.activateElement(); 
+    player.connect().then(success => {
+        if (success) {
+            console.warn("Connection request sent to Spotify!");
+        } else {
+        // SEND THE LOG
+        logEvent("ERROR", `pickRandomSong - Error: PLAYER_CONNECTION_FAIL`, {
+            step: "pickRandomSong",
+            error: `PLAYER_CONNECTION_FAIL`,
+            strikeCount: rateLimitStrikes,
+            activeMix: activeMixId
+        });
+            console.error("Connection failed. Check your Premium status.");
+        }
+    });
+
     lastPickTime = Date.now(); // Update timestamp whenever a pick is made (manual or auto)
     const activePlaylists = playlists.filter(p => p.enabled)
 
@@ -2265,7 +2298,7 @@ async function pickRandomSong(attempt = 0) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-        return; // Stop the loop immediately!
+        return "NETWORK_ERROR"; // Stop the loop immediately!
     }
     
     // 4. RATE LIMIT CHECK: Stop if safeSpotifyFetch triggered a 429
@@ -2278,7 +2311,7 @@ async function pickRandomSong(attempt = 0) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-        return;
+        return "RATE_LIMIT_HIT";
     }
 
     if (track === null) {
@@ -2291,7 +2324,7 @@ async function pickRandomSong(attempt = 0) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-            return; // Don't even attempt a retry loop
+            return "PICKRANDOMSONG_ERROR"; // Don't even attempt a retry loop
         }
         // ... normal restricted track retry logic ...
     }
@@ -2393,7 +2426,8 @@ async function pickRandomSong(attempt = 0) {
             });
             }
 
-        } catch (err) {
+        } 
+        catch (err) {
             console.error("Failed to fetch ISRC:", err);
             // SEND THE LOG
             logEvent("ERROR", `pickRandomSong ISRC - Failed to fetch ISRC: ${err}`, {
@@ -2418,7 +2452,7 @@ async function pickRandomSong(attempt = 0) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-            return("FAIL")
+            return "FAIL"
         }
 
         // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
@@ -2453,7 +2487,8 @@ async function pickRandomSong(attempt = 0) {
 
         return("SUCCESS")
 
-    } else {
+    } 
+    else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
         console.log("Track was restricted or null. Retrying pick attempt " + (attempt + 1) + "...");
@@ -2673,7 +2708,7 @@ async function getTrackAtIndex(token, playlistId, index){
             if (track.is_playable === false) {
                 console.warn(`Skipping "${track.name}": Not playable in your region.`);
             // SEND THE LOG
-            logEvent("WARN", `getTrackAtIndex - OUT_OF_REGION - Skipping "${track.name}": Not playable in your region.`, {
+            logEvent("WARN", `getTrackAtIndex - OUT_OF_REGION - Skipping "${track.name} - ${track.artists[0].name}": Not playable in your region.`, {
                 step: "getTrackAtIndex",
                 error: `OUT_OF_REGION`,
                 track_name: track.name,
@@ -4442,95 +4477,106 @@ document.addEventListener("DOMContentLoaded", async () => {
                             activeMix: activeMixId
                         });
 
-                        console.error("player_state_changed - Checking ISRC")
-                        const token = localStorage.getItem('access_token');        
-                        const url = `https://api.spotify.com/v1/tracks/${originalTrackId}`
-                        try {
-                            const response = await safeSpotifyFetchISRC(url, {
-                                headers: { 'Authorization': `Bearer ${token}` }
-                            });
+                //if (currentISRC !== lastTrackId) {
+                if(current_track.linked_from?.id){
+                    console.warn(`linked_from.id ${currentISRC} ${lastTrackId}`);
+                    console.warn("currentTrackIdISRC:", currentTrackIdISRC)
+                    
+                    currentTrackIdISRC = current_track.linked_from?.id
+                
 
-                            if(response === "MAX_CALLS_PER_MINUTE"){
-                                console.warn("player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
-                                // SEND THE LOG
-                                logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE`, {
-                                    step: "player_state_changed",
-                                    error: `MAX_CALLS_PER_MINUTE`,
-                                    strikeCount: rateLimitStrikes,
-                                    activeMix: activeMixId
-                                });
-                            }
-                            if(response === "SOFT_LOCKED"){
-                                console.warn("player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED")
-                                // SEND THE LOG
-                                logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED`, {
-                                    step: "player_state_changed",
-                                    error: `SOFT_LOCKED`,
-                                    strikeCount: rateLimitStrikes,
-                                    activeMix: activeMixId
-                                });
-                            }
-                            if(response === "429_MAX_STRIKES"){
-                                console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
-                                // SEND THE LOG
-                                logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES`, {
-                                    step: "player_state_changed",
-                                    error: `429_MAX_STRIKES`,
-                                    strikeCount: rateLimitStrikes,
-                                    activeMix: activeMixId
-                                });
-                            }
-                            if(response === "429_STRIKE"){
-                                console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE")
-                                // SEND THE LOG
-                                logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE`, {
-                                    step: "player_state_changed",
-                                    error: `429_STRIKE`,
-                                    strikeCount: rateLimitStrikes,
-                                    activeMix: activeMixId
-                                });
-                            }
+                //         console.error("player_state_changed - Checking ISRC")
+                //         const token = localStorage.getItem('access_token');        
+                //         const url = `https://api.spotify.com/v1/tracks/${originalTrackId}`
+                //         try {
+                //             const response = await safeSpotifyFetchISRC(url, {
+                //                 headers: { 'Authorization': `Bearer ${token}` }
+                //             });
 
-                            if (!response.ok) {
-                                console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
-                                // SEND THE LOG
-                                logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - BLOCKED`, {
-                                    step: "player_state_changed",
-                                    error: `PLAYERSTATECHANGED_FETCH_BLOCKED`,
-                                    strikeCount: rateLimitStrikes,
-                                    activeMix: activeMixId
-                                });
-                if (response && typeof response.text === 'function') {
-                const text = await response.text(); // Get raw text first (never crashes)
-                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+                //             if(response === "MAX_CALLS_PER_MINUTE"){
+                //                 console.warn("player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+                //                 // SEND THE LOG
+                //                 logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - MAX_CALLS_PER_MINUTE`, {
+                //                     step: "player_state_changed",
+                //                     error: `MAX_CALLS_PER_MINUTE`,
+                //                     strikeCount: rateLimitStrikes,
+                //                     activeMix: activeMixId
+                //                 });
+                //             }
+                //             if(response === "SOFT_LOCKED"){
+                //                 console.warn("player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED")
+                //                 // SEND THE LOG
+                //                 logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - SOFT_LOCKED`, {
+                //                     step: "player_state_changed",
+                //                     error: `SOFT_LOCKED`,
+                //                     strikeCount: rateLimitStrikes,
+                //                     activeMix: activeMixId
+                //                 });
+                //             }
+                //             if(response === "429_MAX_STRIKES"){
+                //                 console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES")
+                //                 // SEND THE LOG
+                //                 logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - 429_MAX_STRIKES`, {
+                //                     step: "player_state_changed",
+                //                     error: `429_MAX_STRIKES`,
+                //                     strikeCount: rateLimitStrikes,
+                //                     activeMix: activeMixId
+                //                 });
+                //             }
+                //             if(response === "429_STRIKE"){
+                //                 console.warn("player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE")
+                //                 // SEND THE LOG
+                //                 logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - 429_STRIKE`, {
+                //                     step: "player_state_changed",
+                //                     error: `429_STRIKE`,
+                //                     strikeCount: rateLimitStrikes,
+                //                     activeMix: activeMixId
+                //                 });
+                //             }
 
-                console.error(errorData?.error?.message || "Forbidden or Not Found");  
-                }
-                                //Use existing current_id instead of currentISRC
+                //             if (!response.ok) {
+                //                 console.error("Error: player_state_changed trackid.isrc - safeSpotifyFetch blocked")
+                //                 // SEND THE LOG
+                //                 logEvent("ERROR", `player_state_changed ISRC - safeSpotifyFetch - BLOCKED`, {
+                //                     step: "player_state_changed",
+                //                     error: `PLAYERSTATECHANGED_FETCH_BLOCKED`,
+                //                     strikeCount: rateLimitStrikes,
+                //                     activeMix: activeMixId
+                //                 });
+                // if (response && typeof response.text === 'function') {
+                // const text = await response.text(); // Get raw text first (never crashes)
+                // const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
 
-                                //currentISRC = originalTrackId //ah but this would have been lastid
-                                currentISRC = current_track.id //ah but this would have been lastid
-                                console.log("currentISRC set to current_track.id instead:", currentISRC)
-                            } else{
-                                const fullTrackData = await response.json();
+                // console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                // }
+                //                 //Use existing current_id instead of currentISRC
+
+                //                 //currentISRC = originalTrackId //ah but this would have been lastid
+                        //         currentISRC = current_track.id //ah but this would have been lastid
+                        currentTrackIdISRC = current_track.linked_from?.id
+                        //         console.log("currentISRC set to current_track.id instead:", currentISRC)
+                        //     } else{
+                        //         const fullTrackData = await response.json();
                                 
-                                // NOW you have access to the ISRC!
-                                currentISRC = fullTrackData.external_ids?.isrc;
-                                console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
-                            }
-                            console.log("Played ID:", current_track.id);
-                            console.log("Original ID:", current_track.linked_from?.id);
+                        //         // NOW you have access to the ISRC!
+                        //         currentISRC = fullTrackData.external_ids?.isrc;
+                        //         console.log("Verified ISRC playerstatechanged:", currentISRC, current_track.name);
+                        //     }
+                             console.log("Played ID:", current_track.id);
+                             console.log("Original ID:", current_track.linked_from?.id);
 
-                        } catch (err) {
-                            console.error("player_state_changed - Failed to fetch ISRC:", err);
-                        }
-
+                        // } catch (err) {
+                        //     console.error("player_state_changed - Failed to fetch ISRC:", err);
+                        // }
+                } //endif
+                else{
 
                         currentTrackId = current_track.id //so we won't check ISRC more than once
                         currentTrackIdISRC = currentISRC //but this will be current instead of linked_from ()
                         lastPickTime = Date.now() //reset timer for new song
                         //return; //exit: we just started a song, don't pick a new one!
                         // Update your 'Now Playing' UI here if needed
+                }
                     }
                 } 
                 else {
@@ -4595,11 +4641,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     //pickRandomSong();                     
                 }   
                 
-                //if (currentISRC !== lastTrackId) {
-                if(current_track.linked_from?.id){
-                    console.warn(`linked_from.id ${currentISRC} ${lastTrackId}`);
-                    console.warn("currentTrackIdISRC:", currentTrackIdISRC)
-                }
+                // //if (currentISRC !== lastTrackId) {
+                // if(current_track.linked_from?.id){
+                //     console.warn(`linked_from.id ${currentISRC} ${lastTrackId}`);
+                //     console.warn("currentTrackIdISRC:", currentTrackIdISRC)
+                // }
                 // --- THE FIX: Detect a new song has started ---
                 console.log(`currentTrackIdISRC: ${currentTrackIdISRC} lastTrackID: ${lastTrackId}`)
                 if (currentTrackIdISRC !== lastTrackId) {
