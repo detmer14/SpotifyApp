@@ -1772,6 +1772,11 @@ let isProgrammaticSliderUpdate = false //to prevent infinite loops when sliders 
 
 const multipliers = [0.25, 0.5, 0.75, 1.0, 1.25, 1.75, 2.5];
 
+let SessionPlaylistTrackCountUpdated = {}
+// SessionPlaylistTrackCountUpdated["000"] = {
+//     updated: false
+// }
+
 function getWeight(sliderValue, playlist) {
 
     if(sliderValue <= 0) return 0
@@ -1784,22 +1789,9 @@ function getWeight(sliderValue, playlist) {
     return multipliers[division];
 }
 
-//Load playlists array from localStorage
-//no longer used
-function loadPlaylists(){
-    const stored = localStorage.getItem('playlists')
-    if(stored){playlists = JSON.parse(stored)}
-}
-
-//loadPlaylists() //no longer used
-
 //DELETED THESE
 //loadAppState()
 //setSelectionMode(selectionMode)
-
-//if(!activeMixId){
-//    createDefaultMix()
-//}
 
 //renderMixSelector()
 //renderPlaylists() //called in setSelectionMode initial above
@@ -2352,6 +2344,9 @@ async function pickRandomSong(attempt = 0) {
             internalQueue.shift(); 
             renderQueue();
         }
+
+        queuePlaylistsMap.set(lastTrackId, { name: chosenplaylist.name });
+
 
         lastTrackId = trackISRC
         console.warn("lastTrackId - pickRandomSong:", lastTrackId, track.name)
@@ -3583,6 +3578,12 @@ async function duplicatePlaylist(oldId, oldName) {
 }
 
 async function refreshPlaylistCount(playlistId, playlistIndex) {
+    
+    if(SessionPlaylistTrackCountUpdated[`${activeMixId}${playlistId}`]?.updated){
+        console.error(`Playlist already updated: ${playlists[playlistIndex].name}`)
+        return; //it's already been updated once this session.
+    }
+
     const token = localStorage.getItem('access_token');
     // Use the /items endpoint we fixed earlier to get the real count
     const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
@@ -3679,12 +3680,19 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
                 activeMix: activeMixId
             });
         }
+
+        SessionPlaylistTrackCountUpdated[`${activeMixId}${playlistId}`] = {
+            updated: true
+        }
+        console.error(`Playlist updated: ${playlists[playlistIndex].name}`)
+
+
     } catch (err) {
         console.error("refreshPlaylistCount - Refresh failed:", err);
             // SEND THE LOG
             logEvent("ERROR", `refreshPlaylistCount - REFRESHPLAYLIST_ERROR`, {
                 step: "refreshPlaylistCount",
-                error: `REFRESHPLAYLIST_SUCCESS`,
+                error: `REFRESHPLAYLIST_ERROR`,
                 playlist: playlists[playlistIndex].name,
                 playlist_id: playlistId,
                 strikeCount: rateLimitStrikes,
@@ -4485,6 +4493,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                             track_id_isrc: currentTrackIdISRC,
                             previous_track_id: currentTrackId,
                             previous_track_id_isrc: lastTrackId,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
+
+                        let playlists_text = ""
+                        playlists.forEach((playlist, index) => {
+                            if(playlist.enabled){
+                                playlists_text += `[${playlist.name}] `
+                            }
+                        })
+                        //console.warn(`playlists_text: (${playlists_text})`)
+                        // SEND THE LOG
+                        logEvent("INFO", `ACTIVE_MIX | ${mixes[activeMixId].name} ${playlists_text}`, {
+                            step: "ACTIVE_MIX",
+                            error: "ACTIVE_MIX",
+                            mix_name: mixes[activeMixId].name,
+                            playlists_enabled: playlists_text,
+                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
