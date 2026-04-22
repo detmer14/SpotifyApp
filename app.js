@@ -1256,16 +1256,38 @@ async function refreshAccessToken() {
         }
     } catch (err) {
         console.error("refreshAccessToken - Refresh failed, but staying on page:", err);
+
+        // ONLY clear tokens if it's a definitive "Unauthorized" error from Spotify
+        // If 'err' is a TypeError (Network Request Failed), we KEEP the tokens.
+        if (err.status === 400 || err.status === 401) {
+            console.warn("Session actually expired. Clearing tokens.");
             // SEND THE LOG
-            logEvent("ERROR", `refreshAccessToken - Refresh failed, but staying on page: ${err}`, {
+            logEvent("ERROR", `refreshAccessToken - Refresh failed, but staying on page, LOGIN NEEDED: ${err}`, {
                 step: "refreshAccessToken",
-                error: `REFRESH_TOKEN_ERROR`,
+                error: `REFRESH_TOKEN_ERROR_LOGIN_NEEDED`,
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
+
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            showResult("Session expired. Please log in again.");
+            // ... update button to red ...
+        } else {
+            // It's likely a network flicker. DO NOT DELETE TOKENS.
+            console.log("Network flicker detected. Keeping tokens for retry.");
+            // SEND THE LOG
+            logEvent("ERROR", `refreshAccessToken - Refresh failed, Network flicker detected. Keeping tokens for retry: ${err}`, {
+                step: "refreshAccessToken",
+                error: `REFRESH_TOKEN_ERROR_RETRY`,
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        }
+
         // Don't redirect here! Just let the user click 'Login' manually if they need to.
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        //localStorage.removeItem('access_token');
+        //localStorage.removeItem('refresh_token');
         showResult("Session expired. Please log in again.");
         
         // Change button text to show user is logged in
@@ -3796,7 +3818,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Initialize the PWA install button logic
     initInstallButton();
-    
+
     //logEvent("WARN", "App Loaded - onSpotifyWebPlaybackSDKReady", {
     logEvent("WARN", "App Loaded - DOMContentLoaded", {
         error: "APP_LOADED",
