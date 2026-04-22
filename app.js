@@ -1772,6 +1772,11 @@ let isProgrammaticSliderUpdate = false //to prevent infinite loops when sliders 
 
 const multipliers = [0.25, 0.5, 0.75, 1.0, 1.25, 1.75, 2.5];
 
+let SessionPlaylistTrackCountUpdated = {}
+// SessionPlaylistTrackCountUpdated["000"] = {
+//     updated: false
+// }
+
 function getWeight(sliderValue, playlist) {
 
     if(sliderValue <= 0) return 0
@@ -1784,22 +1789,9 @@ function getWeight(sliderValue, playlist) {
     return multipliers[division];
 }
 
-//Load playlists array from localStorage
-//no longer used
-function loadPlaylists(){
-    const stored = localStorage.getItem('playlists')
-    if(stored){playlists = JSON.parse(stored)}
-}
-
-//loadPlaylists() //no longer used
-
 //DELETED THESE
 //loadAppState()
 //setSelectionMode(selectionMode)
-
-//if(!activeMixId){
-//    createDefaultMix()
-//}
 
 //renderMixSelector()
 //renderPlaylists() //called in setSelectionMode initial above
@@ -2352,6 +2344,9 @@ async function pickRandomSong(attempt = 0) {
             internalQueue.shift(); 
             renderQueue();
         }
+
+        queuePlaylistsMap.set(lastTrackId, { name: chosenplaylist.name });
+
 
         lastTrackId = trackISRC
         console.warn("lastTrackId - pickRandomSong:", lastTrackId, track.name)
@@ -3583,6 +3578,12 @@ async function duplicatePlaylist(oldId, oldName) {
 }
 
 async function refreshPlaylistCount(playlistId, playlistIndex) {
+    
+    if(SessionPlaylistTrackCountUpdated[`${activeMixId}${playlistId}`]?.updated){
+        console.error(`Playlist already updated: ${playlists[playlistIndex].name}`)
+        return; //it's already been updated once this session.
+    }
+
     const token = localStorage.getItem('access_token');
     // Use the /items endpoint we fixed earlier to get the real count
     const url = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=1`;
@@ -3679,12 +3680,19 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
                 activeMix: activeMixId
             });
         }
+
+        SessionPlaylistTrackCountUpdated[`${activeMixId}${playlistId}`] = {
+            updated: true
+        }
+        console.error(`Playlist updated: ${playlists[playlistIndex].name}`)
+
+
     } catch (err) {
         console.error("refreshPlaylistCount - Refresh failed:", err);
             // SEND THE LOG
             logEvent("ERROR", `refreshPlaylistCount - REFRESHPLAYLIST_ERROR`, {
                 step: "refreshPlaylistCount",
-                error: `REFRESHPLAYLIST_SUCCESS`,
+                error: `REFRESHPLAYLIST_ERROR`,
                 playlist: playlists[playlistIndex].name,
                 playlist_id: playlistId,
                 strikeCount: rateLimitStrikes,
@@ -3786,6 +3794,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     await fetchUserProfile()
     console.log(`DOM content loaded`)
 
+    // Initialize the PWA install button logic
+    initInstallButton();
+    
     //logEvent("WARN", "App Loaded - onSpotifyWebPlaybackSDKReady", {
     logEvent("WARN", "App Loaded - DOMContentLoaded", {
         error: "APP_LOADED",
@@ -4488,6 +4499,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
+
+                        let playlists_text = ""
+                        playlists.forEach((playlist, index) => {
+                            if(playlist.enabled){
+                                playlists_text += `[${playlist.name}] `
+                            }
+                        })
+                        //console.warn(`playlists_text: (${playlists_text})`)
+                        // SEND THE LOG
+                        logEvent("INFO", `ACTIVE_MIX | ${mixes[activeMixId].name} ${playlists_text}`, {
+                            step: "ACTIVE_MIX",
+                            error: "ACTIVE_MIX",
+                            mix_name: mixes[activeMixId].name,
+                            playlists_enabled: playlists_text,
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
                     
                     // --- ADD TO HISTORY ---
                     addToHistory(current_track, queuePlaylistsMap.get(currentISRC)?.name);
@@ -4984,3 +5013,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
 })
+
+// Register Service Worker after the page has fully loaded
+window.addEventListener('load', () => {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker: Registered (Scope: ' + reg.scope + ')'))
+            .catch(err => console.error('Service Worker: Error', err));
+    }
+});
+
+let deferredPrompt;
+const installBtn = document.getElementById('install-pwa-btn');
+
+// window.addEventListener('beforeinstallprompt', (e) => {
+//     // 1. Prevent the default "mini-infobar" from appearing on mobile
+//     e.preventDefault();
+//     // 2. Stash the event so it can be triggered later
+//     deferredPrompt = e;
+//     // 3. Show our custom install button
+//     if (installBtn) installBtn.style.display = 'block';
+// });
+
+// installBtn.addEventListener('click', async () => {
+//     if (!deferredPrompt) return;
+    
+//     // 4. Show the install prompt
+//     deferredPrompt.prompt();
+    
+//     // 5. Wait for the user to respond to the prompt
+//     const { outcome } = await deferredPrompt.userChoice;
+//     console.log(`User response to install prompt: ${outcome}`);
+    
+//     // 6. We can't use the prompt again, so clear it
+//     deferredPrompt = null;
+//     installBtn.style.display = 'none';
+// });
+
+// Hide the button if the app is already installed
+window.addEventListener('appinstalled', () => {
+    console.log('PWA was installed');
+    installBtn.style.display = 'none';
+});
+
+function initInstallButton() {
+    const installBtn = document.getElementById('install-pwa-btn');
+    if (!installBtn) return;
+
+    const showButton = () => {
+        console.log("Showing PWA Install Button");
+        installBtn.style.display = 'block';
+    };
+
+    // If we already caught the event in the head, show the button now
+    if (window.deferredPrompt) {
+        showButton();
+    }
+
+    // Otherwise, listen for our custom signal
+    window.addEventListener('pwa-installable', showButton);
+
+    installBtn.addEventListener('click', async () => {
+        if (!window.deferredPrompt) return;
+        window.deferredPrompt.prompt();
+        const { outcome } = await window.deferredPrompt.userChoice;
+        console.log(`User Choice: ${outcome}`);
+        window.deferredPrompt = null;
+        installBtn.style.display = 'none';
+    });
+}
+
+

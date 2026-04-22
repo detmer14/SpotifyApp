@@ -7,7 +7,23 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 <head>
     <meta charset="UTF-8" />
     <title>Spotify App</title>
-    <link rel="stylesheet" href="styles.css">
+   <link rel="stylesheet" href="styles.css">
+   <link rel="manifest" href="/manifest.json">
+   <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    <script>
+        // Catch the event as early as possible
+        window.deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.warn("PWA: captured beforeinstallprompt event!");
+            e.preventDefault();
+            window.deferredPrompt = e;
+            // Dispatch a custom event so app.js knows it's time to show the button
+            window.dispatchEvent(new Event('pwa-installable'));
+        });
+    </script>
+
 </head>
 <body>
     <!-- Top-level Authentication Bar -->
@@ -16,6 +32,9 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         <div id="session-info" style="font-size: 0.8em; color: #535353; margin-top: 10px;">
             Session Expires in: <span id="timer-display">--:--</span>
         </div>
+        <button id="install-pwa-btn" class="action-btn" style="display: none; background-color: #1DB954; color: white;">
+            Install App to Home Screen
+        </button>
         <button id="login-button" style="background: #ff0000; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
             Login with Spotify
         </button>
@@ -293,7 +312,8 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     <!-- ========================= -->
     <script src="https://sdk.scdn.co/spotify-player.js"></script>
 
-    <script src="app.js"></script>
+    <!-- Adding v=timestamp to FORCE no caching of app.js - so newest version is always pulled down -->
+    <script src="app.js?v=20260421"></script>
 
 </body>
 </html>
