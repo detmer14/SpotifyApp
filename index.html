@@ -26,6 +26,9 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
 </head>
 <body>
+    <div id="offline-status" style="display: none;">
+        <span>📡 Waiting for signal...</span>
+    </div>
     <!-- Top-level Authentication Bar -->
     <header style="padding: 10px; background: #121212; display: flex; justify-content: space-between; align-items: center;">
         <h1 style="color: #1DB954; margin: 0; font-size: 1.2em;">Mixer Lab</h1>
@@ -164,13 +167,17 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         <!-- <div id="playlist-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">
         </div> -->
         <div id="playlist-container" style="background: #ddf1fd; padding: 10px; border-radius: 8px;">
+            <!-- The Toggle Button -->
+            <button class="toggle-list-btn-class" id="toggle-list-btn1" style="display: block; margin: 5px auto 0; width: 80%; background: #66ff00; border-radius: 30px; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
+                ▼ Show All
+            </button>
             <!-- Your existing list -->
             <div id="playlist-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto; transition: max-height 0.3s ease;">
                 <!-- Playlists go here -->
             </div>
             
             <!-- The Toggle Button -->
-            <button id="toggle-list-btn" style="display: block; margin: 5px auto 0; width: 80%; background: #66ff00; border-radius: 30px; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
+            <button class="toggle-list-btn-class" id="toggle-list-btn2" style="display: block; margin: 5px auto 0; width: 80%; background: #66ff00; border-radius: 30px; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
                 ▼ Show All
             </button>
         </div>
