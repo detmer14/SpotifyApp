@@ -6,6 +6,9 @@ let isRefreshing = false;
 let userInitiatedPause = false;
 let lastPickTime = 0;
 let internalQueue = []; // Array of {id, name, artist, playlistName}
+let playbackHistory = []; // Global array to store track objects
+let historyIndex = -1; // -1 means we are on the "live" mixer track
+let buttonPreviousNext = false;
 let queuePlaylistName = ""
 const queuePlaylistNames = [
   { id: "id1", name: 'Alice' },
@@ -490,6 +493,76 @@ async function playTrack(trackUri, isRetry = false) {
     }
 }
 
+async function playPreviousTrack() {
+    buttonPreviousNext = true;
+    // Index 0 is CURRENT song. Index 1 is the PREVIOUS song.
+    if (historyIndex + 1 >= playbackHistory.length) {
+        console.log("No previous tracks in history yet.");
+        return;
+    }
+
+    historyIndex++;
+
+    // 1. Get the last song's URI
+    const previousTrack = playbackHistory[historyIndex]; 
+    
+    // 2. Play it
+    await playTrack(previousTrack.uri, false);
+    updateHistoryHighlight();
+
+    // 3. Remove the "current" track we just skipped back from
+    // so that the history stays accurate
+    //playbackHistory.shift(); 
+    
+    // 4. Update your HTML history list to reflect the removal
+    //renderHistoryList(); 
+
+    console.log(`%cNew song detected: ${currentSpotifyUser}`, "color: #00d1ec;");
+        logEvent('INFO', 'now_playing_back_button | Play previous track!', { 
+            step: 'now_playing_back_button', 
+            error: 'NOW_PLAYING_BACK_BUTTON', 
+            back: 'BACK', 
+            track: previousTrack.name,
+            track_artist: previousTrack.artists[0].name,
+            track_id: previousTrack.id,
+            device_id: device_id, 
+            strikeCount: rateLimitStrikes, 
+            activeMix: activeMixId 
+        });
+}
+
+async function playNextTrack() {
+    if (historyIndex > 0) {
+        buttonPreviousNext = true;
+        historyIndex--; // Move closer to the "live" track
+        const track = playbackHistory[historyIndex];
+        await playTrack(track.uri, false);
+        updateHistoryHighlight();
+            logEvent('INFO', 'now_playing_next_button | Skipped to the next track!', { 
+                step: 'now_playing_next_button', 
+                error: 'NOW_PLAYING_NEXT_BUTTON', 
+                next: 'NEXT', 
+                track: track.name,
+                track_artist: track.artists[0].name,
+                track_id: track.id,
+                device_id: device_id, 
+                strikeCount: rateLimitStrikes, 
+                activeMix: activeMixId 
+            });
+    } else {
+        // If we are at index 0, we are "Live," so pick a NEW random song
+        player.nextTrack(); 
+            logEvent('INFO', 'now_playing_skip_button | Skipped to the next track!', { 
+                step: 'now_playing_skip_button', 
+                error: 'NOW_PLAYING_SKIP_BUTTON', 
+                skip: 'SKIP', 
+                device_id: device_id, 
+                strikeCount: rateLimitStrikes, 
+                activeMix: activeMixId 
+            });
+    }
+}
+
 async function playFromSpecificPlaylist(chosenplaylist) {
     const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
@@ -906,14 +979,28 @@ function renderQueue() {
     queueList.innerHTML = internalQueue.map(track => `
         <li class="queue-item">
             <span class="track-info"><strong>${track.name}</strong> - ${track.artist}</span>
-            <span class="source-playlist"; style="color: #8352f5;">- ${track.playlist}</span>
+            <span class="source-playlist"; style="color: #8352f5; -webkit-text-stroke: 0.2px #c7c7c7;">- ${track.playlist}
+            </span>
         </li>
     `).join('');
 }
 
 function addToHistory(track, playlistName) {
     //console.warn("addToHistory")
+
+    if(buttonPreviousNext){
+        buttonPreviousNext = false
+        return
+    }
+
+    // 1. Add to the beginning of our array
+    playbackHistory.unshift(track);
+    // Every time a NEW song starts from the mixer, 
+    // we reset our position to the most recent track.
+    historyIndex = 0;
+
     const historyList = document.getElementById('history-list');
+
     if (!historyList) return;
 
     // Remove the "No songs played yet" placeholder on first play
@@ -922,14 +1009,18 @@ function addToHistory(track, playlistName) {
     }
 
     const entry = document.createElement('div');
+    entry.className = 'history-item'
     entry.style.padding = "5px 0";
     entry.style.borderBottom = "1px solid #282828";
     
     // Format: Song Name - Artist (from Playlist Name)
     entry.innerHTML = `
-        <strong style="color: #1DB954;">${track.name}</strong> 
-        by ${track.artists[0].name} 
-        <span style="font-size: 0.8em; color: #8352f5;">— ${playlistName}</span>
+        <div class="history-info">
+            <button class="history-play-btn" data-uri="${track.uri}" style="background: transparent; border: none; cursor: pointer;">▶️</button>
+            <strong style="color: #1DB954;">${track.name}</strong> 
+            by ${track.artists[0].name} 
+            <span style="font-size: 0.8em; color: #8352f5; -webkit-text-stroke: 0.2px #c7c7c7;">— ${playlistName}</span>
+        </div>
     `;
 
     // Add to the top of the list
@@ -939,6 +1030,22 @@ function addToHistory(track, playlistName) {
     // if (historyList.children.length > 10) {
     //     historyList.removeChild(historyList.lastChild);
     // }
+    updateHistoryHighlight();
+}
+
+function updateHistoryHighlight() {
+    const items = document.querySelectorAll('.history-item');
+    items.forEach((item, idx) => {
+        if (idx === historyIndex) {
+            item.style.opacity = "1";
+            item.style.borderLeft = "8px solid #1DB954"; // Spotify Green
+            item.style.borderBottom = "4px solid #1DB954";
+        } else {
+            item.style.opacity = "0.9";
+            item.style.borderLeft = "8px solid #000000";
+            item.style.borderBottom = "none";
+        }
+    });
 }
 
 // 2. Drag to Seek
@@ -1503,7 +1610,7 @@ async function safeSpotifyFetch(url, options) {
         
         // Calculate delay: 2^attempt * 1000ms (1s, 2s, 4s, 8s...)
         // Add 'jitter' (randomness) to prevent synchronized retries
-        retryAfter = (Math.pow(2, attempt) + Math.random()) * 10; // 10s, 20s, 40s, 80s
+        retryAfter = (Math.pow(2, (rateLimitStrikes-1)) + Math.random()) * 10; // 10s, 20s, 40s, 80s
 
         showResult(`Rate limited. Waiting ${retryAfter}s...`);
         console.warn(`Rate limited. Waiting ${retryAfter}s...`);
@@ -1536,8 +1643,8 @@ async function safeSpotifyFetch(url, options) {
         // Soft Lock: Just wait, don't kill the player
         setTimeout(() => {
             isSoftLocked = false;
-            showResult("Soft Lock lifted.");
-            console.log("Soft Lock lifted.");
+            showResult(`Soft Lock ${rateLimitStrikes} lifted.`);
+            console.log(`Soft Lock ${rateLimitStrikes} lifted.`);
             // If we go 2 minutes without another 429, clear a strike
             setTimeout(() => { if(rateLimitStrikes > 0) rateLimitStrikes--; }, 120000);
         }, retryAfter * 1000);
@@ -1673,8 +1780,8 @@ async function safeSpotifyFetchISRC(url, options) {
         // Soft Lock: Just wait, don't kill the player
         setTimeout(() => {
             isSoftLockedISRC = false;
-            showResult("Soft Lock lifted.");
-            console.log("Soft Lock lifted.");
+            showResult(`Soft Lock ${rateLimitStrikes} lifted.`);
+            console.log(`Soft Lock ${rateLimitStrikes} lifted.`);
             // If we go 2 minutes without another 429, clear a strike
             setTimeout(() => { if(rateLimitStrikesISRC > 0) rateLimitStrikesISRC--; }, 120000);
         }, retryAfter * 1000);
@@ -2615,6 +2722,7 @@ async function getTrackAtIndex(token, playlistId, index){
                 
             throw new Error(errorData?.error?.message || "Forbidden or Not Found");
                 }
+            return null
         }
         const data = await res.json()
 
@@ -2960,6 +3068,7 @@ function renderPlaylists() {
         div.innerHTML = `
                 <span style="color: #535353; margin-right: 10px;">☰</span>
                 <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
+                <button class="playlist-solo-btn" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: none; transition: all 0.2s ease" data-id="${playlist.id}" title="Solo this playlist">🎯</button>
                 <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
                 <span class="slider-value"></span>
                 <button class="delete-btn">Delete</button>
@@ -3740,14 +3849,16 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-                if (response && typeof response.text === 'function') {
+            if (response && typeof response.text === 'function') {
                 const text = await response.text(); // Get raw text first (never crashes)
                 const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
 
                 console.error(errorData?.error?.message || "Forbidden or Not Found");  
                 
-            throw new Error(errorData.error.message || "Forbidden or Not Found");
-                }
+                //throw new Error(errorData.error.message || "Forbidden or Not Found");
+            }
+            
+            return
         }
         const data = await response.json();
         
@@ -3852,6 +3963,14 @@ function updateUI(state) {
     // 5. Update Timers (0:45 / 3:20)
     document.getElementById('current-time').textContent = formatTime(position);
     document.getElementById('duration-time').textContent = formatTime(duration);
+
+    // 4. Volume Control
+    const volumeBar = document.getElementById('volume-bar');
+    player.getVolume().then(v => {
+        volumeBar.value = v * 100
+        //console.log(`%cVolume UI set: ${volumeBar.value}`, "color: #ff00c8;");
+    });
+
 }
 
 let lastState = {
@@ -4204,7 +4323,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const token = localStorage.getItem('access_token');
                     cb(token); 
                 },
-                volume: 0.2
+                volume: 0.5
             });
 
             player.activateElement(); 
@@ -4484,6 +4603,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     timestamp: performance.now() // Precise local time
                 };
 
+                // 2. Snap your UI elements to the current time/song
+                updateUI(state);
                 // Start the loop once
                 requestAnimationFrame(updateProgressBar);
 
@@ -4978,7 +5099,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                             activeMix: activeMixId
                         });
                     //pickRandomSong(); 
-                    player.nextTrack();
+                    //player.nextTrack();
+                    playNextTrack();
                 });
 
                 // When the user hits "Pause"
@@ -5277,7 +5399,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (list.style.maxHeight === "200px" || list.style.maxHeight === "") {
                 // EXPAND
                 //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
-                list.style.maxHeight = "10000px"; // Set to a height larger than your list
+                list.style.maxHeight = "none"; // Set to a height larger than your list
                 list.style.overflowY = "visible";
                 btn.textContent = "▲ Show Less";
             } else {
@@ -5286,6 +5408,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 list.style.overflowY = "auto";
                 btn.textContent = "▼ Show All";
             }
+
+            // Sync BOTH buttons at the same time
+            buttons.forEach(b => {
+                b.textContent = btn.textContent;
+            });
         });
     });
 
@@ -5296,7 +5423,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (list.style.maxHeight === "50px" || list.style.maxHeight === "") {
             // EXPAND
             //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
-            list.style.maxHeight = "3000px"; // Set to a height larger than your list
+            list.style.maxHeight = "none"; // Set to a height larger than your list
             list.style.overflowY = "visible";
             btn.textContent = "▲ Show Less";
         } else {
@@ -5307,6 +5434,53 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     };
 
+    document.getElementById('playlist-container').addEventListener('click', (e) => {
+        if (e.target.classList.contains('playlist-solo-btn')) {
+            const targetId = e.target.getAttribute('data-id');
+            
+            console.log("🎯 Soloing playlist:", targetId);
+
+            // 1. Update the Data: Disable all, enable target
+            playlists.forEach(pl => {
+                pl.enabled = (pl.id === targetId);
+            });
+
+            // 2. Update the UI Checkboxes
+            const checkboxes = document.querySelectorAll('.playlist-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = (cb.getAttribute('data-id') === targetId);
+            });
+
+            // 3. Save to localStorage so it persists
+            saveAppState();
+            renderPlaylists();
+        }
+    });
+
+    document.getElementById('history-list').addEventListener('click', async (e) => {
+        if (e.target.classList.contains('history-play-btn')) {
+            const uri = e.target.getAttribute('data-uri');
+            
+            console.log("🎯 Manual history play triggered:", uri);
+            
+            // Use your existing play function
+            // This will usually involve a call to 'https://spotify.com'
+            const playTrackReturn = await playTrack(uri, false); //retry false
+
+            if(playTrackReturn !== "SUCCESS"){
+                console.warn("playfrom-history-list playTrack - safeSpotifyFetch - FAIL:", playTrackReturn)
+                
+                // SEND THE LOG
+                logEvent("ERROR", `playfrom-history-list playTrack - safeSpotifyFetch - FAIL: ${playTrackReturn}`, {
+                    step: "playfrom-history-list",
+                    error: `PLAY_FROM_HISTORY_LIST_FAIL `,
+                    track_uri: uri,
+                    strikeCount: rateLimitStrikes,
+                    activeMix: activeMixId
+                });
+            }
+        }
+    });
 })
 
 // Register Service Worker after the page has fully loaded

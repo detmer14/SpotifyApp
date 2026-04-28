@@ -217,16 +217,27 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
                 <span style="font-size: 1.2em; position: relative; top: -1px;">↺</span>
                 <span style="font-size: 0.6em; position: absolute; top: 5px;">15</span>
             </button>
+            
+            <button id="back-button" class="circular-control-btn"
+                    onclick="playPreviousTrack();" 
+                    title="Previous Song"
+                >
+                ⏮
+            </button>
 
             <!-- Play/Pause (Circular Green) -->
-            <button id="play-pause-btn" class="circular-control-btn" onclick="userInitiatedPause = true; player.togglePlay();" title="Play/Pause">
+            <button id="play-pause-btn" class="circular-control-btn" 
+                    onclick="userInitiatedPause = true; player.togglePlay();" 
+                    title="Play/Pause"
+                >
                 ▶
             </button>
 
             <!-- Next Song -->
             <button class="circular-control-btn" 
-                    onclick="player.nextTrack(); logEvent('INFO', 'now_playing_skip_button | Skipped to the next track!', { step: 'now_playing_skip_button', error: 'NOW_PLAYING_SKIP_BUTTON', skip: 'SKIP', device_id: device_id, strikeCount: rateLimitStrikes, activeMix: activeMixId });" 
-                    title="Next Song">
+                    onclick="playNextTrack();" 
+                    title="Next Song"
+                >
                 ⏭
             </button>
 
