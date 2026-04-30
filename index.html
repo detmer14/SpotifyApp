@@ -227,7 +227,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
             <!-- Play/Pause (Circular Green) -->
             <button id="play-pause-btn" class="circular-control-btn" 
-                    onclick="userInitiatedPause = true; player.togglePlay();" 
+                    onclick="setUserInitiatedPause(); player.togglePlay();" 
                     title="Play/Pause"
                 >
                 ▶
