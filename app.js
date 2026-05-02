@@ -250,6 +250,9 @@ async function fetchUserProfile() {
         const res = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if(!res.ok){
+            return
+        }
         const data = await res.json();
         
         // Store the ID (e.g., "spotify_user_88")
@@ -1392,6 +1395,14 @@ async function redirectToSpotifyAuth() {
     const hashed = await sha256(codeVerifier);
     const codeChallenge = base64encode(hashed);
 
+            logEvent("WARN", `redirectToSpotifyAutH`, {
+                step: "redirectToSpotifyAuth",
+                error: "REDIRECT_TO_SPOTIFY_AUTH",
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+
     // Store verifier locally to verify the response later
     window.localStorage.setItem('code_verifier', codeVerifier);
 
@@ -1407,6 +1418,7 @@ async function redirectToSpotifyAuth() {
 
     const authUrl = new URL("https://accounts.spotify.com/authorize");
     authUrl.search = new URLSearchParams(params).toString();
+    alert("Redirecting to: " + authUrl.toString());
     window.location.href = authUrl.toString(); // Redirects the entire page
 }
 
@@ -1666,6 +1678,37 @@ async function refreshAccessToken() {
             });
         }
 
+        if(response.status){
+            console.log(`refreshaccesstoken response.status: ${response.status}`)
+            if((response.status === 401) || (response.status === 400)){ //messed up tokens
+            console.warn("Session actually expired. Clearing tokens.");
+            // SEND THE LOG
+            logEvent("ERROR", `refreshAccessToken - Refresh failed, but staying on page, LOGIN NEEDED:`, {
+                step: "refreshAccessToken",
+                error: `REFRESH_TOKEN_ERROR_LOGIN_NEEDED`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+
+            // ... update button to red ...
+            // Don't redirect here! Just let the user click 'Login' manually if they need to.
+            //localStorage.removeItem('access_token');
+            //localStorage.removeItem('refresh_token');
+            showResult("Session expired. Please log in again.");
+            alert("Session expired. Please log in again.");
+            
+            // Change button text to show user is logged in
+            document.getElementById('login-button').textContent = "Login with Spotify";
+            document.getElementById('login-button').disabled = false;
+            document.getElementById('login-button').style.background = "#ff0000";
+            return false
+            }
+        }
+
         if(!response.ok){
             console.error("Error: refreshAccessToken - safeSpotifyFetch blocked")
             // SEND THE LOG
@@ -1683,7 +1726,7 @@ async function refreshAccessToken() {
                 console.error(errorData?.error?.message || "Forbidden or Not Found");  
                               //throw new Error(errorBody.error.message || "Forbidden or Not Found");
 
-            throw new Error(errorData?.error?.message || "Forbidden or Not Found");
+            throw response;
                 }
         }
 
@@ -1720,7 +1763,7 @@ async function refreshAccessToken() {
             return true;
         }
     } catch (err) {
-        console.error("refreshAccessToken - Refresh failed, but staying on page:", err);
+        console.error("refreshAccessToken - Refresh failed, but staying on page:", err.status);
 
         // ONLY clear tokens if it's a definitive "Unauthorized" error from Spotify
         // If 'err' is a TypeError (Network Request Failed), we KEEP the tokens.
@@ -1751,6 +1794,7 @@ async function refreshAccessToken() {
         } else {
             // It's likely a network flicker. DO NOT DELETE TOKENS.
             console.log("Network flicker detected. Keeping tokens for retry.");
+            console.log(`err.status: ${err.status}`)
             // SEND THE LOG
             logEvent("ERROR", `refreshAccessToken - Refresh failed, Network flicker detected. Keeping tokens for retry: ${err}`, {
                 step: "refreshAccessToken",
@@ -1946,6 +1990,8 @@ async function safeSpotifyFetch(url, options) {
     }
 
     const res = await fetch(url, options);
+
+    if(res.status) console.log(`safespotifyfetch res.status: ${res.status}`)
     
     if (res.status === 429) {
         rateLimitStrikes++;
@@ -2109,6 +2155,8 @@ async function safeSpotifyFetchISRC(url, options) {
     }
 
     const res = await fetch(url, options);
+
+    if(res.status) console.log(`safespotifyfetch res.status: ${res.status}`)
     
     if (res.status === 429) {
         rateLimitStrikesISRC++;
