@@ -1283,7 +1283,7 @@ function addToHistory(track, playlistName) {
     // Format: Song Name - Artist (from Playlist Name)
     entry.innerHTML = `
         <div class="history-info">
-            <button class="history-play-btn" data-uri="${track.uri}" style="background: transparent; border: none; cursor: pointer;">▶️</button>
+            <button class="history-play-btn" data-uri="${track.uri}" style="background: #008cffff; border: none; cursor: pointer;">▶️</button>
             <strong style="color: #1DB954;">${track.name}</strong> 
             by ${track.artists[0].name} 
             <span style="font-size: 0.8em; color: #8352f5; -webkit-text-stroke: 0.2px #c7c7c7;">— ${playlistName}</span>
@@ -4558,6 +4558,7 @@ function updateUI(state) {
     document.getElementById('track-artist').textContent = current_track.artists[0].name;
     document.getElementById('album-art').src = current_track.album.images[0].url;
     document.getElementById('play-pause-btn').textContent = paused ? "▶" : "⏸";
+    document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
 
     // // 3. Sync the Play/Pause Button icon
     // const playBtn = document.getElementById('play-pause-button');
@@ -5700,6 +5701,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     await player.resume(); 
                     //musicStartedOnDevice = true
 
+                    const returnPickRandom = await pickRandomSong(); 
+
+                    if(returnPickRandom !== "SUCCESS"){
+                        console.warn("player_state_changed - end of song - pickRandomSong - FAIL:", returnPickRandom)
+                    }
 
                     lastPickTime = now; // Mark the time of this pick
                     // Clear the ID so the next track can be detected as a change
@@ -5893,6 +5899,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.getElementById('track-artist').textContent = current_track.artists[0].name;
                 document.getElementById('album-art').src = current_track.album.images[0].url;
                 document.getElementById('play-pause-btn').textContent = paused ? "▶" : "⏸";
+                document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
+
 
                 // Update Progress Bar (if not dragging)
                 if (!isDraggingProgress) {
