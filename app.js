@@ -1030,6 +1030,18 @@ async function addToQueue(trackUri, isRetry = false) {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        if(response && response.status){
+            console.debug(`addToQueue - safeSpotifyFetch - response.status: ${response.status}`)
+            // SEND THE LOG
+            logEvent("ERROR", `addToQueue - safeSpotifyFetch - response.status: ${response.status}`, {
+                step: "addToQueue",
+                error: `ADDTOQUEUE_RESTPONSE_STATUS`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        }
+
         if(response === "MAX_CALLS_PER_MINUTE"){
             console.warn("addToQueue - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
             // SEND THE LOG
@@ -1192,7 +1204,8 @@ async function addToQueue(trackUri, isRetry = false) {
             console.error("Something else happened:", response)
         }
 
-    } catch (err) {
+    } 
+    catch (err) {
         console.error("Queue error:", err);
             // SEND THE LOG
             logEvent("ERROR", `addToQueue - Queue error: ${err}`, {
@@ -2576,6 +2589,7 @@ function xrebalancePercentagesByIndex(activeIndex){
     showResult(`Rebalancing ${Date.now().toString()}`)
 }
 
+let maxPercentage = 100
 function rebalancePercentagesByIndex(activeIndex){
 try{
 
@@ -2589,9 +2603,12 @@ try{
 
     if(enabled.length === 0) return
 
+    isProgrammaticSliderUpdate = true
+
     //only one enabled playlist - 100
     if(enabled.length === 1){
         playlists[enabled[0].i].sliderValue = 100;
+        isProgrammaticSliderUpdate = true
         return;
     }
         showResult(`Rebalancing Enabled ${enabled.length}`)
@@ -2605,6 +2622,7 @@ try{
 
     const remaining = 100 - activeValue
     let runningTotal = 0
+    //maxPercentage = Number(activeValue) //to scale the visuals
 
     //const filteredSliders = Array.from(sliders).filter((_, i) => i !== indexToExclude);
     //const sliders = Array.from(document.querySelectorAll('.playlist-row')).filter((row, rowindex) => rowindex !== activeIndex).filter((row) => row.querySelector('.playlist-enabled').checked).map(row => row.querySelector('.playlist-slider'))
@@ -2633,6 +2651,9 @@ try{
     if(debug) console.log(`set sliders`)
     sliders.forEach((slider, i) => {
         //if(i !== activeIndex){ //This is taken care of in the querySelectorAll statement above now
+            
+            //maxPercentage = Math.max(maxPercentage, Number(slider.value))
+
             let newValue
             if(currentSum === 0){
                 //even split fallback
@@ -3548,6 +3569,13 @@ function renderPlaylists() {
 
     const maxCount = Math.max(...playlists.map(p => p.pickCount || 0));
     const minCount = Math.min(...playlists.map(p => p.pickCount || 0));
+    let maxPercentage = Math.max(...playlists.map(p => p.sliderValue || 0))
+    maxPercentage += (maxPercentage / 100 * 50);
+    maxPercentage = Math.min(maxPercentage, 100)
+    if(selectionMode !== "percentage") maxPercentage = 100
+    //maxPercentage = 100
+
+    let maxPlaylistNameLength = Math.max(...playlists.map(p => p.name.length || 0))
   
     playlists.forEach((playlist, index) => {
 
@@ -3562,10 +3590,28 @@ function renderPlaylists() {
         div.dataset.index = index; // store the original position
 
 
-        //Add styling for the "drag handle" look
-        div.style.padding = "8px";
-        div.style.borderBottom = "1px solid #282828";
-        div.style.cursor = "grab";
+        // //Add styling for the "drag handle" look
+        // div.style.padding = "8px";
+        // //div.style.display = "flex"
+        // div.style.borderBottom = "1px solid #282828";
+        // div.style.cursor = "grab";
+        // div.style.alignItems = "center"; 
+        // div.style.gap = "10px"; 
+        // div.style.marginBottom = "20px"; 
+        // div.style.justifyContent = "center";
+        // div.style.flexGrow = "1"
+        // div.style.overflowX = "auto";
+
+// Parent Styling for Horizontal Scroll
+div.style.display = "flex"; // Must be flex
+div.style.flexWrap = "nowrap"; // Force everything onto one line
+div.style.padding = "8px";
+div.style.borderBottom = "1px solid #282828";
+div.style.cursor = "grab";
+div.style.alignItems = "center";
+div.style.gap = "15px"; // Give items room
+div.style.width = "100%"; // Container fills viewport, content expands past it
+
 
         // Create your handle
         const handle = document.createElement('span');
@@ -3576,24 +3622,36 @@ function renderPlaylists() {
         const color = getRainbowColor(playlist.pickCount , minCount, maxCount);
 
 
-        div.innerHTML = `
-                <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
-                <button class="playlist-solo-btn" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: none; transition: all 0.2s ease" data-id="${playlist.id}" title="Solo this playlist">🎯</button>
 
-                <!-- WRAPPER FOR SLIDER + ARROWS -->
-                <div class="slider-group" style="display: inline-flex; align-items: center; gap: 5px;">
-                    <button class="step-btn step-down" data-index="${index}">◀</button>
-                    <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
-                    <button class="step-btn step-up" data-index="${index}">▶</button>
-                </div>
+div.innerHTML = `
+    <!-- LEFT AREA: No shrink, fixed at its content size -->
+    <div class="controls-left" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-width: max-content;">
+        <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
+        <button class="playlist-solo-btn" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 0;" data-id="${playlist.id}" title="Solo this playlist">🎯</button>
 
-                <span class="slider-value"></span>
-                <button class="delete-btn">Delete</button>
-                <span class="pick-counter" style="padding: 2px;background: #1a1a1a; color: ${color}; font-weight: bold;">
-                    ${playlist.pickCount }
-                </span>                
-                ${playlist.name} (${playlist.trackCount}) songs
-        `
+        <div class="slider-group" style="display: flex; align-items: center; gap: 5px; width: 500px;">
+            <button class="step-btn step-down" data-index="${index}">◀</button>
+            <input type="range" min="0" max="${maxPercentage}" value="${playlist.sliderValue ?? 50}" style="cursor: pointer; flex-grow: 1;" class="playlist-slider"  data-index="${index}">
+            <button class="step-btn step-up" data-index="${index}">▶</button>
+        </div>
+    </div>
+
+    <!-- RIGHT AREA: Also forced not to shrink -->
+    <div class="playlist-info-right" style="display: flex; align-items: center; gap: 15px; flex-shrink: 0; min-width: max-content;">
+        <div class="slider-val-del-button" style="display: flex; align-items: center; gap: 10px;">
+            <span class="slider-value" style="width: 45px; text-align: right; font-family: monospace;"></span>
+            <button class="delete-btn">Delete</button>
+            <span class="pick-counter" style="width: 30px; text-align: center; padding: 2px; background: #1a1a1a; color: ${color}; font-weight: bold;">
+                ${playlist.pickCount}
+            </span>
+        </div>
+        <!-- Name will now expand to its full length without wrapping -->
+    <span style="flex-grow: 1; text-align: center; font-weight: 500; width: ${maxPlaylistNameLength + 5}ch">
+        ${playlist.name} (${playlist.trackCount}) songs
+    </span>
+    </div>
+`;
+
         // 5. Put the handle at the very beginning of the row
         div.prepend(handle);
 
@@ -3666,7 +3724,7 @@ function renderPlaylists() {
 
             if(isProgrammaticSliderUpdate) return
 
-            playlist.sliderValue = Number(slider.value)
+            playlist.sliderValue = Math.min(100, Number(slider.value))
             display.textContent = slider.value
 
             //If in normal mode, moving slider switches to slider mode
@@ -3700,6 +3758,7 @@ function renderPlaylists() {
                 rebalancePercentagesByIndex(index)
                 syncSlidersFromState()
                 updateSliderDisplay(slider)
+                //renderPlaylists();
             }
                         
             //Slider at 0 disables playlist
@@ -6329,6 +6388,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // EXPAND
                 //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
                 list.style.maxHeight = "none"; // Set to a height larger than your list
+                list.style.maxWidth = "none"
                 list.style.overflowY = "visible";
                 btn.textContent = "▲ Show Less";
             } else {
@@ -6402,7 +6462,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Increment or Decrement by 1
         if (btn.classList.contains('step-up')) {
-            currentValue = Math.min(100, currentValue + 1);
+            //currentValue = Math.min(100, currentValue + 1);
+            currentValue++
         } else {
             currentValue = Math.max(0, currentValue - 1);
         }
@@ -6426,6 +6487,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (selectionMode === "percentage") {
             rebalancePercentagesByIndex(index);
             syncSlidersFromState()
+            renderPlaylists();
         }
 
         // 2. Trigger your rebalance/display logic
