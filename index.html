@@ -227,7 +227,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
             <!-- Play/Pause (Circular Green) -->
             <button id="play-pause-btn" class="circular-control-btn" 
-                    onclick="setUserInitiatedPause(); player.togglePlay();" 
+                    onclick="togglePlayback();" 
                     title="Play/Pause"
                 >
                 ▶
@@ -271,6 +271,15 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             Play URI
         </button>
     </div>
+
+    <section id="visual-log-section" class="mixer-section">
+        <div class="log-header">
+            <h5>Status Messages</h5>
+            <button id="toggle-log-view" onclick="toggleLogExpansion()">Show All</button>
+        </div>
+        <!-- The actual scrollable console window -->
+        <div id="visual-log-container" class="scroll-container"></div>
+    </section>
 
     <!-- Add this below your playlist-list div -->
     <div id="history-container" style="margin-top: 20px; padding: 10px; background: #181818; border-radius: 8px; color: #b3b3b3;">
