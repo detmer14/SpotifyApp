@@ -2,7 +2,7 @@
 
 let player;
 let device_id;
-let device_ready = false //not used yet
+let device_ready = false //used in ready listener
 let isRecoveringFromBackground = false
 let musicStartedOnDevice = false
 let musicPlayingOnDevice = false
@@ -23,7 +23,7 @@ const queuePlaylistNames = [
   { id: "id2", name: 'Bob' }
 ];
 const queuePlaylistsMap = new Map(queuePlaylistNames.map(obj => [obj.id, obj]));
-let lastTrackId
+let lastTrackId = null
 
 let logMap = new Map();
 let logCounter = 0;
@@ -79,7 +79,31 @@ async function emergencyStop() {
                 activeMix: activeMixId
             });
 
-    
+    isRecoveringFromBackground = true; //set to true for reconnect
+    //musicStartedOnDevice = false //nah, keep this for reconnect
+    musicPlayingOnDevice = false
+    isRefreshing = false
+    //userInitiatedPause = false //leave this for reconnect
+    ghostPauseRecovery = false
+    //internalQueue = []
+    //playbackHistory = []
+    historyIndex = -1
+    buttonPreviousNext = false
+    //don't care about queuePlaylistMap
+    //keep the logMap
+    isDraggingProgress = false
+    apiCallCounter = 0
+    refreshTokenCallCounter = 0
+    fetchUserProfileCallCounter = 0
+    isSoftLocked = false
+    isSoftLockedISRC = false //not used anymore
+    fetch401 = false
+    loggingLocked = false
+    rateLimitStrikes = 0
+    rateLimitStrikesISRC = 0 //not used anymore
+
+
+
     // 1. Clear all pending pickRandomSong retries
     activeTimeouts.forEach(id => clearTimeout(id));
     activeTimeouts = [];
@@ -99,7 +123,11 @@ async function emergencyStop() {
 
     // 3. Reset UI
     device_id = null;
+    device_ready = false;
+    localStorage.removeItem('last_active_device')
     currentTrackId = null;
+    currentTrackIdISRC = null
+    lastTrackId = null
     document.getElementById('init-player').textContent = "🔌 Power On Mixer";
     document.getElementById('init-player').style.background = "#ff0000";
     showResult("Mixer Hard-Reset: All processes stopped.");
@@ -336,15 +364,15 @@ async function togglePlayback(){
                 console.warn("playPauseBtn - pickRandomSong - FAIL:", returnPickRandom)
             }
 
-                setTimeout(() => {
+                safeTimeout(() => {
                     prepareNextQueueItem();
                 }, 15000);
 
-                setTimeout(() => {
+                safeTimeout(() => {
                     prepareNextQueueItem();
                 }, 30000);
 
-                setTimeout(() => {
+                safeTimeout(() => {
                     prepareNextQueueItem();
                 }, 45000);
 
@@ -373,6 +401,7 @@ async function playTrack(trackUri, isRetry = false) {
     // If the app just refreshed, device_id might be null, so check storage
     if (!device_id) {
         device_id = localStorage.getItem('last_active_device');
+        console.warn(`No device ID, attempting to use last_active_device`)
     }
     if (!device_id) alert("Click 'Power On' first!");
     if (!device_id) {
@@ -613,7 +642,7 @@ async function playTrack(trackUri, isRetry = false) {
             if(internalQueue.length < 2){ //no need to overload the queue
                 console.log("Current song started. Pre-picking next song for the queue...");
                 // Wait 3 seconds to let the current song settle, then queue the next one
-                setTimeout(() => {
+                safeTimeout(() => {
                     prepareNextQueueItem();
                 }, 3000);
             }   
@@ -1993,8 +2022,80 @@ async function refreshAccessToken() {
     isRefreshing = false;
 }
 
-async function resumeOnThisDevice() {
-    console.warn("Attempting to reclaim playback session...");
+async function getAvailableDevices() {
+    const token = localStorage.getItem('access_token');
+    const url = 'https://api.spotify.com/v1/me/player/devices';
+
+    try {
+        const response = await safeSpotifyFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("Found devices:", data.devices);
+            return data.devices;
+        }
+        return;
+    } catch (error) {
+        console.error("Error fetching devices:", error);
+        return;
+    }
+}
+
+/**
+ * Polling helper to ensure the device is not just ready, but ACTIVE on Spotify's servers.
+ * @param {string} targetDeviceId - The ID from your player.addListener('ready')
+ * @param {number} maxAttempts - How many times to check (default 5)
+ * @param {number} interval - Delay between checks in ms (default 2000)
+ */
+async function waitForActiveDevice(targetDeviceId, maxAttempts = 5, interval = 2000) {
+    console.log(`%c 🔍 Starting polling for active state on device: ${targetDeviceId}`, "color: #00d1ec;");
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`%c 📡 Checking device list (Attempt ${attempt}/${maxAttempts})...`);
+        
+        const devices = await getAvailableDevices();
+        if (!devices) continue;
+
+        // Find your specific device in the list
+        // Your player name is "Ben's Mixer Lab"
+        const myDevice = devices.find(d => d.name === "Ben's Mixer Lab" || d.id === targetDeviceId);
+
+        if (myDevice) {
+            // Update your global device_id if Spotify assigned a different one internally
+            if (myDevice.id !== targetDeviceId) {
+                console.log(`%c ⚠️ ID Mismatch! SDK said ${targetDeviceId}, but API sees ${myDevice.id}. Updating...`, "color: #ffa500;");
+                device_id = myDevice.id; 
+            }
+
+            if (myDevice.is_active) {
+                console.log(`%c ✅ Device is ACTIVE and verified by Spotify API.`, "color: #1DB954;");
+                return true;
+            } 
+            else {
+                console.log(`%c ⏳ Device found but is_active is false. Sending transfer command...`);
+                if(!isRecoveringFromBackground) return true
+                //await activateThisDevice(myDevice.id);
+                //await resumeOnThisDevice(false) //caught in ready listener
+                return true
+            }
+        } 
+        else {
+            console.log(`%c ❌ Device "Ben's Mixer Lab" not found in Spotify list yet.`, "color: #ff4444;");
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => safeTimeout(resolve, interval));
+    }
+    
+    console.log(`%c 🛑 Polling timed out. Device never became active.`, "color: #ff0000; font-weight: bold;");
+    return false;
+}
+
+async function resumeOnThisDevice(resumePlay = false) {
+    console.warn(`Attempting to reclaim playback resumeplay:${resumePlay} session with device_id: ${device_id}`);
     showResumeOverlay(false);
     
     try {
@@ -2003,9 +2104,9 @@ async function resumeOnThisDevice() {
         
         // 2. Tell Spotify to move the active session to this device_id
         const token = localStorage.getItem('access_token');
-        const res = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player`, {
+        const res = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player?device_id=${device_id}`, {
             method: 'PUT',
-            body: JSON.stringify({ device_ids: [device_id], play: true }),
+            body: JSON.stringify({ device_ids: [device_id], play: resumePlay }),
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -2664,11 +2765,11 @@ function setSelectionMode(mode){
         
     }
     
-        playlists.forEach((p, index) => {
-            setTimeout(() => {
-        //        refreshPlaylistCount(p.id, index);
-            }, 2000 * index);
-        })
+        // playlists.forEach((p, index) => {
+        //     setTimeout(() => {
+        // //        refreshPlaylistCount(p.id, index);
+        //     }, 2000 * index);
+        // })
     renderPlaylists()
     saveAppState()
 }
@@ -5325,6 +5426,33 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
+            localStorage.removeItem('last_active_device')
+            device_id = null
+            device_ready = false;
+
+            //isRecoveringFromBackground = false;
+            //musicStartedOnDevice = false
+            musicPlayingOnDevice = false
+            isRefreshing = false
+            //userInitiatedPause = false //leave this for reconnect
+            ghostPauseRecovery = false
+            //internalQueue = []
+            //playbackHistory = []
+            historyIndex = -1
+            buttonPreviousNext = false
+            //don't care about queuePlaylistMap
+            //keep the logMap
+            isDraggingProgress = false
+            apiCallCounter = 0
+            refreshTokenCallCounter = 0
+            fetchUserProfileCallCounter = 0
+            isSoftLocked = false
+            isSoftLockedISRC = false //not used anymore
+            fetch401 = false
+            loggingLocked = false
+            rateLimitStrikes = 0
+            rateLimitStrikesISRC = 0 //not used anymore
+
             await refreshAccessToken();
 
             //alert("CLICK DETECTED!"); // <--- ADD THIS TEMPORARILY
@@ -5473,15 +5601,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                     activeMix: activeMixId
                 });
 
+                //If we haven't started music yet (first initialization) OR power OFF or disconnect
+                if(!musicStartedOnDevice || isRecoveringFromBackground){
+                    device_ready = await waitForActiveDevice(device_id)
+                    if (device_ready) {
+                        visualLog("%c 🚀 Mixer is fully synchronized. Ready for music.", "color: #1DB954; font-weight: bold;");
+                        console.log("%c 🚀 Mixer is fully synchronized. Ready for music.", "color: #1DB954; font-weight: bold;");
+                        // Now it's safe to resume your queue refill or pick a random song
+                    }
+                    else{
+                        console.log(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
+                        visualLog(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
+                    }
+                }
+
                 // Check if we just reconnected specifically because of a background timeout
-                if (isRecoveringFromBackground){
+                if (isRecoveringFromBackground && device_ready){
                     
                     if(!musicPlayingOnDevice) {
                         console.log(`Player Ready - isRecoveringFromBackground - MUSIC not playing - resumeOnThisDevice()`)
-                        await resumeOnThisDevice();
+                        await resumeOnThisDevice(false); //this still plays it, oh well
                     }
                     else{
                         console.log(`Player Ready - isRecoveringFromBackground - but MUSIC ALREDY PLAYING - don't resume on device - HOPEFULLY NEVER CALLED`)
+                        await resumeOnThisDevice(true);
                     }
 
                     const newstate = await player.getCurrentState();
@@ -5795,7 +5938,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (playPauseBtn) {
 
                     // MUSIC PAUSED
-                    if (state.paused) {
+                    if (state.paused && musicStartedOnDevice) {
                         console.log(`player_state_changed FALSE musicPlayingOnDevice`)
                         musicPlayingOnDevice = false
                         if (!userInitiatedPause) {
@@ -5823,7 +5966,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         if(userInitiatedPause && isRecoveringFromBackground){
                             // Catch forced pause after resume
                             isRecoveringFromBackground = false;
-                            //console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground} userInitiatedPause`)
+                            console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground} userInitiatedPause`)
                         }
                         // If music is paused, show "Play" button (Green)
                         playPauseBtn.textContent = "▶ Play";
@@ -5832,32 +5975,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     // MUSIC PLAYING
                     else {
-                        //console.warn(`player_state_changed TRUE musicPlayingOnDevice`)
+                        console.warn(`player_state_changed TRUE musicPlayingOnDevice`)
                         musicPlayingOnDevice = true
 
                     
                         //console.error(`********* userInitiatedPause ${userInitiatedPause}`)
                         //console.error(`********* player_state_changed CHECKING isRecoveringFromBackground ${isRecoveringFromBackground}`)
-                        if(isRecoveringFromBackground){
+                        //if(isRecoveringFromBackground){
                             if(userInitiatedPause){
                             //setTimeout(() => {
                                 
-                                console.log(`Starting in paused state`)
+                                console.log(`%cStarting in paused state`, "color: #e5ff00")
                                 player.pause()
                                 //player.togglePlay()
                             //}, 1000);
                             }
                             else{ //music recovering is indication we're done recovering
                                 isRecoveringFromBackground = false; // Reset the flag
-                                //console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground}`)
+                                console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground}`)
                                 // actual player_state_changed will handle this if TRUE userInitiatedPause
                             }
-                        }
+                        //}
                         // Reset the flag whenever the music is actually playing
-                        if(!isRecoveringFromBackground){
-                            //console.log(`!isRecoveringFromBackground - Forcing userInitiatedPause FALSE`)
-                            userInitiatedPause = false;
-                        }
+                        // if(!isRecoveringFromBackground){
+                        //     //console.log(`!isRecoveringFromBackground - Forcing userInitiatedPause FALSE`)
+                        //     userInitiatedPause = false;
+                        // }
                         //console.error(`player_state_changed - state.NOT-paused - userInitiatedPause ${userInitiatedPause}`)
                         // If music is playing, show "Pause" button (Orange/Red)
                         playPauseBtn.textContent = "⏸ Pause";
@@ -6167,7 +6310,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     // REFILL THE QUEUE: Now that we are on Song 2, queue up Song 3
                     // We wait 5 seconds to make sure the transition is stable
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 5000);
                 }
@@ -6234,6 +6377,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
 
             await refreshAccessToken()
+
         // // 1. Re-prime the browser's audio (Required for mobile)
         // await player.activateElement();
         
@@ -6369,7 +6513,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Get the current state to see if a song is already loaded
             const state = await player.getCurrentState();
 
-            if (!state) {
+            if (!state && !musicStartedOnDevice) {
                 // CASE 1: No song is loaded/playing yet
                 console.log("No track detected. Starting first pick...");
                 showResult("Initializing first mix...");
@@ -6380,19 +6524,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.warn("playPauseBtn - pickRandomSong - FAIL:", returnPickRandom)
                 }
 
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 15000);
 
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 30000);
 
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 45000);
 
-            } else {
+            } 
+            else {
                 setUserInitiatedPause()
                 // CASE 2: A song exists, so just toggle play/pause
                 player.togglePlay().then(() => {
