@@ -2295,8 +2295,23 @@ let isSoftLockedISRC = false
 let rateLimitStrikes = 0;
 let rateLimitStrikesISRC = 0;
 
+// Define this at the top of your script (Global Scope)
+let spotifyFetchLock = Promise.resolve(); 
+
 
 async function safeSpotifyFetch(url, options) {
+    // Add this new request to the existing queue
+    spotifyFetchLock = spotifyFetchLock.then(async () => {
+        try {            
+
+            // Check for network connectivity (window.navigator.onLine)
+            if (!window.navigator.onLine) {
+                console.error(`%c safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
+                showResult(`%c App Network offline`, "color: #ff0000");
+                console.error(`%c safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
+                return; 
+            }
+
             // SEND THE LOG
             logEvent("TRACE", `safeSpotifyFetch - CALL`, {
                 step: "safeSpotifyFetch",
@@ -2313,22 +2328,22 @@ async function safeSpotifyFetch(url, options) {
                 endpoint: url,
                 activeMix: activeMixId
             });
-    if (apiCallCounter > MAX_CALLS_PER_MINUTE) {
-        showResult(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
-        console.warn("Slow down! Too many requests.");
-        visualLog(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
-        console.warn("safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
-            // SEND THE LOG
-            logEvent("WARN", `safeSpotifyFetch - MAX_CALLS_PER_MINUTE - Slow down! Too many requests`, {
-                step: "safeSpotifyFetch",
-                error: "MAX_CALLS_PER_MINUTE",
-                stack_trace: new Error().stack, // Auto-trace errors
-                strikeCount: rateLimitStrikes,
-                endpoint: url,
-                activeMix: activeMixId
-            });
-        return "MAX_CALLS_PER_MINUTE";
-    }
+            if (apiCallCounter > MAX_CALLS_PER_MINUTE) {
+                showResult(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
+                console.warn("Slow down! Too many requests.");
+                visualLog(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
+                console.warn("safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+                    // SEND THE LOG
+                    logEvent("WARN", `safeSpotifyFetch - MAX_CALLS_PER_MINUTE - Slow down! Too many requests`, {
+                        step: "safeSpotifyFetch",
+                        error: "MAX_CALLS_PER_MINUTE",
+                        stack_trace: new Error().stack, // Auto-trace errors
+                        strikeCount: rateLimitStrikes,
+                        endpoint: url,
+                        activeMix: activeMixId
+                    });
+                return "MAX_CALLS_PER_MINUTE";
+            }
     
     apiCallCounter++;
     safeTimeout(() => apiCallCounter--, 60000); // Reset count after 1 min
@@ -2484,6 +2499,15 @@ async function safeSpotifyFetch(url, options) {
     }
     
     return res;
+          } catch (error) {
+            console.error("Fetch failed (possible background throttle):", error.message);
+        }
+    }).catch(err => {
+        console.error("Queue process error:", err);
+    });
+
+    // Wait for this specific task in the queue to finish
+    return spotifyFetchLock;
 }
 async function safeSpotifyFetchISRC(url, options) {
             // SEND THE LOG
