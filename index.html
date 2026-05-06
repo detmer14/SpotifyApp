@@ -184,6 +184,15 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
     </section>
 
+    <section id="visual-log-section" class="mixer-section">
+        <div class="log-header">
+            <h5>Status Messages</h5>
+            <button id="toggle-log-view" onclick="toggleLogExpansion()">Show All</button>
+        </div>
+        <!-- The actual scrollable console window -->
+        <div id="visual-log-container" class="scroll-container"></div>
+    </section>
+
     <div id="now-playing-container" style="background: #181818; padding: 20px; border-radius: 12px; margin-top: 20px; text-align: center;">
         <!-- Album Art -->
         <img id="album-art" src="" style="width: 200px; height: 200px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 15px;">
@@ -259,8 +268,13 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         <h1> </h1>
         <button id="pick" style="padding: 8px 15px; border-radius: 30px; cursor: pointer;">Pick Random Song</button>
         <button id="skip-button"  style="padding: 8px 15px; border-radius: 30px; cursor: pointer;" class="mixer-control">Skip to Next</button>
-        <p id="result"></p>
+        <p id="result" style="font-size: 20pt; font-weight: bold;"></p>
     </section>
+
+    <div class="setting-item">
+        <input type="checkbox" id="sync-context-check">
+        <label for="sync-context-check">Auto-Sync Playlist Context</label>
+    </div>
 
     <!-- Manual Playback Entry -->
     <div id="manual-play-container" style="margin-top: 15px; display: flex; gap: 10px;">
@@ -271,15 +285,6 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             Play URI
         </button>
     </div>
-
-    <section id="visual-log-section" class="mixer-section">
-        <div class="log-header">
-            <h5>Status Messages</h5>
-            <button id="toggle-log-view" onclick="toggleLogExpansion()">Show All</button>
-        </div>
-        <!-- The actual scrollable console window -->
-        <div id="visual-log-container" class="scroll-container"></div>
-    </section>
 
     <!-- Add this below your playlist-list div -->
     <div id="history-container" style="margin-top: 20px; padding: 10px; background: #181818; border-radius: 8px; color: #b3b3b3;">
