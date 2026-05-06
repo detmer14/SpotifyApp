@@ -69,6 +69,48 @@
     transform: scale(0.8);
 }
 
+#visual-log-section {
+    margin: 20px 0;
+    font-family: 'Courier New', Courier, monospace; /* Classic console font */
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0px 0px;
+    background: #e0e0e0; /* Light gray header */
+    border: 1px solid #ccc;
+    border-bottom: none;
+}
+
+#visual-log-container {
+    background: #fdfdfd; /* Neutral off-white/gray background */
+    color: #333;
+    height: auto; /* Default collapsed height */
+    max-height: 100px;
+    overflow-y: scroll; /* Enable vertical scrolling */
+    border: 1px solid #ccc;
+    padding: 10px;
+    font-size: 0.85rem;
+    white-space: pre-wrap; /* Preserve spaces and line breaks */
+    transition: height 0.3s ease; /* Smooth expansion animation */
+}
+
+.log-line {
+    border-bottom: 1px solid #ddd;
+    padding: 2px 0;
+    white-space: pre-wrap; /* Preserve spaces and line breaks */
+}
+
+/* Force scrollbar to be visible even if not scrolling (optional) */
+#visual-log-container::-webkit-scrollbar {
+    width: 10px;
+}
+#visual-log-container::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,.5);
+    border-radius: 5px;
+}
 
 .circular-control-btn {
     width: 50px;

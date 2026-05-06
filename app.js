@@ -2,8 +2,9 @@
 
 let player;
 let device_id;
-let device_ready = false //not used yet
+let device_ready = false //used in ready listener
 let isRecoveringFromBackground = false
+let devicePoweredOn = false
 let musicStartedOnDevice = false
 let musicPlayingOnDevice = false
 let SESSION_ID;
@@ -11,6 +12,7 @@ let APP_DEVICE_ID;
 let CURRENT_USER_IP;
 let isRefreshing = false;
 let userInitiatedPause = false;
+let ghostPauseRecovery = false
 let lastPickTime = 0;
 let internalQueue = []; // Array of {id, name, artist, playlistName}
 let playbackHistory = []; // Global array to store track objects
@@ -22,7 +24,13 @@ const queuePlaylistNames = [
   { id: "id2", name: 'Bob' }
 ];
 const queuePlaylistsMap = new Map(queuePlaylistNames.map(obj => [obj.id, obj]));
-let lastTrackId
+let lastTrackId = null
+let playlistContextEnabled = false;
+let contextSyncedForCurrentTrack = false
+let playlistContextChanging = false;
+
+let logMap = new Map();
+let logCounter = 0;
 
 let isDraggingProgress = false
 
@@ -65,6 +73,9 @@ function updateSessionTimer() {
 setInterval(updateSessionTimer, 1000);
 
 async function emergencyStop() {
+
+    devicePoweredOn = false
+
     console.warn("EMERGENCY STOP TRIGGERED");
             // SEND THE LOG
             logEvent("ERROR", `EMERGENCY STOP TRIGGERED`, {
@@ -75,7 +86,31 @@ async function emergencyStop() {
                 activeMix: activeMixId
             });
 
-    
+    isRecoveringFromBackground = true; //set to true for reconnect
+    //musicStartedOnDevice = false //nah, keep this for reconnect
+    musicPlayingOnDevice = false
+    isRefreshing = false
+    //userInitiatedPause = false //leave this for reconnect
+    ghostPauseRecovery = false
+    //internalQueue = []
+    //playbackHistory = []
+    historyIndex = -1
+    buttonPreviousNext = false
+    //don't care about queuePlaylistMap
+    //keep the logMap
+    isDraggingProgress = false
+    apiCallCounter = 0
+    refreshTokenCallCounter = 0
+    fetchUserProfileCallCounter = 0
+    isSoftLocked = false
+    isSoftLockedISRC = false //not used anymore
+    fetch401 = false
+    loggingLocked = false
+    rateLimitStrikes = 0
+    rateLimitStrikesISRC = 0 //not used anymore
+
+
+
     // 1. Clear all pending pickRandomSong retries
     activeTimeouts.forEach(id => clearTimeout(id));
     activeTimeouts = [];
@@ -95,10 +130,16 @@ async function emergencyStop() {
 
     // 3. Reset UI
     device_id = null;
+    device_ready = false;
+    localStorage.removeItem('last_active_device')
     currentTrackId = null;
+    currentTrackIdISRC = null
+    lastTrackId = null
     document.getElementById('init-player').textContent = "🔌 Power On Mixer";
     document.getElementById('init-player').style.background = "#ff0000";
-    showResult("Mixer Hard-Reset: All processes stopped.");
+    showResult(`%c Mixer Hard-Reset: All processes stopped.`, "color: #ff0000;")
+    visualLog(`%c Mixer Hard-Reset: All processes stopped.`, "color: #ff0000;")
+    console.log(`%c Mixer Hard-Reset: All processes stopped.`, "color: #ff0000;")
 
     if (window.refreshInterval) {
         clearInterval(window.refreshInterval);
@@ -198,6 +239,11 @@ let updatingCurrentSpotifyUser = false
 async function fetchUserProfile() {
 
     console.log(`fetchUserProfile`)
+    // visualLog(`%cfetchUserProfile ${fetchUserProfileCallCounter}`, "color: #ff00bf;")
+    // visualLog(`%cfetchUserProfile ${fetchUserProfileCallCounter}`, "color: #00ff2a;")
+    // visualLog(`%cfetchUserProfile ${fetchUserProfileCallCounter}`, "color: #0084ff;")
+    // visualLog(`hey%c fetchUserProfile%c ${fetchUserProfileCallCounter}`, "color: #ff0000;", "color: #0044ff;")
+    // visualLog(`%c hey `, "color: #ff0000;", "color: #0044ff;")
 
     if (fetchUserStrikes > MAX_STRIKES_10MIN_FETCHUSER) {
 
@@ -205,8 +251,8 @@ async function fetchUserProfile() {
         fetchUserStrikes = 0; // Reset for next Power On
         fetchUserProfileCallCounter = 0;
 
-        showResult("Slow down! Too many requests.");
-        console.warn("Slow down! Too many requests.");
+        //showResult("Slow down! Too many requests.");
+        console.warn("fetchUserProfile - MAX_STRIKES_10MIN_FETCHUSER- Slow down! Too many requests.");
         console.warn("fetchUserProfile - MAX_STRIKES_10MIN_FETCHUSER")
             // SEND THE LOG
             logEvent("ERROR", `fetchUserProfile - MAX_STRIKES_10MIN_FETCHUSER - Strike: ${fetchUserStrikes} - Slow down! Too many requests`, {
@@ -224,8 +270,8 @@ async function fetchUserProfile() {
         fetchUserStrikes++;
         safeTimeout(() => fetchUserStrikes--, 600000); // Reset count after 10 min
 
-        showResult("Slow down! Too many requests.");
-        console.warn("Slow down! Too many requests.");
+        //showResult("Slow down! Too many requests.");
+        console.warn("fetchUserProfile - MAX_CALLS_PER_MINUTE - Slow down! Too many requests.");
         console.warn(`fetchUserProfile - MAX_CALLS_PER_MINUTE - Strike: ${fetchUserStrikes}`)
             // SEND THE LOG
             logEvent("ERROR", `fetchUserProfile - MAX_CALLS_PER_MINUTE_FETCHUSER - Strike: ${fetchUserStrikes} - Slow down! Too many requests`, {
@@ -302,15 +348,95 @@ function setUserInitiatedPause(){
 
 }
 
+async function togglePlayback(){
+
+    if (!player || !devicePoweredOn) {
+        alert("Powering player on first. Then starting music");
+        initBtn.click()
+
+        // Create a promise that resolves when a specific event is heard
+        // await new Promise((resolve) => {
+        //     initBtn.click();
+        //     window.addEventListener('devicePoweredOn', resolve, { once: true });
+        // });
+    }
+    // Code below will now wait for 'devicePoweredOn'
+
+    // Wait until devicePoweredOn is true
+    await new Promise((resolve) => {
+        const checkInterval = setInterval(() => {
+        console.log(`%c checking devicePoweredOn`, "color: #ff00ffff; background: #000000;");
+            if (player && devicePoweredOn) {
+                clearInterval(checkInterval);
+                resolve();
+            }
+        }, 100); // check every 100ms
+    });
+
+    if(!player || !devicePoweredOn){
+        return
+    }
+
+    if (player){
+        console.log(`Media Session Play Button - player.resume()`)
+
+
+        // Get the current state to see if a song is already loaded
+        const state = await player.getCurrentState();
+
+        if (!state) {
+            // CASE 1: No song is loaded/playing yet
+            console.log("No track detected. Starting first pick...");
+            showResult(`%c Initializing first mix...`, "color: #000000;")
+            visualLog(`%c Initializing first mix...`, "color: #000000;")
+            const returnPickRandom = await pickRandomSong(); 
+
+            if(returnPickRandom !== "SUCCESS"){
+                console.warn("playPauseBtn - pickRandomSong - FAIL:", returnPickRandom)
+            }
+
+                safeTimeout(() => {
+                    prepareNextQueueItem();
+                }, 15000);
+
+                safeTimeout(() => {
+                    prepareNextQueueItem();
+                }, 30000);
+
+                safeTimeout(() => {
+                    prepareNextQueueItem();
+                }, 45000);
+
+        }
+        else {
+            setUserInitiatedPause()
+            // CASE 2: A song exists, so just toggle play/pause
+            player.togglePlay().then(() => {
+                console.log('Toggled playback');
+                    logEvent("INFO", `playPauseBtn_main | Toggled playback`, {
+                        step: "playPauseBtn_main",
+                        error: "PLAY_PAUSE_BTN_MAIN",
+                        pause: "PAUSE",
+                        device_id: device_id,
+                        strikeCount: rateLimitStrikes,
+                        activeMix: activeMixId
+                    });
+            });
+        }
+
+    }
+}
+
 async function playTrack(trackUri, isRetry = false) {
     const token = localStorage.getItem('access_token');
     // If the app just refreshed, device_id might be null, so check storage
     if (!device_id) {
         device_id = localStorage.getItem('last_active_device');
+        console.warn(`No device ID, attempting to use last_active_device`)
     }
     if (!device_id) alert("Click 'Power On' first!");
     if (!device_id) {
-        showResult("No device found. Please Power On.");
+        showResult(`%c No device found. Please Power On.`, "color: #ff0000ff");
         return "NO_DEVICE_TURN_POWER_ON";
     }
 
@@ -392,12 +518,15 @@ async function playTrack(trackUri, isRetry = false) {
 
         if (response.status === 404) {
             console.warn("playTrack Device ID not found. Attempting to refresh device list...");
-            showResult("Re-syncing with Spotify...");
+            showResult(`%cRe-syncing with Spotify...`, "color: #0044ff;")
+            visualLog(`%cRe-syncing with Spotify...`, "color: #0044ff;")
+
 
             // Check if the token is likely the problem
             const expiry = localStorage.getItem('token_expiry');
             if (Date.now() > expiry) {
-                showResult("404 Session expired. Refreshing...");
+                showResult(`%c 404 Session expired. Refreshing...`, "color: #ff0000;")
+                visualLog(`%c 404 Session expired. Refreshing...`, "color: #ff0000;")
                 console.warn("playTrack 404 Session expired. Refreshing...");
             // SEND THE LOG
             logEvent("WARN", `playTrack - safeSpotifyFetch - 404 Session expired. Refreshing...`, {
@@ -438,7 +567,8 @@ async function playTrack(trackUri, isRetry = false) {
                 }, 1000);
             } else {
                 console.warn("playTrack - 404 persisted after retry. Stopping loop.");
-                showResult("Connection lost. Please Power Off and On again.");
+                showResult(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
+                visualLog(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("WARN", `playTrack - safeSpotifyFetch - 404 persisted after retry. Stopping loop.`, {
                 step: "playTrack",
@@ -464,7 +594,8 @@ async function playTrack(trackUri, isRetry = false) {
         if (response.status === 403) {
             let returnCodePickRetry = "NONE"
             console.warn("403: Song restricted. Skipping to a new one...");
-            showResult("Song restricted by Spotify. Picking another...");
+            showResult(`%c Song restricted by Spotify. Picking another...`, "color: #0011ff;")
+            visualLog(`%c Song restricted by Spotify. Picking another...`, "color: #0011ff;")
             // SEND THE LOG
             logEvent("WARN", `playTrack - safeSpotifyFetch - 403: Song restricted. Skipping to a new one...`, {
                 step: "playTrack",
@@ -521,7 +652,8 @@ async function playTrack(trackUri, isRetry = false) {
                     }).catch(err => {
                         // If this fails, the browser is likely blocking autoplay
                         console.error("Autoplay blocked by browser. Manual click required.", err);
-                        showResult("Autoplay blocked by browser. Manual click required.", err);
+                        showResult(`%c Autoplay blocked by browser. Manual click required. ${err}`, "color: #ff0000;")
+                        visualLog(`%c Autoplay blocked by browser. Manual click required. ${err}`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("INFO", `playTrack - safeSpotifyFetch - 200 204 SUCCESS - Resume Player - Autoplay blocked by browser. Manual click required. ${err}`, {
                 step: "playTrack",
@@ -541,7 +673,7 @@ async function playTrack(trackUri, isRetry = false) {
             if(internalQueue.length < 2){ //no need to overload the queue
                 console.log("Current song started. Pre-picking next song for the queue...");
                 // Wait 3 seconds to let the current song settle, then queue the next one
-                setTimeout(() => {
+                safeTimeout(() => {
                     prepareNextQueueItem();
                 }, 3000);
             }   
@@ -700,7 +832,8 @@ async function playFromSpecificPlaylist(chosenplaylist) {
     const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
     const index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
-        showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        //showResult(`Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        visualLog(`%c Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, "color: #0004ff;")
         console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
             // SEND THE LOG
             logEvent("TRACE", `playFromSpecificPlaylist - Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, {
@@ -778,7 +911,8 @@ async function playFromSpecificPlaylist(chosenplaylist) {
     // Safety check: only call playTrack if we actually got a track back
     if (track && track.uri) {
         console.log("Playing:", track.name);
-        showResult(`Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`);
+        showResult(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #0004ff;")
+        visualLog(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #0004ff;")
             // SEND THE LOG
             logEvent("INFO", `playFromSpecificPlaylist - Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, {
                 step: "playFromSpecificPlaylist",
@@ -796,7 +930,10 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
         trackISRC = track.id
 
-        queuePlaylistsMap.set(trackISRC, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(trackISRC, {
+            name: chosenplaylist.name,
+            playlist: chosenplaylist.id
+        });
 
         const playTrackReturn = await playTrack(track.uri, false); //retry false
 
@@ -860,11 +997,46 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
 }
 
+async function syncSpotifyContext(targetPlaylistUri, trackUri, currentProgress) {
+    if(playlistContextChanging){
+        console.log(`Already playlistContextChanging`)
+        return
+    }
+
+    playlistContextChanging = true
+    
+    // Add a 1000ms buffer to account for API latency
+    const paddedProgress = currentProgress + 2500;
+
+    const accessToken = localStorage.getItem('access_token');
+    try {
+        await safeSpotifyFetch('https://api.spotify.com/v1/me/player/play', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                context_uri: targetPlaylistUri,
+                offset: { uri: trackUri }, // This is the secret sauce
+                position_ms: paddedProgress
+            })
+        });
+        console.log("Context Synced to Playlist");
+        contextSyncedForCurrentTrack = true;
+    } catch (err) {
+        console.error("Context sync failed", err);
+    }
+    
+    playlistContextChanging = false
+}
+
 async function prepareNextQueueItem(attempt = 0) {
 
     // Safety: Don't get stuck in an infinite loop if a playlist is 100% unplayable
     if (attempt > 5) {
-        showResult("Error: Hit too many restricted tracks. Try a different playlist.");
+        showResult(`%c Error: Hit too many restricted tracks. Try a different playlist.`, "color: #ff0000;")
+        visualLog(`%c Error: Hit too many restricted tracks. Try a different playlist.`, "color: #ff0000;")
         console.log("Error: Hit too many restricted tracks. Try a different playlist.");
             // SEND THE LOG
             logEvent("WARN", `prepareNextQueueItem - Error: Hit too many restricted tracks. Try a different playlist.`, {
@@ -900,6 +1072,7 @@ async function prepareNextQueueItem(attempt = 0) {
     }
 
         console.log(`--------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`)
+        //visualLog(`%c --------------- Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`, "color: #0004ff;")
             // SEND THE LOG
             logEvent("TRACE", `prepareNextQueueItem - Queue Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${randomIndex + 1}`, {
                 step: "prepareNextQueueItem",
@@ -959,6 +1132,7 @@ async function prepareNextQueueItem(attempt = 0) {
     if (nextTrack && nextTrack.uri) {
 
         console.log(`Queued up: ${nextTrack.name} by ${nextTrack.artists[0].name} -  ${chosenplaylist.name} for later.`);
+        visualLog(`%c Queued up: ${nextTrack.name} by ${nextTrack.artists[0].name} -  ${chosenplaylist.name} for later.`, "color: #0004ff;")
             // SEND THE LOG
             logEvent("INFO", `prepareNextQueueItem - getTrackAtIndex: Queued up: [${nextTrack.name}  by ${nextTrack.artists[0].name} - ${chosenplaylist.name}] for later.`, {
                 step: "prepareNextQueueItem",
@@ -991,7 +1165,10 @@ async function prepareNextQueueItem(attempt = 0) {
         let trackISRC
         trackISRC = nextTrack.id
         
-        queuePlaylistsMap.set(trackISRC, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(trackISRC, {
+            name: chosenplaylist.name,
+            playlist: chosenplaylist.id
+        });
 
         // 2. Add to our visual internal queue
         internalQueue.push({
@@ -1029,6 +1206,18 @@ async function addToQueue(trackUri, isRetry = false) {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
+
+        if(response && response.status){
+            console.debug(`addToQueue - safeSpotifyFetch - response.status: ${response.status}`)
+            // SEND THE LOG
+            logEvent("INFO", `addToQueue - safeSpotifyFetch - response.status: ${response.status}`, {
+                step: "addToQueue",
+                error: `ADDTOQUEUE_RESTPONSE_STATUS`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        }
 
         if(response === "MAX_CALLS_PER_MINUTE"){
             console.warn("addToQueue - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
@@ -1088,12 +1277,14 @@ async function addToQueue(trackUri, isRetry = false) {
 
         if (response.status === 404) {
             console.warn("addToQueue Device ID not found. Attempting to refresh device list...");
-            showResult("Re-syncing with Spotify...");
+            showResult(`%c Re-syncing with Spotify...`, "color: #ff8800;")
+            visualLog(`%c Re-syncing with Spotify...`, "color: #ff8800;")
 
             // Check if the token is likely the problem
             const expiry = localStorage.getItem('token_expiry');
             if (Date.now() > expiry) {
-                showResult("404 Session expired. Refreshing...");
+                showResult(`%c 404 Session expired. Refreshing...`, "color: #ff0000;")
+                visualLog(`%c 404 Session expired. Refreshing...`, "color: #ff0000;")
                 console.warn("addToQueue 404 Session expired. Refreshing...");
             // SEND THE LOG
             logEvent("WARN", `addToQueue - safeSpotifyFetch - 404 Session expired. Refreshing...`, {
@@ -1134,7 +1325,8 @@ async function addToQueue(trackUri, isRetry = false) {
                 }, 1000);
             } else {
                 console.warn("returnAddToQueue - 404 persisted after retry. Stopping loop.");
-                showResult("Connection lost. Please Power Off and On again.");
+                showResult(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
+                visualLog(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("WARN", `returnAddToQueue - safeSpotifyFetch - 404 persisted after retry. Stopping loop.`, {
                 step: "returnAddToQueue",
@@ -1192,7 +1384,8 @@ async function addToQueue(trackUri, isRetry = false) {
             console.error("Something else happened:", response)
         }
 
-    } catch (err) {
+    } 
+    catch (err) {
         console.error("Queue error:", err);
             // SEND THE LOG
             logEvent("ERROR", `addToQueue - Queue error: ${err}`, {
@@ -1315,6 +1508,92 @@ function updateHistoryHighlight() {
     });
 }
 
+function visualLog(message, ...styles) {
+    const id = logCounter++;
+    const parts = message.split('%c');
+    let logHTML = '';
+    let currentStyleIndex = 0;
+
+    //console.log(`visual parts`, parts)
+
+    // 1. Start with only the FIRST segment (before any %c)
+    // Using parts instead of the whole 'parts' array prevents comma injection
+    logHTML += parts[0];
+
+    // 2. Loop through subsequent segments, applying the next available style
+    for (let i = 1; i < parts.length; i++) {
+        const style = styles[currentStyleIndex] || '';
+        parts[i] = parts[i].trim()
+        logHTML += `<span style="${style}">${parts[i]}</span>`;
+        currentStyleIndex++;
+    }
+
+    logMap.set(id, {
+        text: logHTML,
+        timestamp: new Date().toLocaleTimeString(),
+        raw: message
+    });
+    
+    renderLog();
+}
+
+
+function renderLog() {
+    const logContainer = document.getElementById('visual-log-container');
+    logContainer.innerHTML = ''; // Clear for fresh render
+
+    logMap.forEach((entry, id) => {
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        line.innerHTML = `<small>[${entry.timestamp}]</small> ${entry.text}`;
+        //line.innerHTML = `${entry.text}`;
+        logContainer.appendChild(line);
+    });
+
+    // Auto-scroll to bottom as new logs arrive
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function toggleLogExpansion() {
+    const logContainer = document.getElementById('visual-log-container');
+    const toggleBtn = document.getElementById('toggle-log-view');
+    
+    // Toggle the .expanded class
+    const isExpanded = logContainer.classList.toggle('expanded');
+    
+    // Update button text based on the new state
+    toggleBtn.textContent = isExpanded ? 'Collapse' : 'Show All';
+    
+    // Optional: Auto-scroll to the bottom when expanding to show latest logs
+    // if (isExpanded) {
+    //     logContainer.scrollTop = logContainer.scrollHeight;
+    // }
+    // Wait for the next browser paint cycle so the height is registered correctly
+    requestAnimationFrame(() => {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    });
+
+    // For mobile browsers (which can be slower), a small timeout is a safer fallback
+    setTimeout(() => {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }, 50); 
+
+    if (isExpanded) {
+        // EXPAND
+        //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
+        logContainer.style.maxHeight = "none"; // Set to a height larger than your list
+        logContainer.style.maxWidth = "none"
+        logContainer.style.overflowY = "hidden";
+        //btn.textContent = "▲ Show Less";
+    } else {
+        // COLLAPSE
+        logContainer.style.maxHeight = "100px";
+        logContainer.style.overflowY = "auto";
+        //logContainer.textContent = "▼ Show All";
+    }
+}
+
+
 // 2. Drag to Seek
 const progressBar = document.getElementById('progress-bar');
 // 1. Detect when the user starts dragging
@@ -1337,7 +1616,7 @@ function seekRelative(offset) {
         if (!state) return;
         const newPos = Math.max(0, Math.min(state.duration, state.position + offset));
         player.seek(newPos);
-        console.log(`Manual seek: ${offsetMs > 0 ? '+' : ''}${offsetMs/1000}s`);
+        console.log(`Manual seek: ${offset > 0 ? '+' : ''}${offset/1000}s`);
     });
 }
 
@@ -1544,8 +1823,9 @@ async function refreshAccessToken() {
         refreshStrikes = 0; // Reset for next Power On
         refreshTokenCallCounter = 0;
 
-        showResult("Slow down! Too many requests.");
+        showResult(`%c Refreshing Token -Slow down! Too many requests.`, "color: #ff7300;")
         console.warn("Slow down! Too many requests.");
+        visualLog(`%c Refreshing Token -Slow down! Too many requests.`, "color: #ff7300;")
         console.warn("refreshAccessToken - MAX_STRIKES_10MIN_REFRESH")
             // SEND THE LOG
             logEvent("ERROR", `refreshAccessToken - MAX_STRIKES_10MIN_REFRESH - Strike: ${refreshStrikes} - Slow down! Too many requests`, {
@@ -1563,8 +1843,9 @@ async function refreshAccessToken() {
         refreshStrikes++;
         safeTimeout(() => refreshStrikes--, 600000); // Reset count after 10 min
 
-        showResult("Slow down! Too many requests.");
+        showResult(`%c Refreshing Token -Slow down! Too many requests.`, "color: #ffd000;")
         console.warn("Slow down! Too many requests.");
+        visualLog(`%c Refreshing Token -Slow down! Too many requests.`, "color: #ffd000;")
         console.warn("refreshAccessToken - MAX_CALLS_PER_MINUTE_REFRESH")
             // SEND THE LOG
             logEvent("ERROR", `refreshAccessToken - MAX_CALLS_PER_MINUTE_REFRESH - Strike: ${refreshStrikes} - Slow down! Too many requests`, {
@@ -1589,6 +1870,7 @@ async function refreshAccessToken() {
     // CHANGE THIS:
     if (!refreshToken) {
         console.warn("No refresh token found. User needs to log in manually.");
+        visualLog(`%c Unable to refresh. User needs to log in`, "color: #ff8800; background: #ffffff;")
             // SEND THE LOG
             logEvent("WARN", `refreshAccessToken - No refresh token found. User needs to log in manually.`, {
                 step: "refreshAccessToken",
@@ -1682,6 +1964,7 @@ async function refreshAccessToken() {
             console.log(`refreshaccesstoken response.status: ${response.status}`)
             if((response.status === 401) || (response.status === 400)){ //messed up tokens
             console.warn("Session actually expired. Clearing tokens.");
+        //visualLog(`%c Session actually expired. Please re-login.`, "color: #ff8800; background: #ffffff;")
             // SEND THE LOG
             logEvent("ERROR", `refreshAccessToken - Refresh failed, but staying on page, LOGIN NEEDED:`, {
                 step: "refreshAccessToken",
@@ -1698,7 +1981,8 @@ async function refreshAccessToken() {
             // Don't redirect here! Just let the user click 'Login' manually if they need to.
             //localStorage.removeItem('access_token');
             //localStorage.removeItem('refresh_token');
-            showResult("Session expired. Please log in again.");
+            showResult(`%c Session expired. Please log in again.`, "color: #ff0000;")
+            visualLog(`%c Session expired. Please log in again.`, "color: #ff0000;")
             alert("Session expired. Please log in again.");
             
             // Change button text to show user is logged in
@@ -1785,7 +2069,8 @@ async function refreshAccessToken() {
             // Don't redirect here! Just let the user click 'Login' manually if they need to.
             //localStorage.removeItem('access_token');
             //localStorage.removeItem('refresh_token');
-            showResult("Session expired. Please log in again.");
+            showResult(`%c Session expired. Please log in again.`, "color: #ff0000;")
+            visualLog(`%c Session expired. Please log in again.`, "color: #ff0000;")
             
             // Change button text to show user is logged in
             document.getElementById('login-button').textContent = "Login with Spotify";
@@ -1810,8 +2095,80 @@ async function refreshAccessToken() {
     isRefreshing = false;
 }
 
-async function resumeOnThisDevice() {
-    console.warn("Attempting to reclaim playback session...");
+async function getAvailableDevices() {
+    const token = localStorage.getItem('access_token');
+    const url = 'https://api.spotify.com/v1/me/player/devices';
+
+    try {
+        const response = await safeSpotifyFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("Found devices:", data.devices);
+            return data.devices;
+        }
+        return;
+    } catch (error) {
+        console.error("Error fetching devices:", error);
+        return;
+    }
+}
+
+/**
+ * Polling helper to ensure the device is not just ready, but ACTIVE on Spotify's servers.
+ * @param {string} targetDeviceId - The ID from your player.addListener('ready')
+ * @param {number} maxAttempts - How many times to check (default 5)
+ * @param {number} interval - Delay between checks in ms (default 2000)
+ */
+async function waitForActiveDevice(targetDeviceId, maxAttempts = 5, interval = 2000) {
+    console.log(`%c 🔍 Starting polling for active state on device: ${targetDeviceId}`, "color: #00d1ec;");
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`%c 📡 Checking device list (Attempt ${attempt}/${maxAttempts})...`);
+        
+        const devices = await getAvailableDevices();
+        if (!devices) continue;
+
+        // Find your specific device in the list
+        // Your player name is "Ben's Mixer Lab"
+        const myDevice = devices.find(d => d.name === "Ben's Mixer Lab" || d.id === targetDeviceId);
+
+        if (myDevice) {
+            // Update your global device_id if Spotify assigned a different one internally
+            if (myDevice.id !== targetDeviceId) {
+                console.log(`%c ⚠️ ID Mismatch! SDK said ${targetDeviceId}, but API sees ${myDevice.id}. Updating...`, "color: #ffa500;");
+                device_id = myDevice.id; 
+            }
+
+            if (myDevice.is_active) {
+                console.log(`%c ✅ Device is ACTIVE and verified by Spotify API.`, "color: #1DB954;");
+                return true;
+            } 
+            else {
+                console.log(`%c ⏳ Device found but is_active is false. Sending transfer command...`);
+                if(!isRecoveringFromBackground) return true
+                //await activateThisDevice(myDevice.id);
+                //await resumeOnThisDevice(false) //caught in ready listener
+                return true
+            }
+        } 
+        else {
+            console.log(`%c ❌ Device "Ben's Mixer Lab" not found in Spotify list yet.`, "color: #ff4444;");
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => safeTimeout(resolve, interval));
+    }
+    
+    console.log(`%c 🛑 Polling timed out. Device never became active.`, "color: #ff0000; font-weight: bold;");
+    return false;
+}
+
+async function resumeOnThisDevice(resumePlay = false) {
+    console.warn(`Attempting to reclaim playback resumeplay:${resumePlay} session with device_id: ${device_id}`);
     showResumeOverlay(false);
     
     try {
@@ -1820,9 +2177,9 @@ async function resumeOnThisDevice() {
         
         // 2. Tell Spotify to move the active session to this device_id
         const token = localStorage.getItem('access_token');
-        const res = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player`, {
+        const res = await safeSpotifyFetch(`https://api.spotify.com/v1/me/player?device_id=${device_id}`, {
             method: 'PUT',
-            body: JSON.stringify({ device_ids: [device_id], play: true }),
+            body: JSON.stringify({ device_ids: [device_id], play: resumePlay }),
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -1865,7 +2222,8 @@ async function resumeOnThisDevice() {
                 console.error("resumeOnThisDevice - Connection failed. Check your Premium status.");
             }
         });
-        showResult("Mixer resumed on this phone.");
+        showResult(`%c Mixer resumed on this phone / web broswer.`, "color: #2d8a02;")
+        visualLog(`%c Mixer resumed on this phone / web broswer.`, "color: #2d8a02;")
         console.warn("Mixer resumed on this phone.");
     } catch (err) {
         console.error("resumeOnThisDevice - Failed to resume session:", err);
@@ -1956,8 +2314,9 @@ async function safeSpotifyFetch(url, options) {
                 activeMix: activeMixId
             });
     if (apiCallCounter > MAX_CALLS_PER_MINUTE) {
-        showResult("Slow down! Too many requests.");
+        showResult(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
         console.warn("Slow down! Too many requests.");
+        visualLog(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
         console.warn("safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
             // SEND THE LOG
             logEvent("WARN", `safeSpotifyFetch - MAX_CALLS_PER_MINUTE - Slow down! Too many requests`, {
@@ -2005,14 +2364,16 @@ async function safeSpotifyFetch(url, options) {
         // Add 'jitter' (randomness) to prevent synchronized retries
         retryAfter = (Math.pow(2, (rateLimitStrikes-1)) + Math.random()) * 10; // 10s, 20s, 40s, 80s
 
-        showResult(`Rate limited. Waiting ${retryAfter}s...`);
-        console.warn(`Rate limited. Waiting ${retryAfter}s...`);
-        showResult(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
+        showResult(`%c Rate limited. Waiting ${retryAfter}s...`, "color: #ff0000;")
+        visualLog(`%c Rate limited. Waiting ${retryAfter}s...`, "color: #ff0000;")
+        console.warn(`Rate limited. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
+        //showResult(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
         console.warn(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
         // You MUST wait this long before trying again
         
         if (rateLimitStrikes >= MAX_STRIKES) {
-            showResult("CRITICAL: Repeated rate limits. Hard-resetting mixer.");
+            showResult(`%c CRITICAL: Repeated rate limits. Hard-resetting mixer.`, "color: #ff0000;")
+            visualLog(`%c CRITICAL: Repeated rate limits. Hard-resetting mixer.`, "color: #ff0000;")
             console.warn("CRITICAL: Repeated rate limits. Hard-resetting mixer.");
             emergencyStop(); // Kill everything
             rateLimitStrikes = 0; // Reset for next Power On
@@ -2037,7 +2398,8 @@ async function safeSpotifyFetch(url, options) {
         // Soft Lock: Just wait, don't kill the player
         setTimeout(() => {
             isSoftLocked = false;
-            showResult(`Soft Lock ${rateLimitStrikes} lifted.`);
+            showResult(`%c Soft Lock ${rateLimitStrikes} lifted.`, "color: #00d9ff;")
+            visualLog(`%c Soft Lock ${rateLimitStrikes} lifted.`, "color: #00d9ff;")
             console.log(`Soft Lock ${rateLimitStrikes} lifted.`);
             // If we go 2 minutes without another 429, clear a strike
             setTimeout(() => { if(rateLimitStrikes > 0) rateLimitStrikes--; }, 120000);
@@ -2070,6 +2432,7 @@ async function safeSpotifyFetch(url, options) {
         if(fetch401){ //refresh didn't work - don't have endless loop
             fetch401 = false
             console.warn("🔐 401 Token Fetch Retry - 2nd 401 detected: Token really expired. Ending retry loop");
+            visualLog(`%c 🔐 401 Token Fetch Retry - 2nd 401 detected: Token really expired.`, "color: #ff0000; background: #ffffff;")
             // SEND THE LOG
             logEvent("ERROR", `safeSpotifyFetch - 401 Token Fetch Retry - 2nd 401 detected: Token really expired. Ending retry loop`, {
                 step: "safeSpotifyFetch",
@@ -2085,6 +2448,7 @@ async function safeSpotifyFetch(url, options) {
         fetch401 = true
 
         console.warn("🔐 401 detected: Token expired. Refreshing now...");
+        visualLog(`%c 🔐 401 detected: Token expired. Refreshing now...`, "color: #ff8800; background: #ffffff;")
             // SEND THE LOG
             logEvent("ERROR", `safeSpotifyFetch - 401 detected: Token expired. Refreshing token now. And retrying original url fetch...`, {
                 step: "safeSpotifyFetch",
@@ -2435,7 +2799,7 @@ function pickRandomTrackInfo() {
     if(!chosenplaylist) return null
 
     const index = Math.floor(Math.random() * chosenplaylist.trackCount)
-        showResult("pickRandomTrackInfo")
+        console.log("pickRandomTrackInfo")
     return { playlist: chosenplaylist, index }
 }
 
@@ -2452,13 +2816,16 @@ function setSelectionMode(mode){
     selectionMode = mode
     document.querySelector(`input[name="selectionMode"][value="${selectionMode}"]`).checked = true;
 
+        console.log(`%c ${selectionMode} mode enabled`, "color: #0b8100;")
+        showResult(`%c ${selectionMode} mode enabled`, "color: #0b8100;")
+        visualLog(`%c ${selectionMode} mode enabled`, "color: #0b8100;")
+
     if(mode === "normal"){
         playlists.forEach(p => {
             if(p.enabled) p.sliderValue = 50
         }) 
         //syncSlidersFromState();
         //normalizePercentagesAfterToggle()
-        showResult("Normal mode enabled")
     }
     if(mode === "percentage"){
         //renderPlaylists()
@@ -2471,11 +2838,11 @@ function setSelectionMode(mode){
         
     }
     
-        playlists.forEach((p, index) => {
-            setTimeout(() => {
-        //        refreshPlaylistCount(p.id, index);
-            }, 2000 * index);
-        })
+        // playlists.forEach((p, index) => {
+        //     setTimeout(() => {
+        // //        refreshPlaylistCount(p.id, index);
+        //     }, 2000 * index);
+        // })
     renderPlaylists()
     saveAppState()
 }
@@ -2576,6 +2943,7 @@ function xrebalancePercentagesByIndex(activeIndex){
     showResult(`Rebalancing ${Date.now().toString()}`)
 }
 
+let maxPercentage = 100
 function rebalancePercentagesByIndex(activeIndex){
 try{
 
@@ -2589,12 +2957,15 @@ try{
 
     if(enabled.length === 0) return
 
+    isProgrammaticSliderUpdate = true
+
     //only one enabled playlist - 100
     if(enabled.length === 1){
         playlists[enabled[0].i].sliderValue = 100;
+        isProgrammaticSliderUpdate = true
         return;
     }
-        showResult(`Rebalancing Enabled ${enabled.length}`)
+        if(debug) showResult(`Rebalancing Enabled ${enabled.length}`)
 
 
     const active = playlists[activeIndex]
@@ -2605,6 +2976,7 @@ try{
 
     const remaining = 100 - activeValue
     let runningTotal = 0
+    //maxPercentage = Number(activeValue) //to scale the visuals
 
     //const filteredSliders = Array.from(sliders).filter((_, i) => i !== indexToExclude);
     //const sliders = Array.from(document.querySelectorAll('.playlist-row')).filter((row, rowindex) => rowindex !== activeIndex).filter((row) => row.querySelector('.playlist-enabled').checked).map(row => row.querySelector('.playlist-slider'))
@@ -2633,6 +3005,9 @@ try{
     if(debug) console.log(`set sliders`)
     sliders.forEach((slider, i) => {
         //if(i !== activeIndex){ //This is taken care of in the querySelectorAll statement above now
+            
+            //maxPercentage = Math.max(maxPercentage, Number(slider.value))
+
             let newValue
             if(currentSum === 0){
                 //even split fallback
@@ -2839,6 +3214,8 @@ async function pickRandomSong(attempt = 0) {
         if (success) {
             console.warn("Connection request sent to Spotify!");
         } else {
+            console.log(`%c pickRandomSong - Error: PLAYER_CONNECTION_FAIL`, "color: #ff0000; background: #ffffff;")
+            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
         // SEND THE LOG
         logEvent("ERROR", `pickRandomSong - Error: PLAYER_CONNECTION_FAIL`, {
             step: "pickRandomSong",
@@ -2856,7 +3233,8 @@ async function pickRandomSong(attempt = 0) {
 
     // Safety: Don't get stuck in an infinite loop if a playlist is 100% unplayable
     if (attempt > 5) {
-        showResult("Error: Hit too many restricted tracks. Try a different playlist.");
+        showResult(`%c Error: Hit too many restricted tracks. Try a different playlist.`, "color: #c300ff;")
+        visualLog(`%c Error: Hit too many restricted tracks. Try a different playlist.`, "color: #c300ff;")
         console.log("Error: Hit too many restricted tracks. Try a different playlist.");
             // SEND THE LOG
             logEvent("ERROR", `pickRandomSong - Error: Hit too many restricted tracks. Try a different playlist.`, {
@@ -2886,7 +3264,8 @@ async function pickRandomSong(attempt = 0) {
     const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
     index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
-        showResult(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        //showResult(`Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)        
+        visualLog(`%c Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, "color: #0004ff;")
         console.log(`--------------- Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`)
             // SEND THE LOG
             logEvent("TRACE", `pickRandomSong - Playlist ${chosenplaylist.name} ${chosenplaylist.id}, song #${index + 1}`, {
@@ -2962,8 +3341,9 @@ async function pickRandomSong(attempt = 0) {
 
     // Safety check: only call playTrack if we actually got a track back
     if (track && track.uri) {
-        console.log("Playing:", track.name);
-        showResult(`Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`);
+        console.log(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #129900;")
+        showResult(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #129900;")
+        visualLog(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #129900;")
             // SEND THE LOG
             logEvent("TRACE", `pickRandomSong - getTrackAtIndex - Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, {
                 step: "pickRandomSong",
@@ -2979,7 +3359,10 @@ async function pickRandomSong(attempt = 0) {
 
         let trackISRC = track.id
 
-        queuePlaylistsMap.set(trackISRC, { name: chosenplaylist.name });
+        queuePlaylistsMap.set(trackISRC, {
+            name: chosenplaylist.name,
+            playlist: chosenplaylist.id
+        });
 
         const playTrackReturn = await playTrack(track.uri, false); //retry false
             
@@ -3022,7 +3405,7 @@ async function pickRandomSong(attempt = 0) {
             renderQueue();
         }
 
-        queuePlaylistsMap.set(lastTrackId, { name: chosenplaylist.name });
+        //queuePlaylistsMap.set(lastTrackId, { name: chosenplaylist.name });
 
 
         lastTrackId = trackISRC
@@ -3093,7 +3476,8 @@ async function generateRandomPlaylist() {
         container.appendChild(row)
     })
 
-    showResult(`Generated ${selections.length} tracks`)
+    showResult(`%c Generated ${selections.length} tracks`, "color: #000000;")
+    visualLog(`%c Generated ${selections.length} tracks`, "color: #000000;")
 
     // REAL MODE (next step)
     // 1. Fetch track URIs via getTrackAtIndex (batched)
@@ -3351,7 +3735,8 @@ async function getTrackAtIndex(token, playlistId, index){
             });
         // If it's a network error, don't just return null, throw it!
         if (err.message.includes('Failed to fetch') || !navigator.onLine) {
-            showResult("Network disconnected. Please check your internet.");
+            visualLog(`%c Network disconnected. Please check your internet.`, "color: #ff0000;")
+            visualLog(`%c Getting track from playlist - Network disconnected. Please check your internet.`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("ERROR", `getTrackAtIndex - safeSpotifyFetch - NETWORK_ERROR - Network disconnected. Please check your internet.`, {
                 step: "getTrackAtIndex",
@@ -3548,6 +3933,13 @@ function renderPlaylists() {
 
     const maxCount = Math.max(...playlists.map(p => p.pickCount || 0));
     const minCount = Math.min(...playlists.map(p => p.pickCount || 0));
+    let maxPercentage = Math.max(...playlists.map(p => p.sliderValue || 0))
+    maxPercentage += (maxPercentage / 100 * 50);
+    maxPercentage = Math.min(maxPercentage, 100)
+    if(selectionMode !== "percentage") maxPercentage = 100
+    //maxPercentage = 100
+
+    let maxPlaylistNameLength = Math.max(...playlists.map(p => p.name.length || 0))
   
     playlists.forEach((playlist, index) => {
 
@@ -3562,10 +3954,28 @@ function renderPlaylists() {
         div.dataset.index = index; // store the original position
 
 
-        //Add styling for the "drag handle" look
-        div.style.padding = "8px";
-        div.style.borderBottom = "1px solid #282828";
-        div.style.cursor = "grab";
+        // //Add styling for the "drag handle" look
+        // div.style.padding = "8px";
+        // //div.style.display = "flex"
+        // div.style.borderBottom = "1px solid #282828";
+        // div.style.cursor = "grab";
+        // div.style.alignItems = "center"; 
+        // div.style.gap = "10px"; 
+        // div.style.marginBottom = "20px"; 
+        // div.style.justifyContent = "center";
+        // div.style.flexGrow = "1"
+        // div.style.overflowX = "auto";
+
+// Parent Styling for Horizontal Scroll
+div.style.display = "flex"; // Must be flex
+div.style.flexWrap = "nowrap"; // Force everything onto one line
+div.style.padding = "8px";
+div.style.borderBottom = "1px solid #282828";
+div.style.cursor = "grab";
+div.style.alignItems = "center";
+div.style.gap = "15px"; // Give items room
+div.style.width = "100%"; // Container fills viewport, content expands past it
+
 
         // Create your handle
         const handle = document.createElement('span');
@@ -3576,24 +3986,36 @@ function renderPlaylists() {
         const color = getRainbowColor(playlist.pickCount , minCount, maxCount);
 
 
-        div.innerHTML = `
-                <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
-                <button class="playlist-solo-btn" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: none; transition: all 0.2s ease" data-id="${playlist.id}" title="Solo this playlist">🎯</button>
 
-                <!-- WRAPPER FOR SLIDER + ARROWS -->
-                <div class="slider-group" style="display: inline-flex; align-items: center; gap: 5px;">
-                    <button class="step-btn step-down" data-index="${index}">◀</button>
-                    <input type="range" min="0" max="100" value="${playlist.sliderValue ?? 50}" class="playlist-slider" data-index="${index}">
-                    <button class="step-btn step-up" data-index="${index}">▶</button>
-                </div>
+div.innerHTML = `
+    <!-- LEFT AREA: No shrink, fixed at its content size -->
+    <div class="controls-left" style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-width: max-content;">
+        <input type="checkbox" class="playlist-enabled" ${playlist.enabled ? "checked" : ""}>
+        <button class="playlist-solo-btn" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 0;" data-id="${playlist.id}" title="Solo this playlist">🎯</button>
 
-                <span class="slider-value"></span>
-                <button class="delete-btn">Delete</button>
-                <span class="pick-counter" style="padding: 2px;background: #1a1a1a; color: ${color}; font-weight: bold;">
-                    ${playlist.pickCount }
-                </span>                
-                ${playlist.name} (${playlist.trackCount}) songs
-        `
+        <div class="slider-group" style="display: flex; align-items: center; gap: 5px; width: 250px;">
+            <button class="step-btn step-down" data-index="${index}">◀</button>
+            <input type="range" min="0" max="${maxPercentage}" value="${playlist.sliderValue ?? 50}" style="cursor: pointer; flex-grow: 1;" class="playlist-slider"  data-index="${index}">
+            <button class="step-btn step-up" data-index="${index}">▶</button>
+        </div>
+    </div>
+
+    <!-- RIGHT AREA: Also forced not to shrink -->
+    <div class="playlist-info-right" style="display: flex; align-items: center; gap: 15px; flex-shrink: 0; min-width: max-content;">
+        <div class="slider-val-del-button" style="display: flex; align-items: center; gap: 10px;">
+            <span class="slider-value" style="width: 45px; text-align: right; font-family: monospace;"></span>
+            <button class="delete-btn">Delete</button>
+            <span class="pick-counter" style="width: 30px; text-align: center; padding: 2px; background: #1a1a1a; color: ${color}; font-weight: bold;">
+                ${playlist.pickCount}
+            </span>
+        </div>
+        <!-- Name will now expand to its full length without wrapping -->
+    <span style="flex-grow: 1; text-align: center; font-weight: 500; width: ${maxPlaylistNameLength + 5}ch">
+        ${playlist.name} (${playlist.trackCount}) songs
+    </span>
+    </div>
+`;
+
         // 5. Put the handle at the very beginning of the row
         div.prepend(handle);
 
@@ -3652,7 +4074,7 @@ function renderPlaylists() {
             if(selectionMode === "percentage"){
                 normalizePercentagesAfterToggle()
                 syncSlidersFromState()
-                showResult(`normalize ${Date.now().toString()}`)
+                console.log(`normalize ${Date.now().toString()}`)
             }
 
             saveAppState()
@@ -3666,7 +4088,7 @@ function renderPlaylists() {
 
             if(isProgrammaticSliderUpdate) return
 
-            playlist.sliderValue = Number(slider.value)
+            playlist.sliderValue = Math.min(100, Number(slider.value))
             display.textContent = slider.value
 
             //If in normal mode, moving slider switches to slider mode
@@ -3679,8 +4101,9 @@ function renderPlaylists() {
                 //update radio button
                 //document.querySelector('input[value="percentage"]').checked = true
                 //normalizePercentagesAfterToggle() //REMOVED - This will snap values back instead of using the user's slider value
-                showResult("Relative mode enabled")
-                console.log("Relative mode enabled")
+                console.log(`%c Relative mode enabled when you moved the slider`, "color: #0004ff;")
+                showResult(`%c Relative mode enabled when you moved the slider`, "color: #0004ff;")
+                visualLog(`%c Relative mode enabled when you moved the slider`, "color: #0004ff;")
             }
             //If in normal mode, moving slider switches to slider mode
             if((selectionMode === "balanced")){
@@ -3692,14 +4115,16 @@ function renderPlaylists() {
                 //update radio button
                 //document.querySelector('input[value="percentage"]').checked = true
                 //normalizePercentagesAfterToggle() //REMOVED - This will snap values back instead of using the user's slider value
-                showResult("Percentage mode enabled")
-                console.log("Percentage mode enabled")
+                console.log(`%c Percentage mode enabled when you moved the slider`, "color: #0004ff;")
+                showResult(`%c Percentage mode enabled when you moved the slider`, "color: #0004ff;")
+                visualLog(`%c Percentage mode enabled when you moved the slider`, "color: #0004ff;")
             }
 
             if(selectionMode === "percentage"){
                 rebalancePercentagesByIndex(index)
                 syncSlidersFromState()
                 updateSliderDisplay(slider)
+                //renderPlaylists();
             }
                         
             //Slider at 0 disables playlist
@@ -3859,11 +4284,15 @@ document.getElementById('add-playlist').onclick = async () => {
 
     if (match && match[1]) {
         const id = match[1]; // match[1] is the captured 22-character ID
-        showResult(`Fetching Spotify data... ${id}`);
+        showResult(`%c Fetching Spotify data... ${id}`, "color: #000000;")
+        visualLog(`%c Fetching Spotify data... ${id}`, "color: #000000;")
+        console.log(`Fetching Spotify data... ${id}`);
         playlistData = await getSpotifyPlaylistData(id);
     } else if (input.length === 22 && !input.includes(' ')) {
         // Fallback: If they just paste the raw 22-character ID
-        showResult(`Fetching Spotify data... ${input}`);
+        showResult(`%c Fetching Spotify data... ${id}`, "color: #000000;")
+        visualLog(`%c Fetching Spotify data... ${id}`, "color: #000000;")
+        console.log(`Fetching Spotify data... ${id}`);
         playlistData = await getSpotifyPlaylistData(input);
     } else {        // Fallback to manual entry if it's just a name
         const count = parseInt(document.getElementById('new-playlist-count').value);
@@ -3941,8 +4370,9 @@ function deleteCurrentMix() {
     renderMixSelector(); // Update the dropdown list
     renderPlaylists();    // Update the playlist view for the new active mix
     
-    showResult(`Deleted mix: ${mixName}`);
-    console.log(`Deleted mix: ${mixName}`);
+    console.log(`%c Deleted mix: ${mixName}`, "color: #0004ff;")
+    showResult(`%c Deleted mix: ${mixName}`, "color: #0004ff;")
+    visualLog(`%c Deleted mix: ${mixName}`, "color: #0004ff;")
 }
 
 function generateShareLink() {
@@ -3973,7 +4403,8 @@ function generateShareLink() {
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-        showResult("Mix Code copied! Paste this on your other device.");
+        showResult(`%c Mix Code copied! Paste this on your other device.`, "color: #0004ff;")
+        visualLog(`%c Mix Code copied! Paste this on your other device.`, "color: #0004ff;")
         alert("Mix Code copied! Paste this on your other device.");
     }).catch(err => {
                         // SEND THE LOG
@@ -3996,7 +4427,8 @@ async function importMix() {
         // Request text from the system clipboard
         const text = await navigator.clipboard.readText();
         if (!text) {
-            showResult("📋 Clipboard is empty.");
+            showResult(`%c 📋 Clipboard is empty.`, "color: #ff8800;")
+            visualLog(`%c 📋 Clipboard is empty.`, "color: #ff8800;")
             alert("📋 Clipboard is empty.");
             return;
         }
@@ -4030,8 +4462,9 @@ async function importMix() {
                             activeMix: activeMixId
                         });
         alert("Mix imported successfully! Refreshing...");
-        showResult(`Imported Mix: ${sharedMix.name}`);
-        console.log(`Imported Mix: ${sharedMix.name}`);
+        console.log(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
+        showResult(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
+        visualLog(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
         //window.location.reload();
     } catch (e) {
                         // SEND THE LOG
@@ -4044,8 +4477,9 @@ async function importMix() {
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-            console.error("Failed to import shared mix:", e);
-            showResult("Error: Invalid share link.");
+        console.error("Failed to import shared mix:", e);
+        showResult(`%c Error: Invalid share link.`, "color: #ff0000;")
+        visualLog(`%c Error: Invalid share link.`, "color: #ff0000;")
         alert("Invalid Mix Code. Please try again.");
     }
 }
@@ -4135,7 +4569,7 @@ async function getSpotifyPlaylistData(playlistId) {
     let url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,owner.id,tracks.total`;
 
     try {
-        showResult(`await fetch(${url}` )
+        console.log(`await fetch(${url}` )
         let response = await safeSpotifyFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -4255,7 +4689,9 @@ async function getSpotifyPlaylistData(playlistId) {
             namedata = await response.json();
             
             if (namedata.total !== undefined) {
-                showResult(`Updated ${data.name} to ${namedata.total} songs.`);
+                //showResult(`Updated ${data.name} to ${namedata.total} songs.`);
+                visualLog(`%c Updated ${data.name} to ${namedata.total} songs.`, "color: #000000;")
+                console(`%c Updated ${data.name} to ${namedata.total} songs.`, "color: #000000;")
             }
         } catch (err) {
             console.error("getSpotifyPlaylistData - Refresh failed:", err);
@@ -4312,7 +4748,7 @@ async function getSpotifyPlaylistData(playlistId) {
         };
     }
     catch (err) {
-        showResult("getSpotifyPlaylistData - Error: " + err.message);
+        console.warn("getSpotifyPlaylistData - Error: " + err.message);
             // SEND THE LOG
             logEvent("ERROR", `getSpotifyPlaylistData - ERROR - ${err.message}`, {
                 step: "getSpotifyPlaylistData",
@@ -4471,11 +4907,13 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
         const data = await response.json();
         
         if (data.total !== undefined) {
+            console.log(`Updated ${playlists[playlistIndex].name} from ${playlists[playlistIndex].trackCount} to ${data.total} songs.`);
+            //showResult(`Updated ${playlists[playlistIndex].name} from ${playlists[playlistIndex].trackCount} to ${data.total} songs.`);
+            if(data.total !== playlists[playlistIndex].trackCount) visualLog(`%c Updated ${playlists[playlistIndex].name} from ${playlists[playlistIndex].trackCount} to ${data.total} songs.`, "color: #d400ff;")
+
             playlists[playlistIndex].trackCount = data.total;
             saveAppState();
             renderPlaylists();
-            console.log(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
-            showResult(`Updated ${playlists[playlistIndex].name} to ${data.total} songs.`);
             // SEND THE LOG
             logEvent("TRACE", `refreshPlaylistCount - REFRESHPLAYLIST_SUCCESS - Updated ${playlists[playlistIndex].name} to ${data.total} songs.`, {
                 step: "refreshPlaylistCount",
@@ -4514,7 +4952,7 @@ function loadAppState() {
         const state = JSON.parse(stored)
         mixes = state.mixes || {}
         activeMixId = state.activeMixId || null
-        selectionMode = mixes[activeMixId].selectionMode
+        playlistContextEnabled = state.syncContextEnabled
     }
 
     if(!activeMixId){
@@ -4557,7 +4995,7 @@ function updateUI(state) {
     document.getElementById('playlist-name').textContent = queuePlaylistsMap.get(current_track.id)?.name;
     document.getElementById('track-artist').textContent = current_track.artists[0].name;
     document.getElementById('album-art').src = current_track.album.images[0].url;
-    document.getElementById('play-pause-btn').textContent = paused ? "▶" : "⏸";
+    document.getElementById('play-pause-btn').textContent = (paused || !devicePoweredOn) ? "▶" : "⏸";
     document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
 
     // // 3. Sync the Play/Pause Button icon
@@ -4613,8 +5051,40 @@ function updateProgressBar() {
 }
 
 
-function showResult(text){
-    document.getElementById("result").textContent = text
+// function showResult(text){
+//     document.getElementById("result").textContent = text
+// }
+// function showResult(text) {
+//     const resultEl = document.getElementById("result");
+    
+//     // Using innerHTML allows you to pass strings like "Status: <br> <b>Ready</b>"
+//     resultEl.innerHTML = text;
+
+//     // Optional: Auto-scroll to the bottom if it's a long log
+//     resultEl.scrollTop = resultEl.scrollHeight;
+// }
+function showResult(message, ...styles) {
+    const parts = message.split('%c');
+    let resultHTML = '';
+    let currentStyleIndex = 0;
+
+    //console.log(`parts`, parts)
+
+    // 1. Start with only the FIRST segment (before any %c)
+    // Using parts instead of the whole 'parts' array prevents comma injection
+    resultHTML += parts[0];
+
+    // 2. Loop through subsequent segments, applying the next available style
+    for (let i = 1; i < parts.length; i++) {
+        const style = styles[currentStyleIndex] || '';
+        parts[i] = parts[i].trim()
+        resultHTML += `<span style="${style}">${parts[i]}</span>`;
+        currentStyleIndex++;
+    }
+    //console.log(`%c resultHTML: ${resultHTML}`, "color: #0004ff;")
+    const resultEl = document.getElementById("result");
+    // Using innerHTML allows you to pass strings like "Status: <br> <b>Ready</b>"
+    resultEl.innerHTML = resultHTML;
 }
 
 
@@ -4662,7 +5132,8 @@ document.addEventListener('visibilitychange', async () => {
         // 1. Manually pull the latest state from the SDK
         // This forces the SDK to talk to Spotify's servers and tell your app exactly where the song is,
         // which "wakes up" your progress bar.
-        if(player && musicPlayingOnDevice){
+        //if(player && musicPlayingOnDevice){
+        if(player && devicePoweredOn){
             player.getCurrentState().then(async state => {
 
                 // This behavior is likely caused by the Web Playback SDK's background timeout, 
@@ -4677,11 +5148,12 @@ document.addEventListener('visibilitychange', async () => {
                 // Refill the Queue on Reconnect: Because the SDK does not reliably maintain passive connections indefinitely, 
                 // you should proactively refill the queue once a user interacts with the app again after a disconnection.
 
-                if (!state){
+                if (!state && musicStartedOnDevice){
 
                     isRecoveringFromBackground = true; // Set the flag for the 'ready' listener
                     musicPlayingOnDevice = false
                     //console.error(`********* TRUE isRecoveringFromBackground ${isRecoveringFromBackground}`)
+                    visualLog(`%c 🔌 VISIBLE - Player disconnected while away. Reconnecting...`, "color: #ff7300ff; background: #ffffff;")
                     console.log("visibilitychange VISIBLE - 🔌 Player disconnected while away. Reconnecting...");
                         logEvent("WARN", `visibilitychange VISIBLE - 🔌 Player disconnected while away. Reconnecting...`, {
                             step: "visibilitychange",
@@ -4707,6 +5179,7 @@ document.addEventListener('visibilitychange', async () => {
                         } 
                         else {
                             console.error("Connection failed. Check your Premium status.");
+                            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
                         // SEND THE LOG
                         logEvent("ERROR", `visibilitychange VISIBLE | Connection request sent to Spotify! FAIL`, {
                             step: "visibilitychange",
@@ -4773,7 +5246,8 @@ document.addEventListener('visibilitychange', async () => {
         // 1. Manually pull the latest state from the SDK
         // This forces the SDK to talk to Spotify's servers and tell your app exactly where the song is,
         // which "wakes up" your progress bar.
-        if(player && musicStartedOnDevice){
+        //if(player && musicStartedOnDevice){
+        if(player && devicePoweredOn){
             player.getCurrentState().then(async state => {
 
                 // This behavior is likely caused by the Web Playback SDK's background timeout, 
@@ -4788,11 +5262,12 @@ document.addEventListener('visibilitychange', async () => {
                 // Refill the Queue on Reconnect: Because the SDK does not reliably maintain passive connections indefinitely, 
                 // you should proactively refill the queue once a user interacts with the app again after a disconnection.
 
-                if (!state){
+                if (!state && musicStartedOnDevice){
 
                     isRecoveringFromBackground = true; // Set the flag for the 'ready' listener
                     musicPlayingOnDevice = false
                     //console.error(`********* TRUE isRecoveringFromBackground ${isRecoveringFromBackground}`)
+                    visualLog(`%c 🔌 HIDDEN - Player disconnected while away. Reconnecting...`, "color: #ff7300ff; background: #ffffff;")
                     console.log("visibilitychange HIDDEN - 🔌 Player disconnected while away. Reconnecting...");
                         logEvent("WARN", `visibilitychange HIDDEN - 🔌 Player disconnected while away. Reconnecting...`, {
                             step: "visibilitychange",
@@ -4818,6 +5293,7 @@ document.addEventListener('visibilitychange', async () => {
                         } 
                         else {
                             console.error("Connection failed. Check your Premium status.");
+                            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
                         // SEND THE LOG
                         logEvent("ERROR", `visibilitychange HIDDEN | Connection request sent to Spotify! FAIL`, {
                             step: "visibilitychange",
@@ -4875,6 +5351,8 @@ document.addEventListener('visibilitychange', async () => {
 
 
 
+initBtn = document.getElementById('init-player');
+playPauseBtn = document.getElementById('play-pause');
 
 document.addEventListener("DOMContentLoaded", async () => {
 
@@ -4922,6 +5400,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. If it's a brand new login (Code present, No Refresh Token)
     else if(code) {
         console.warn("New login detected. Swapping code for token...");
+        visualLog(`%c New login detected. Good to go!`, "color: #15ff00; background: #ffffff;")
             // SEND THE LOG
             logEvent("WARN", `New Login Detected - Swapping login code for token`, {
                 step: "newlogin",
@@ -4993,8 +5472,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             saveAppState();
 
             window.history.replaceState({}, document.title, "/");
-            showResult(`Imported Mix: ${sharedMix.name}`);
-            console.log(`Imported Mix: ${sharedMix.name}`);
+            console.log(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
+            showResult(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
+            visualLog(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
             // SEND THE LOG
             logEvent("WARN", `Imported Mix from URL: ${sharedMix.name}`, {
                 step: "import_mix_url",
@@ -5004,7 +5484,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         } catch (e) {
             console.error("Failed to import shared mix:", e);
-            showResult("Error: Invalid share link.");
+            showResult(`%c Error: Invalid share link.`, "color: #ff0000;")
+            visualLog(`%c Error: Invalid share link.`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("WARN", `Failed to import shared mix: ${e}`, {
                 step: "import_mix_url",
@@ -5035,8 +5516,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // }
 
 
-    const initBtn = document.getElementById('init-player');
-    const playPauseBtn = document.getElementById('play-pause');
+    initBtn = document.getElementById('init-player');
+    playPauseBtn = document.getElementById('play-pause');
 
     let currentTrackId = null;
     let currentTrackIdISRC = null;
@@ -5047,19 +5528,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (initBtn) {
         initBtn.onclick = async () => {
 
-            await requestWakeLock();
-
             // If already online, act as the Emergency Stop
-            if (device_id) {
+            if (device_id || devicePoweredOn) {
                 emergencyStop();
                 return;
             }
+
+            await requestWakeLock();
+
+
+            localStorage.removeItem('last_active_device')
+            device_id = null
+            device_ready = false;
+
+            //isRecoveringFromBackground = false;
+            //musicStartedOnDevice = false
+            musicPlayingOnDevice = false
+            isRefreshing = false
+            //userInitiatedPause = false //leave this for reconnect
+            ghostPauseRecovery = false
+            //internalQueue = []
+            //playbackHistory = []
+            historyIndex = -1
+            buttonPreviousNext = false
+            //don't care about queuePlaylistMap
+            //keep the logMap
+            isDraggingProgress = false
+            apiCallCounter = 0
+            refreshTokenCallCounter = 0
+            fetchUserProfileCallCounter = 0
+            isSoftLocked = false
+            isSoftLockedISRC = false //not used anymore
+            fetch401 = false
+            loggingLocked = false
+            rateLimitStrikes = 0
+            rateLimitStrikesISRC = 0 //not used anymore
 
             await refreshAccessToken();
 
             //alert("CLICK DETECTED!"); // <--- ADD THIS TEMPORARILY
             const currentToken = localStorage.getItem('access_token');
-            if (!currentToken) return alert("Please login to Spotify first!");
+            if (!currentToken) {
+                visualLog(`%c Please login to Spotify first!`, "color: #3a3836ff; background: #ff7b00d2;")
+                return alert("Please login to Spotify first!");
+            }
 
             console.warn("Button Clicked: Initializing Player...");
 
@@ -5181,6 +5693,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Ready
             player.addListener('ready', async ({ device_id: id }) => {
                 console.warn('Ready with Device ID', id);
+                showResult(`%c Mixer is Online`, "color: #ffffff; background: #009213;")
+                visualLog(`%c Mixer is Online`, "color: #ffffff; background: #009213;")
                 device_id = id;
                 device_ready = true
                 localStorage.setItem('last_active_device', id); // Keep a record
@@ -5198,15 +5712,33 @@ document.addEventListener("DOMContentLoaded", async () => {
                     activeMix: activeMixId
                 });
 
+                //If we haven't started music yet (first initialization) OR power OFF or disconnect
+                if(!musicStartedOnDevice || isRecoveringFromBackground){
+                    device_ready = await waitForActiveDevice(device_id)
+                    if (device_ready) {
+                        visualLog("%c 🚀 Mixer is fully synchronized. Ready for music.", "color: #1DB954; font-weight: bold;");
+                        console.log("%c 🚀 Mixer is fully synchronized. Ready for music.", "color: #1DB954; font-weight: bold;");
+                        // Now it's safe to resume your queue refill or pick a random song
+
+
+                        devicePoweredOn = true; 
+                    }
+                    else{
+                        console.log(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
+                        visualLog(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
+                    }
+                }
+
                 // Check if we just reconnected specifically because of a background timeout
-                if (isRecoveringFromBackground){
+                if (isRecoveringFromBackground && device_ready){
                     
                     if(!musicPlayingOnDevice) {
                         console.log(`Player Ready - isRecoveringFromBackground - MUSIC not playing - resumeOnThisDevice()`)
-                        await resumeOnThisDevice();
+                        await resumeOnThisDevice(false); //this still plays it, oh well
                     }
                     else{
                         console.log(`Player Ready - isRecoveringFromBackground - but MUSIC ALREDY PLAYING - don't resume on device - HOPEFULLY NEVER CALLED`)
+                        await resumeOnThisDevice(true);
                     }
 
                     const newstate = await player.getCurrentState();
@@ -5253,6 +5785,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         } else if (data) {
                             spotifyQueueEmpty = true
                             console.warn("visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY - The Spotify queue is currently empty.");
+                            visualLog(`%c 🔌 Player reconnected - The Spotify queue is currently empty.`, "color: #ff8800; background: #ffffff;")
                             // SEND THE LOG
                             logEvent("WARN", `visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY - The Spotify queue is currently empty.`, {
                                 step: "visibilitychange",
@@ -5282,7 +5815,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                                         activeMix: activeMixId
                                     });
                                     addToQueue(track.uri);
-                                    console.log(`Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri}`);
+                                    console.log(`%c Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri}`, "color: #9333e2ff");
                         }
                         if (internalQueue && internalQueue.length > 1) { //account for now playing in queue
                                 internalQueue.slice(1).forEach((track, index) => {
@@ -5321,7 +5854,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Add this listener to handle temporary drops
             player.addListener('not_ready', ({ device_id }) => {
                 console.warn("Device has gone offline:", device_id);
-                showResult("Connection lost. Trying to reconnect...");
+                showResult(`%c Player not_ready - Connection lost. Trying to reconnect...`, "color: #ff0000;")
+                visualLog(`%c Player not_ready - Connection lost. Trying to reconnect...`, "color: #ff0000;")
                 // // The SDK will try to reconnect itself, but we can nudge it:
                 // player.connect().then(success => {
                 //     if (success) {
@@ -5346,7 +5880,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             player.addListener('autoplay_failed', () => {
                 console.warn("AUTOPLAY BLOCKED: The browser stopped the next song from starting.");
-                showResult("Browser blocked autoplay. Tap 'Play' to resume the mixer.");
+                showResult(`%c Browser blocked autoplay. Tap 'Play' to resume the mixer.`, "color: #b700ff;")
+                visualLog(`%c Browser blocked autoplay. Tap 'Play' to resume the mixer.`, "color: #b700ff;")
                 
                 // SEND THE LOG
                 logEvent("WARN", `autoplay_failed - AUTOPLAY BLOCKED: The browser stopped the next song from starting.`, {
@@ -5373,11 +5908,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // 2. Specific check for the "Lost Connection" case (covers your first listener's job)
                 if (message.includes("initialized") || message.includes("connection")) {
                     console.error("Critical: SDK lost internal connection.");
-                    showResult("Playback Engine Error. Please refresh the page.");
+                    showResult(`%c Playback Engine Error. Please refresh the page.`, "color: #ff0000;")
+                    visualLog(`%c Playback Engine Error. Please refresh the page.`, "color: #ff0000;")
                 } else {
                     // Handle other random init errors (like DRM issues)
-                    showResult("Error starting player: " + message);
-                    console.error("Error starting player: " + message);
+                    console.error(`%c Error starting player: ${message}`, "color: #ff0000;")
+                    showResult(`%c Error starting player: ${message}`, "color: #ff0000;")
+                    visualLog(`%c Error starting player: ${message}`, "color: #ff0000;")
                 }
                 // SEND THE LOG
                 logEvent("ERROR", `initialization_error - Spotify SDK Initialization Error: ${message}`, {
@@ -5404,8 +5941,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const seconds = Math.floor((remainingMs % 60000) / 1000);
                 console.warn(`Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
 
-                showResult("Session expired. Re-authenticating...");
-                console.warn("Session expired. Re-authenticating...");
+                console.warn(`%c Session expired. Re-authenticating...`, "color: #00eeff;")
+                showResult(`%c Session expired. Re-authenticating...`, "color: #00eeff;")
+                visualLog(`%c Session expired. Re-authenticating...`, "color: #00eeff;")
                 await refreshAccessToken();
                 // After refresh, tell the player to try connecting again
                 // if (document.visibilityState === 'visible') {
@@ -5417,7 +5955,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 player.connect().then(success => {
                     if (success) {
                         console.warn("Connection request sent to Spotify!");
-                        showResult("Player reconnected");
+                        showResult(`%c Player reconnected`, "color: #00a30e;")
+                        visualLog(`%c Player reconnected`, "color: #00a30e;")
                         // SEND THE LOG
                         logEvent("WARN", `authentication_error - SDK Authentication Error: ${message} | visibility: ${document.visibilityState} | Session expired. Re-authenticating... | Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds} | Connection request sent to Spotify! SUCCESS`, {
                             step: "authentication_error",
@@ -5430,7 +5969,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         });
                     } else {
                         console.error("Connection failed. Check your Premium status.");
-                        showResult("Player reconnect failed");
+                        showResult(`%c Player reconnect failed`, "color: #ff0000;")
+                        visualLog(`%c Player reconnect failed`, "color: #ff0000;")
                         // SEND THE LOG
                         logEvent("WARN", `authentication_error - SDK Authentication Error: ${message} | visibility: ${document.visibilityState} | Session expired. Re-authenticating... | Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds} | Connection failed. Check your Premium status. FAIL`, {
                             step: "authentication_error",
@@ -5443,8 +5983,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         });
                     }
                 });
-                // showResult("Player reconnected");
-                // console.warn("Player reconnected");
             });
 
             // Add this inside your initBtn.onclick, near your other listeners:
@@ -5459,6 +5997,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     playback_id,
                     track_window: {current_track}
                 } = state;
+
+                console.log(`%c player_state_changed: ${state}`, "colo: #0099ff")
 
                     // const theprogressBar = document.getElementById('progress-bar');
                     // theprogressBar.max = duration;
@@ -5514,11 +6054,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (playPauseBtn) {
 
                     // MUSIC PAUSED
-                    if (state.paused) {
-                        console.log(`player_state_changed FALSE musicPlayingOnDevice`)
+                    if (state.paused && musicStartedOnDevice && devicePoweredOn) {
+                        //console.log(`player_state_changed FALSE musicPlayingOnDevice`)
                         musicPlayingOnDevice = false
                         if (!userInitiatedPause) {
-                            console.warn("Ghost pause detected! Forcing resume...");
+
+
+                            if(!ghostPauseRecovery) visualLog(`%c Ghost pause detected! Forcing music to resume...`, "color: #ff8800; background: #ffffff;")
+                            console.warn("Ghost pause detected! Forcing music to resume...");
                         // SEND THE LOG
                         logEvent("INFO", `ghost_pause - Ghost pause detected! Forcing resume...`, {
                             step: "ghost_pause",
@@ -5532,11 +6075,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 //musicStartedOnDevice = true
                             }, 1000);
                         }
+
+                            ghostPauseRecovery = true;
+                            safeTimeout(() => ghostPauseRecovery = false, 15000); // Reset count after 15s
                         
                         if(userInitiatedPause && isRecoveringFromBackground){
                             // Catch forced pause after resume
                             isRecoveringFromBackground = false;
-                            //console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground} userInitiatedPause`)
+                            //  console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground} userInitiatedPause`)
                         }
                         // If music is paused, show "Play" button (Green)
                         playPauseBtn.textContent = "▶ Play";
@@ -5551,11 +6097,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     
                         //console.error(`********* userInitiatedPause ${userInitiatedPause}`)
                         //console.error(`********* player_state_changed CHECKING isRecoveringFromBackground ${isRecoveringFromBackground}`)
-                        if(isRecoveringFromBackground){
+                        //if(isRecoveringFromBackground){
                             if(userInitiatedPause){
                             //setTimeout(() => {
                                 
-                                console.log(`Starting in paused state`)
+                                console.log(`%cStarting in paused state`, "color: #e5ff00; background: #2b2b2bff;")
                                 player.pause()
                                 //player.togglePlay()
                             //}, 1000);
@@ -5565,12 +6111,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 //console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground}`)
                                 // actual player_state_changed will handle this if TRUE userInitiatedPause
                             }
-                        }
+                        //}
                         // Reset the flag whenever the music is actually playing
-                        if(!isRecoveringFromBackground){
-                            //console.log(`!isRecoveringFromBackground - Forcing userInitiatedPause FALSE`)
-                            userInitiatedPause = false;
-                        }
+                        // if(!isRecoveringFromBackground){
+                        //     //console.log(`!isRecoveringFromBackground - Forcing userInitiatedPause FALSE`)
+                        //     userInitiatedPause = false;
+                        // }
                         //console.error(`player_state_changed - state.NOT-paused - userInitiatedPause ${userInitiatedPause}`)
                         // If music is playing, show "Pause" button (Orange/Red)
                         playPauseBtn.textContent = "⏸ Pause";
@@ -5584,6 +6130,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.warn("player state changed but no currentTrack")
                     return;
                 }
+
+                    //contextSyncedForCurrentTrack = false; // Reset for new song
+                    // 2. Logic to trigger the swap
+                    playlistContextEnabled = document.getElementById('sync-context-check').checked;
+                    const progressSecs = state.position / 1000
+                    const targetPlaylist = `spotify:playlist:${queuePlaylistsMap.get(currentTrackIdISRC)?.playlist}`; // Or a dynamic variable
+
+                    if (playlistContextEnabled && !contextSyncedForCurrentTrack && progressSecs > 10) {
+                        console.log("Song established. Syncing context...");
+                        console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
+                        syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
+                    }
 
                 // --- THE LINKED TRACK LOGIC ---
                 // If it's relinked, use the original ID. If not, use the current one.
@@ -5618,6 +6176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                             currentTrackId = current_track.id //so we won't check ISRC more than once
                             currentTrackIdISRC = current_track.linked_from?.id
+                            currentTrackURI = current_track.linked_from?.uri
                             lastPickTime = Date.now() //reset timer for new song
 
                         } //endif
@@ -5625,6 +6184,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                             currentTrackId = current_track.id //so we won't check ISRC more than once
                             currentTrackIdISRC = current_track.id //but this will be current instead of linked_from ()
+                            currentTrackURI = current_track.uri
                             lastPickTime = Date.now() //reset timer for new song
                             //return; //exit: we just started a song, don't pick a new one!
                             // Update your 'Now Playing' UI here if needed
@@ -5677,6 +6237,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         if (success) {
                             console.warn("Connection request sent to Spotify!");
                         } else {
+                            console.error(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
+                            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
                         // SEND THE LOG
                         logEvent("ERROR", `player_state_changed - Track naturally finished - Error: PLAYER_CONNECTION_FAIL`, {
                             step: "player_state_changed",
@@ -5712,7 +6274,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     //currentTrackId = null; 
                     //player.activateElement(); 
                     //pickRandomSong();                     
-                }   
+                }
                 
                 // --- THE FIX: Detect a new song has started ---
                 //console.log(`currentTrackIdISRC: ${currentTrackIdISRC} lastTrackID: ${lastTrackId}`)
@@ -5730,7 +6292,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                         }
                         renderQueue();
                     }   
-                    
+
+                    contextSyncedForCurrentTrack = false; // Reset for new song
+
                     console.warn("New song detected:", current_track.name);
                     //console.warn("lastTrackId - Detected new song:", lastTrackId, current_track.name)
                         // SEND THE LOG
@@ -5749,8 +6313,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     
                     // Update UI (Now Playing, etc.)
                     //updateUI(currentTrack);
-                    console.log(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`);
-                    showResult(`Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`);
+                    console.log(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
+                    showResult(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
+                    visualLog(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
                         // SEND THE LOG
                         logEvent("INFO", `now_playing - Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, {
                             step: "now_playing",
@@ -5877,7 +6442,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     // REFILL THE QUEUE: Now that we are on Song 2, queue up Song 3
                     // We wait 5 seconds to make sure the transition is stable
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 5000);
                 }
@@ -5898,7 +6463,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.getElementById('playlist-name').textContent = queuePlaylistsMap.get(currentTrackIdISRC)?.name;
                 document.getElementById('track-artist').textContent = current_track.artists[0].name;
                 document.getElementById('album-art').src = current_track.album.images[0].url;
-                document.getElementById('play-pause-btn').textContent = paused ? "▶" : "⏸";
+                document.getElementById('play-pause-btn').textContent = (paused || !devicePoweredOn) ? "▶" : "⏸";
                 document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
 
 
@@ -5919,6 +6484,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             player.connect().then(success => {
                 if (success) {
                     console.warn("Connection request sent to Spotify!");
+                    visualLog(`%c Spotify player connected.`, "color: #2a9600; background: #ffffff;")
                         // SEND THE LOG
                         logEvent("WARN", `initial_player_connection | Connection request sent to Spotify! SUCCESS`, {
                             step: "initial_player_connection",
@@ -5927,8 +6493,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-                } else {
+                } 
+                else {
                     console.error("Connection failed. Check your Premium status.");
+                    visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
                         // SEND THE LOG
                         logEvent("ERROR", `initial_player_connection | Connection request sent to Spotify! FAIL`, {
                             step: "initial_player_connection",
@@ -5942,6 +6510,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
 
             await refreshAccessToken()
+
         // // 1. Re-prime the browser's audio (Required for mobile)
         // await player.activateElement();
         
@@ -6045,7 +6614,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 });
 
                 // When the user hits "Play"
-                navigator.mediaSession.setActionHandler('play', () => {
+                navigator.mediaSession.setActionHandler('play', async () => {
                         // SEND THE LOG
                         logEvent("INFO", `mediaSession_play | Resumed playback`, {
                             step: "mediaSession_play",
@@ -6055,9 +6624,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
+
                     if (player){
-                        console.log(`Messia Session Play Button - player.resume()`)
-                        player.resume();
+                        console.log(`Media Session Play Button - player.resume()`)
+                        player.resume()
                     }
                     navigator.mediaSession.playbackState = "playing";
                 });
@@ -6068,37 +6638,63 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (playPauseBtn) {
         playPauseBtn.onclick = async () => {
-            if (!player){
-                alert("Turn player on first")
-                return;
+
+            if (!player || !devicePoweredOn) {
+                alert("Powering player on first. Then starting music");
+                initBtn.click()
+
+                // Create a promise that resolves when a specific event is heard
+                // await new Promise((resolve) => {
+                //     initBtn.click();
+                //     window.addEventListener('devicePoweredOn', resolve, { once: true });
+                // });
+
+                // Wait until devicePoweredOn is true
+                await new Promise((resolve) => {
+                    const checkInterval = setInterval(() => {
+                    console.log(`%c checking devicePoweredOn`, "color: #ff00ffff; background: #000000;");
+                        if (player && devicePoweredOn) {
+                            clearInterval(checkInterval);
+                            resolve();
+                        }
+                    }, 100); // check every 100ms
+                });
+            }
+            // Code below will now wait for 'devicePoweredOn'
+
+
+            if(!player || !devicePoweredOn){
+                return
             }
 
             // Get the current state to see if a song is already loaded
             const state = await player.getCurrentState();
 
-            if (!state) {
+            if (!state && !musicStartedOnDevice) {
                 // CASE 1: No song is loaded/playing yet
                 console.log("No track detected. Starting first pick...");
-                showResult("Initializing first mix...");
+                showResult(`%c Initializing first mix...`, "color: #000000;")
+                visualLog(`%c Initializing first mix...`, "color: #000000;")
                 const returnPickRandom = await pickRandomSong(); 
 
                 if(returnPickRandom !== "SUCCESS"){
                     console.warn("playPauseBtn - pickRandomSong - FAIL:", returnPickRandom)
                 }
 
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 15000);
 
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 30000);
 
-                    setTimeout(() => {
+                    safeTimeout(() => {
                         prepareNextQueueItem();
                     }, 45000);
 
-            } else {
+            } 
+            else {
                 setUserInitiatedPause()
                 // CASE 2: A song exists, so just toggle play/pause
                 player.togglePlay().then(() => {
@@ -6183,7 +6779,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Basic validation: Check if it looks like a Spotify track URI
         if (uri.startsWith('spotify:track:') && uri.length > 20) {
             console.log("Manually retrying with URI:", uri);
-            showResult(`Manual Play: ${uri}`);
+            showResult(`%c Manual Play: ${uri}`, "color: #0004ff;")
+            visualLog(`%c Manual Play: ${uri}`, "color: #0004ff;")
             
             // Use your existing playTrack function
             const playTrackReturn = await playTrack(uri, false);
@@ -6288,6 +6885,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                         });
     });
 
+    // On Load: Set the checkbox state from LocalStorage
+    const syncCheck = document.getElementById('sync-context-check');
+    const savedSyncState = localStorage.getItem('syncContextEnabled');
+    // Convert string 'true' to boolean true, default to false if null
+    syncCheck.checked = (savedSyncState === 'true');
+    // On Change: Save the new state to LocalStorage
+    syncCheck.addEventListener('change', (e) => {
+        localStorage.setItem('syncContextEnabled', e.target.checked);
+    });
+
     const importBtn = document.getElementById('import-trigger-btn');
     //const fileInput = document.getElementById('import-file-input');
 
@@ -6329,6 +6936,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // EXPAND
                 //max-height vs height: Using max-height: 1000px (or none) allows the box to grow only as large as the content inside it.
                 list.style.maxHeight = "none"; // Set to a height larger than your list
+                list.style.maxWidth = "none"
                 list.style.overflowY = "visible";
                 btn.textContent = "▲ Show Less";
             } else {
@@ -6402,7 +7010,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Increment or Decrement by 1
         if (btn.classList.contains('step-up')) {
-            currentValue = Math.min(100, currentValue + 1);
+            //currentValue = Math.min(100, currentValue + 1);
+            currentValue++
         } else {
             currentValue = Math.max(0, currentValue - 1);
         }
@@ -6419,13 +7028,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             //update radio button
             //document.querySelector('input[value="percentage"]').checked = true
             //normalizePercentagesAfterToggle() //REMOVED - This will snap values back instead of using the user's slider value
-            showResult("Percentage mode enabled")
-            console.log("Percentage mode enabled")
+            showResult(`%c Percentage mode enabled`, "color: #0004ff;")
+            console.log(`%c Percentage mode enabled`, "color: #0004ff;")
+            visualLog(`%c Percentage mode enabled`, "color: #0004ff;")
         }
 
         if (selectionMode === "percentage") {
             rebalancePercentagesByIndex(index);
             syncSlidersFromState()
+            renderPlaylists();
         }
 
         // 2. Trigger your rebalance/display logic
@@ -6539,6 +7150,7 @@ function initInstallButton() {
 // 1. Detect when the connection is LOST
 window.addEventListener('offline', () => {
     console.log("🚀 Internet connection lost.");
+    visualLog(`%c 🚀 Internet connection lost.`, "color: #ff0000; background: #ffffff;")
     
     // Store the "down time" locally since we can't fetch right now
     localStorage.setItem('last_offline_time', Date.now());
@@ -6568,6 +7180,7 @@ window.addEventListener('online', async () => {
         durationSeconds = Math.floor((Date.now() - wentOfflineAt) / 1000);
     }
     console.log("🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}");
+    visualLog(`%c 🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}`, "color: #00ccff; background: #ffffff;")
                 // SEND THE LOG
                 logEvent("WARN", `online_listener - 🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}`, {
                     step: "online_listener",

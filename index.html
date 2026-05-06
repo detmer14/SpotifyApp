@@ -166,7 +166,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         <!-- <div id="playlist-list"></div> -->
         <!-- <div id="playlist-list" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">
         </div> -->
-        <div id="playlist-container" style="background: #ddf1fd; padding: 10px; border-radius: 8px;">
+        <div id="playlist-container" style="background: #ddf1fd; display: fles; width: 100%; padding: 10px; border-radius: 8px; overflow-x: auto; white-space: nowrap; ">
             <!-- The Toggle Button -->
             <button class="toggle-list-btn-class" id="toggle-list-btn1" style="display: block; margin: 5px auto 0; width: 80%; background: #66ff00; border-radius: 30px; border: none; color: #070707; cursor: pointer; padding: 5px; font-size: 0.8em; margin-top: 5px;">
                 ▼ Show All
@@ -182,6 +182,15 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             </button>
         </div>
 
+    </section>
+
+    <section id="visual-log-section" class="mixer-section">
+        <div class="log-header">
+            <h5>Status Messages</h5>
+            <button id="toggle-log-view" onclick="toggleLogExpansion()">Show All</button>
+        </div>
+        <!-- The actual scrollable console window -->
+        <div id="visual-log-container" class="scroll-container"></div>
     </section>
 
     <div id="now-playing-container" style="background: #181818; padding: 20px; border-radius: 12px; margin-top: 20px; text-align: center;">
@@ -227,7 +236,7 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
             <!-- Play/Pause (Circular Green) -->
             <button id="play-pause-btn" class="circular-control-btn" 
-                    onclick="setUserInitiatedPause(); player.togglePlay();" 
+                    onclick="togglePlayback();" 
                     title="Play/Pause"
                 >
                 ▶
@@ -259,8 +268,13 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         <h1> </h1>
         <button id="pick" style="padding: 8px 15px; border-radius: 30px; cursor: pointer;">Pick Random Song</button>
         <button id="skip-button"  style="padding: 8px 15px; border-radius: 30px; cursor: pointer;" class="mixer-control">Skip to Next</button>
-        <p id="result"></p>
+        <p id="result" style="font-size: 20pt; font-weight: bold;"></p>
     </section>
+
+    <div class="setting-item">
+        <input type="checkbox" id="sync-context-check">
+        <label for="sync-context-check">Auto-Sync Playlist Context</label>
+    </div>
 
     <!-- Manual Playback Entry -->
     <div id="manual-play-container" style="margin-top: 15px; display: flex; gap: 10px;">
