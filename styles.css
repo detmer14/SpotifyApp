@@ -171,6 +171,33 @@ pointer-events: none; /* User can click "through" it if they need to */
 animation: slideDown 0.3s ease-out;
 }
 
+/* Base style for the status dot */
+.sync-indicator {
+  height: 12px;
+  width: 12px;
+  background-color: #bbb; /* Default gray for inactive */
+  border-radius: 50%;     /* Makes it a perfect circle */
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+  transition: background-color 0.3s ease; /* Smooth color change */
+}
+
+/* Style when synced (active) */
+.sync-indicator.active {
+  background-color: #19C558; /* Spotify-style green */
+  box-shadow: 0 0 8px rgba(25, 197, 88, 0.6); /* Subtle glow */
+  animation: pulse-green 2s infinite; /* Optional pulsing effect */
+}
+
+/* Optional pulse animation */
+@keyframes pulse-green {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+
 @keyframes slideDown {
     from { top: -50px; opacity: 0; }
     to { top: 20px; opacity: 1; }
