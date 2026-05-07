@@ -10,7 +10,6 @@ let musicPlayingOnDevice = false
 let SESSION_ID;
 let APP_DEVICE_ID;
 let CURRENT_USER_IP;
-let isRefreshing = false;
 let userInitiatedPause = false;
 let ghostPauseRecovery = false
 let lastPickTime = 0;
@@ -1027,12 +1026,27 @@ async function syncSpotifyContext(targetPlaylistUri, trackUri, currentProgress) 
         });
         console.log("Context Synced to Playlist");
         contextSyncedForCurrentTrack = true;
+        updateSyncIndicator(true)
     } catch (err) {
         console.error("Context sync failed", err);
     }
     
     playlistContextChanging = false
 }
+
+function updateSyncIndicator(isSynced) {
+    const dot = document.getElementById('sync-dot');
+    if (isSynced) {
+        dot.classList.add('active');
+    } else {
+        dot.classList.remove('active');
+    }
+}
+
+// Example usage within your existing playback logic:
+// const contextSyncedForCurrentTrack = true; // or false based on app state
+// updateSyncIndicator(contextSyncedForCurrentTrack);
+
 
 async function prepareNextQueueItem(attempt = 0) {
 
@@ -1818,7 +1832,7 @@ async function getStoredToken(key, retries = 5) {
     return null;
 }
 
-async function refreshAccessToken() {
+async function refreshAccessToken(refreshRetry = false) {
 
     if (refreshStrikes > MAX_STRIKES_10MIN_REFRESH) {
 
@@ -1864,7 +1878,10 @@ async function refreshAccessToken() {
     refreshTokenCallCounter++;
     safeTimeout(() => refreshTokenCallCounter--, 60000); // Reset count after 1 min
     
-    if (isRefreshing) return; // Exit if a refresh is already in progress
+    if (isRefreshing && !refreshRetry){
+        return; // Exit if a refresh is already in progress
+    }
+
     isRefreshing = true;
 
     //const refreshToken = localStorage.getItem('refresh_token');
@@ -2052,7 +2069,8 @@ async function refreshAccessToken() {
             isRefreshing = false;
             return true;
         }
-    } catch (err) {
+    } 
+    catch (err) {
         console.error("refreshAccessToken - Refresh failed, but staying on page:", err.status);
 
         // ONLY clear tokens if it's a definitive "Unauthorized" error from Spotify
@@ -2082,7 +2100,8 @@ async function refreshAccessToken() {
             document.getElementById('login-button').textContent = "Login with Spotify";
             document.getElementById('login-button').disabled = false;
             document.getElementById('login-button').style.background = "#ff0000";
-        } else {
+        } 
+        else {
             // It's likely a network flicker. DO NOT DELETE TOKENS.
             console.log("Network flicker detected. Keeping tokens for retry.");
             console.log(`err.status: ${err.status}`)
@@ -2304,6 +2323,7 @@ let rateLimitStrikesISRC = 0;
 // Define this at the top of your script (Global Scope)
 let spotifyFetchLock = Promise.resolve(); 
 
+let isRefreshing = false;
 
 async function safeSpotifyFetch(url, options) {
 
@@ -2316,6 +2336,15 @@ async function safeSpotifyFetch(url, options) {
                 console.error(`%c safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
                 showResult(`%c App Network offline`, "color: #ff0000");
                 visualLog(`%c safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
+            // SEND THE LOG
+            logEvent("TRACE", `safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, {
+                step: "safeSpotifyFetch",
+                error: "SAFESPOTIFYFETCH_OFFLINE",
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                endpoint: url,
+                activeMix: activeMixId
+            });
                 return; 
             }
 
@@ -2323,6 +2352,7 @@ async function safeSpotifyFetch(url, options) {
             logEvent("TRACE", `safeSpotifyFetch - CALL`, {
                 step: "safeSpotifyFetch",
                 error: "SAFESPOTIFYFETCH_CALL",
+                stack_trace: new Error().stack, // Auto-trace errors
                 strikeCount: rateLimitStrikes,
                 endpoint: url,
                 activeMix: activeMixId
@@ -2331,6 +2361,7 @@ async function safeSpotifyFetch(url, options) {
             logEvent("TRACE", `safeSpotifyFetch - CALL_TOTAL`, {
                 step: "safeSpotifyFetch",
                 error: "SAFESPOTIFYFETCH_CALL_TOTAL",
+                stack_trace: new Error().stack, // Auto-trace errors
                 strikeCount: rateLimitStrikes,
                 endpoint: url,
                 activeMix: activeMixId
@@ -2362,6 +2393,7 @@ async function safeSpotifyFetch(url, options) {
                     logEvent("WARN", `safeSpotifyFetch - SOFT_LOCKED - Fetch blocked: Soft Lock active.`, {
                         step: "safeSpotifyFetch",
                         error: "SOFT_LOCKED",
+                        stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
                         activeMix: activeMixId
@@ -2486,9 +2518,14 @@ async function safeSpotifyFetch(url, options) {
                 // if (document.visibilityState === 'hidden') { console.log('Silent fail'); return; }
 
                 // Wait for the refresh to complete
-                console.log(`refreshAccessToken`)
-                await refreshAccessToken();
-                console.log(`refreshAccessToken done`)
+                //console.log(`refreshAccessToken`)
+                if(isRefreshing){
+                    await refreshAccessToken(true);
+                }
+                else{
+                    await refreshAccessToken();
+                }
+                //console.log(`refreshAccessToken done`)
                 
                 //if (success) {
                     // Update the Authorization header with the fresh token
@@ -2500,6 +2537,16 @@ async function safeSpotifyFetch(url, options) {
                     
                     // Retry the EXACT same request one more time
                     console.log("🔄 Retrying original request with new token...");
+                    // SEND THE LOG
+                    logEvent("WARN", `safeSpotifyFetch - Retrying original request with new token...`, {
+                        step: "safeSpotifyFetch",
+                        error: "SAFESPOTIFYFETCH_RETRY",
+                        stack_trace: new Error().stack, // Auto-trace errors
+                        strikeCount: rateLimitStrikes,
+                        endpoint: url,
+                        activeMix: activeMixId
+                    });
+
                     // To this:
                     const retryRes = await safeSpotifyFetchRaw(url, options);
                     return retryRes;                // } else {
@@ -2523,24 +2570,35 @@ async function safeSpotifyFetchRaw(url, options) {
 
             // Check for network connectivity (window.navigator.onLine)
             if (!window.navigator.onLine) {
-                console.error(`%c safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
+                console.error(`%c safeSpotifyFetchRaw - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
                 showResult(`%c App Network offline`, "color: #ff0000");
-                visualLog(`%c safeSpotifyFetch - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
+                visualLog(`%c safeSpotifyFetchRaw - Network offline !navigator.onLine - skipping fetch`, "color: #ff0000");
+            // SEND THE LOG
+            logEvent("TRACE", `safeSpotifyFetchRaw - Network offline !navigator.onLine - skipping fetch`, {
+                step: "safeSpotifyFetchRaw",
+                error: "SAFESPOTIFYFETCH_RAW_OFFLINE",
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                endpoint: url,
+                activeMix: activeMixId
+            });
                 return; 
             }
 
             // SEND THE LOG
-            logEvent("TRACE", `safeSpotifyFetch - CALL`, {
-                step: "safeSpotifyFetch",
-                error: "SAFESPOTIFYFETCH_CALL",
+            logEvent("TRACE", `safeSpotifyFetchRaw - CALL`, {
+                step: "safeSpotifyFetchRaw",
+                error: "SAFESPOTIFYFETCH_RAW_CALL",
+                stack_trace: new Error().stack, // Auto-trace errors
                 strikeCount: rateLimitStrikes,
                 endpoint: url,
                 activeMix: activeMixId
             });
             // SEND THE LOG
-            logEvent("TRACE", `safeSpotifyFetch - CALL_TOTAL`, {
-                step: "safeSpotifyFetch",
-                error: "SAFESPOTIFYFETCH_CALL_TOTAL",
+            logEvent("TRACE", `safeSpotifyFetchRaw - CALL_TOTAL`, {
+                step: "safeSpotifyFetchRaw",
+                error: "SAFESPOTIFYFETCH_RAW_CALL_TOTAL",
+                stack_trace: new Error().stack, // Auto-trace errors
                 strikeCount: rateLimitStrikes,
                 endpoint: url,
                 activeMix: activeMixId
@@ -2549,11 +2607,11 @@ async function safeSpotifyFetchRaw(url, options) {
                 showResult(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
                 console.warn("Slow down! Too many requests.");
                 visualLog(`%c Spotify Operation - Slow down! Too many requests.`, "color: #ff0000;")
-                console.warn("safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+                console.warn("safeSpotifyFetchRaw - MAX_CALLS_PER_MINUTE")
                     // SEND THE LOG
-                    logEvent("WARN", `safeSpotifyFetch - MAX_CALLS_PER_MINUTE - Slow down! Too many requests`, {
-                        step: "safeSpotifyFetch",
-                        error: "MAX_CALLS_PER_MINUTE",
+                    logEvent("WARN", `safeSpotifyFetchRaw - MAX_CALLS_PER_MINUTE - Slow down! Too many requests`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "MAX_CALLS_PER_MINUTE_RAW",
                         stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
@@ -2567,11 +2625,12 @@ async function safeSpotifyFetchRaw(url, options) {
 
             if (isSoftLocked) {
                 console.warn("Fetch blocked: Soft Lock active.");
-                console.warn("safeSpotifyFetch - SOFT_LOCKED")
+                console.warn("safeSpotifyFetchRaw - SOFT_LOCKED")
                     // SEND THE LOG
-                    logEvent("WARN", `safeSpotifyFetch - SOFT_LOCKED - Fetch blocked: Soft Lock active.`, {
-                        step: "safeSpotifyFetch",
-                        error: "SOFT_LOCKED",
+                    logEvent("WARN", `safeSpotifyFetchRaw - SOFT_LOCKED - Fetch blocked: Soft Lock active.`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "SOFT_LOCKED_RAW",
+                        stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
                         activeMix: activeMixId
@@ -2582,7 +2641,7 @@ async function safeSpotifyFetchRaw(url, options) {
 
             const res = await fetch(url, options);
 
-            if(res.status) console.log(`safespotifyfetch res.status: ${res.status}`)
+            if(res.status) console.log(`safeSpotifyFetchRaw res.status: ${res.status}`)
             
             if (res.status === 429) {
                 rateLimitStrikes++;
@@ -2613,9 +2672,9 @@ async function safeSpotifyFetchRaw(url, options) {
                     console.log("Soft Lock lifted.");
 
                     // SEND THE LOG
-                    logEvent("ERROR", `safeSpotifyFetch - CRITICAL: Repeated rate limits. Hard-resetting mixer. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`, {
-                        step: "safeSpotifyFetch",
-                        error: "429_MAX_STRIKES",
+                    logEvent("ERROR", `safeSpotifyFetchRaw - CRITICAL: Repeated rate limits. Hard-resetting mixer. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "429_MAX_STRIKES_RAW",
                         stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
@@ -2637,7 +2696,7 @@ async function safeSpotifyFetchRaw(url, options) {
                     setTimeout(() => { if(rateLimitStrikes > 0) rateLimitStrikes--; }, 120000);
                 }, retryAfter * 1000);
         //        if(!res.ok){
-                    console.error("Error: safeSpotifyFetch - safeSpotifyFetch blocked")
+                    console.error("Error: safeSpotifyFetchRaw - safeSpotifyFetch blocked")
                         if (res && typeof res.text === 'function') {
                         const text = await res.text(); // Get raw text first (never crashes)
                         const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
@@ -2648,9 +2707,9 @@ async function safeSpotifyFetchRaw(url, options) {
         //        }
 
                     // SEND THE LOG
-                    logEvent("ERROR", `safeSpotifyFetch - Rate limit hit (Strike ${rateLimitStrikesISRC}). Pausing ${retryAfter}s...`, {
-                        step: "safeSpotifyFetch",
-                        error: "429_STRIKE",
+                    logEvent("ERROR", `safeSpotifyFetchRaw - Rate limit hit (Strike ${rateLimitStrikesISRC}). Pausing ${retryAfter}s...`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "429_STRIKE_RAW",
                         stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
@@ -2666,9 +2725,9 @@ async function safeSpotifyFetchRaw(url, options) {
                     console.warn("🔐 401 Token Fetch Retry - 2nd 401 detected: Token really expired. Ending retry loop");
                     visualLog(`%c 🔐 401 Token Fetch Retry - 2nd 401 detected: Token really expired.`, "color: #ff0000; background: #ffffff;")
                     // SEND THE LOG
-                    logEvent("ERROR", `safeSpotifyFetch - 401 Token Fetch Retry - 2nd 401 detected: Token really expired. Ending retry loop`, {
-                        step: "safeSpotifyFetch",
-                        error: "401_TOKEN_EXPIRED_RETRY_FAIL",
+                    logEvent("ERROR", `safeSpotifyFetchRaw - 401 Token Fetch Retry - 2nd 401 detected: Token really expired. Ending retry loop`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "401_TOKEN_EXPIRED_RETRY_FAIL_RAW",
                         stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
@@ -2682,9 +2741,9 @@ async function safeSpotifyFetchRaw(url, options) {
                 console.warn("🔐 401 detected: Token expired. Refreshing now...");
                 visualLog(`%c 🔐 401 detected: Token expired. Refreshing now...`, "color: #ff8800; background: #ffffff;")
                     // SEND THE LOG
-                    logEvent("ERROR", `safeSpotifyFetch - 401 detected: Token expired. Refreshing token now. And retrying original url fetch...`, {
-                        step: "safeSpotifyFetch",
-                        error: "401_TOKEN_EXPIRED_RETRY",
+                    logEvent("ERROR", `safeSpotifyFetchRaw - 401 detected: Token expired. Refreshing token now. And retrying original url fetch...`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "401_TOKEN_EXPIRED_RETRY_RAW",
                         stack_trace: new Error().stack, // Auto-trace errors
                         strikeCount: rateLimitStrikes,
                         endpoint: url,
@@ -2696,9 +2755,14 @@ async function safeSpotifyFetchRaw(url, options) {
                 // if (document.visibilityState === 'hidden') { console.log('Silent fail'); return; }
 
                 // Wait for the refresh to complete
-                console.log(`refreshAccessToken`)
-                await refreshAccessToken();
-                console.log(`refreshAccessToken done`)
+                //console.log(`refreshAccessToken`)
+                if(isRefreshing){
+                    await refreshAccessToken(true);
+                }
+                else{
+                    await refreshAccessToken();
+                }
+                //console.log(`refreshAccessToken done`)
                 
                 //if (success) {
                     // Update the Authorization header with the fresh token
@@ -2710,6 +2774,16 @@ async function safeSpotifyFetchRaw(url, options) {
                     
                     // Retry the EXACT same request one more time
                     console.log("🔄 Retrying original request with new token...");
+                    // SEND THE LOG
+                    logEvent("WARN", `safeSpotifyFetchRaw - Retrying original request with new token...`, {
+                        step: "safeSpotifyFetchRaw",
+                        error: "SAFESPOTIFYFETCH_RETRY_RAW",
+                        stack_trace: new Error().stack, // Auto-trace errors
+                        strikeCount: rateLimitStrikes,
+                        endpoint: url,
+                        activeMix: activeMixId
+                    });
+
                     // To this:
                     const retryRes = await safeSpotifyFetchRaw(url, options);
                     return retryRes;                // } else {
@@ -4880,6 +4954,8 @@ async function getSpotifyPlaylistData(playlistId) {
         }
 
         if(!response.ok){
+            console.log(`Error grabbing new Playlist data`, "color: #ff00c800")
+            visualLog(`Error grabbing new Playlist data`, "color: #ff00c800")
             // SEND THE LOG
             logEvent("ERROR", `getSpotifyPlaylistData - safeSpotifyFetch - BLOCKED`, {
                 step: "getSpotifyPlaylistData",
@@ -4940,7 +5016,7 @@ async function getSpotifyPlaylistData(playlistId) {
             if (namedata.total !== undefined) {
                 //showResult(`Updated ${data.name} to ${namedata.total} songs.`);
                 visualLog(`%c Updated ${data.name} to ${namedata.total} songs.`, "color: #000000;")
-                console(`%c Updated ${data.name} to ${namedata.total} songs.`, "color: #000000;")
+                console.log(`%c Updated ${data.name} to ${namedata.total} songs.`, "color: #000000;")
             }
         } catch (err) {
             console.error("getSpotifyPlaylistData - Refresh failed:", err);
@@ -6380,17 +6456,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return;
                 }
 
-                    //contextSyncedForCurrentTrack = false; // Reset for new song
-                    // 2. Logic to trigger the swap
-                    playlistContextEnabled = document.getElementById('sync-context-check').checked;
-                    const progressSecs = state.position / 1000
-                    const targetPlaylist = `spotify:playlist:${queuePlaylistsMap.get(currentTrackIdISRC)?.playlist}`; // Or a dynamic variable
+                //////////////////////////////////////////
+                //contextSyncedForCurrentTrack = false; // Reset for new song
+                // 2. Logic to trigger the swap
+                playlistContextEnabled = document.getElementById('sync-context-check').checked;
+                const progressSecs = state.position / 1000
+                const targetPlaylist = `spotify:playlist:${queuePlaylistsMap.get(currentTrackIdISRC)?.playlist}`; // Or a dynamic variable
 
-                    if (playlistContextEnabled && !contextSyncedForCurrentTrack && progressSecs > 10) {
-                        console.log("Song established. Syncing context...");
-                        console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
-                        syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
-                    }
+                if (playlistContextEnabled && !contextSyncedForCurrentTrack && progressSecs > 10) {
+                    console.log("Song established. Syncing context...");
+                    console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
+                    syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
+                }
+
+                if(!contextSyncedForCurrentTrack){
+                    updateSyncIndicator(false)
+                }
+                //////////////////////////////////////////
 
                 // --- THE LINKED TRACK LOGIC ---
                 // If it's relinked, use the original ID. If not, use the current one.
