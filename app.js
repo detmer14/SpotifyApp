@@ -1834,6 +1834,8 @@ async function getStoredToken(key, retries = 5) {
 
 async function refreshAccessToken(refreshRetry = false) {
 
+    console.warn(`refreshAccessToken CALL`)
+
     if (refreshStrikes > MAX_STRIKES_10MIN_REFRESH) {
 
         emergencyStop(); // Kill everything
@@ -5413,6 +5415,22 @@ function showResult(message, ...styles) {
 }
 
 
+function toggleTouchBlock(enable) {
+    const shield = document.getElementById('screen-shield');
+    const masterBtn = document.getElementById('touch-block-btn');
+
+    if (enable) {
+        shield.style.display = 'block';
+        masterBtn.textContent = "Touch Block: ON";
+        masterBtn.classList.add('btn-active');
+        requestWakeLock(); // Keep screen alive
+    } else {
+        shield.style.display = 'none';
+        masterBtn.textContent = "Touch Block: OFF";
+        masterBtn.classList.remove('btn-active');
+        releaseWakeLock(); // Allow screen to sleep
+    }
+}
 // Screen Wake Lock API (Official)
 // Modern Chrome supports a specific API just for this. It’s cleaner than the video hack but can "release" if you switch apps.
 let wakeLock = null;
@@ -5438,6 +5456,14 @@ async function requestWakeLock() {
     } catch (err) {
         console.error(`❌ Wake Lock Error: ${err.name}, ${err.message}`);
         wakeLock = null;
+    }
+}
+// Function to release Wake Lock
+function releaseWakeLock() {
+    if (wakeLock !== null) {
+        wakeLock.release();
+        wakeLock = null;
+        console.log("Wake Lock released.");
     }
 }
 // Re-request when the user comes back to the tab
@@ -7407,6 +7433,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
     });
+
+    // Event Listeners
+    document.getElementById('touch-block-btn').onclick = () => toggleTouchBlock(true);
+    document.getElementById('unlock-btn').onclick = () => toggleTouchBlock(false);
+
+    // Re-acquire Wake Lock if app is minimized and then returned to
+    document.addEventListener('visibilitychange', async () => {
+        const masterBtn = document.getElementById('touch-block-btn');
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+            await requestWakeLock();
+        }
+    });
+
 })
 
 // Register Service Worker after the page has fully loaded
