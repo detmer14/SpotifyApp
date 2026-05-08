@@ -275,9 +275,11 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
         <input type="checkbox" id="sync-context-check">
         <label for="sync-context-check">Auto-Sync Playlist Context</label>
         <!-- <label for="context-sync">Context URI Mode:</label> -->
-        <input type="checkbox" id="context-sync">
         <!-- The status indicator dot -->
         <span id="sync-dot" class="sync-indicator"></span>
+    </div>
+    <div class="setting-item">
+        <button id="touch-block-btn" class="status-btn">Touch Block: OFF</button>
     </div>
 
     <!-- Manual Playback Entry -->
@@ -350,6 +352,10 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
     <!-- Adding v=timestamp to FORCE no caching of app.js - so newest version is always pulled down -->
     <script src="app.js?v=20260501"></script>
-
+    
+<!-- The Full Screen Shield (Bottom of Body) -->
+<div id="screen-shield" style="display: none;">
+    <button id="unlock-btn">UNLOCK</button>
+</div>
 </body>
 </html>
