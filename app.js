@@ -3,8 +3,10 @@
 let player;
 let device_id;
 let device_ready = false //used in ready listener
+let isPlayerReady = false
 let isRecoveringFromBackground = false
 let devicePoweredOn = false
+let appVisible = true
 let musicStartedOnDevice = false
 let musicPlayingOnDevice = false
 let SESSION_ID;
@@ -130,6 +132,7 @@ async function emergencyStop() {
     // 3. Reset UI
     device_id = null;
     device_ready = false;
+    isPlayerReady = false
     localStorage.removeItem('last_active_device')
     currentTrackId = null;
     currentTrackIdISRC = null
@@ -2192,6 +2195,204 @@ async function waitForActiveDevice(targetDeviceId, maxAttempts = 5, interval = 2
     
     console.log(`%c 🛑 Polling timed out. Device never became active.`, "color: #ff0000; font-weight: bold;");
     return false;
+}
+
+let readyPollInterval = null;
+
+// The function that handles the polling logic
+function pollForReadyState() {
+    // Clear any existing poll to prevent duplicates
+    if (readyPollInterval) clearInterval(readyPollInterval);
+
+    isPlayerReady = false
+
+    const startTime = Date.now();
+    const timeout = 5000; // 5 seconds max
+
+    readyPollInterval = setInterval(async () => {
+        const timeElapsed = Date.now() - startTime;
+
+        // Check 1: Did the 'ready' listener fire?
+        // Check 2: Even if listener didn't fire, does the SDK now have a state?
+        const state = await player.getCurrentState();
+        
+        if (isPlayerReady || state !== null) {
+            console.log(`%c Player reconnected successfully.`, "color: #1DB954; font-weight: bold;");
+            visualLog(`%c Player reconnected successfully.`, "color: #1DB954; font-weight: bold;");
+            showResult(`%c Player reconnected successfully.`, "color: #1DB954; font-weight: bold;");
+                // SEND THE LOG
+                logEvent("WARN", `pollForReadyState - Player reconnected successfully.`, {
+                    step: "pollForReadyState",
+                    error: "POLL_FOR_READY_PLAYER_SUCCESS",
+                    device_id: device_id,
+                    strikeCount: rateLimitStrikes,
+                    activeMix: activeMixId
+                });
+            clearInterval(readyPollInterval);
+            //recoverFromBackground(); // Your recovery logic
+            return;
+        }
+
+        // Check 3: Have we timed out?
+        if (timeElapsed >= timeout) {
+            console.warn(`%c Ready poll timed out. Forcing recovery fallback.`, "color: #00c3ffff;");
+            visualLog(`%c Ready poll timed out. Forcing recovery fallback.`, "color: #00c3ffff;");
+            showResult(`%c Ready poll timed out. Forcing recovery fallback.`, "color: #00c3ffff;");
+                // SEND THE LOG
+                logEvent("WARN", `pollForReadyState - Ready poll timed out. Forcing recovery fallback.`, {
+                    step: "pollForReadyState",
+                    error: "POLL_FOR_READY_PLAYER_TIMEOUT",
+                    device_id: device_id,
+                    strikeCount: rateLimitStrikes,
+                    activeMix: activeMixId
+                });
+            clearInterval(readyPollInterval);
+            
+            // Fallback: Manually trigger recovery even if isPlayerReady is false
+            // This covers the case where the SDK is connected but 'silent'
+            recoverFromBackground(); 
+        }
+    }, 500); // Check every 500ms
+}
+
+async function recoverFromBackground(){
+    //If we haven't started music yet (first initialization) OR power OFF or disconnect
+    if(!musicStartedOnDevice || isRecoveringFromBackground){
+        isPlayerReady = device_ready = await waitForActiveDevice(device_id)
+        if (device_ready) {
+            visualLog(`%c 🚀 Mixer is fully synchronized. Ready for music.`, "color: #1DB954; font-weight: bold;");
+            console.log(`%c 🚀 Mixer is fully synchronized. Ready for music.`, "color: #1DB954; font-weight: bold;");
+            // Now it's safe to resume your queue refill or pick a random song
+
+
+            devicePoweredOn = true; 
+        }
+        else{
+            console.log(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
+            visualLog(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
+        }
+    }
+
+    // Check if we just reconnected specifically because of a background timeout
+    if (isRecoveringFromBackground && device_ready){
+        
+        if(!musicPlayingOnDevice) {
+            console.log(`Player Ready - isRecoveringFromBackground - MUSIC not playing - resumeOnThisDevice()`)
+            await resumeOnThisDevice(false); //this still plays it, oh well
+        }
+        else{
+            console.log(`Player Ready - isRecoveringFromBackground - but MUSIC ALREDY PLAYING - don't resume on device - HOPEFULLY NEVER CALLED`)
+            await resumeOnThisDevice(true);
+        }
+
+        const newstate = await player.getCurrentState();
+        // if there's a state, then spotify queue api, returns actual queue number
+        // if there's no state, then spotify queue qpi, returns OPPOSITE of queue populated
+        let current_track = null
+        let next_track = null
+        let next_tracks_length = null
+        if(newstate){
+            console.log(`player connected`)
+
+            current_track = newstate.track_window.current_track;
+            next_track = newstate.track_window.next_tracks;
+            next_tracks_length = newstate.track_window.next_tracks.length;
+
+            console.log('Currently Playing:', current_track.name);
+            console.log(`Playing Next: ${next_track.name ? next_track.name : 'Queue is empty.'} next_tracks_length: ${next_tracks_length ? next_tracks_length : "next_tracks_length undefined"}`);
+        }
+        else{
+            console.log(`player still not reconnected`)
+        }
+
+
+        await refreshAccessToken()
+
+        let spotifyQueueEmpty = false
+        // Example usage to check if the queue is empty
+        await getSpotifyQueue().then(data => {
+            if(data) console.log(`data.queue.length: ${data.queue.length}`)
+            if(newstate) console.error(`(newstate) next_tracks_length: ${next_tracks_length ? next_tracks_length : "next_tracks_length undefined"}`)
+        // if there's a state, then spotify queue api, returns actual queue number
+        // if there's no state, then spotify queue qpi, returns OPPOSITE of queue populated
+            if(newstate) data.queue.lenth = next_tracks_length ? next_tracks_length : 0
+            if (data && data.queue.length === 0) {
+                console.warn(`visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_POPULATED - There are ${data.queue.length} songs in the queue.`);
+                // SEND THE LOG
+                logEvent("WARN", `visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_POPULATED - There are ${data.queue.length} songs in the queue.`, {
+                    step: "visibilitychange",
+                    error: `VISIBILITY_CHANGE_SPOTIFY_QUEUE_POPULATED`,
+                    stack_trace: new Error().stack, // Auto-trace errors
+                    strikeCount: rateLimitStrikes,
+                    activeMix: activeMixId
+                });
+            } else if (data) {
+                spotifyQueueEmpty = true
+                console.warn("visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY - The Spotify queue is currently empty.");
+                visualLog(`%c 🔌 Player reconnected - The Spotify queue is currently empty.`, "color: #ff8800; background: #ffffff;")
+                // SEND THE LOG
+                logEvent("WARN", `visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY - The Spotify queue is currently empty.`, {
+                    step: "visibilitychange",
+                    error: `VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY`,
+                    stack_trace: new Error().stack, // Auto-trace errors
+                    strikeCount: rateLimitStrikes,
+                    activeMix: activeMixId
+                });
+            }
+        });
+
+        if(spotifyQueueEmpty){
+            console.log(`spotifyQueueEmpty`)
+            // Refill the Spotify queue from the internal local queue
+            if(internalQueue && internalQueue.length === 1){
+                const track = internalQueue[0]
+                        logEvent("WARN", `visibilitychange | Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri}`, {
+                            step: "visibilitychange",
+                            error: "VISIBILITY_CHANGE_REFILL_QUEUE",
+                            track_id: track.id,
+                            track_uri: track.uri,
+                            track: track.name,
+                            track_artist: track.artist,
+                            playlist: track.playlist,
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
+                        addToQueue(track.uri);
+                        console.log(`%c Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri}`, "color: #9333e2ff");
+            }
+            if (internalQueue && internalQueue.length > 1) { //account for now playing in queue
+                    internalQueue.slice(1).forEach((track, index) => {
+                    // index here will start at 0, but 'track' will be the 2nd item
+
+                    // Calculate wait time: increases by 10 seconds (10000ms) for each track
+                    const waitincrement = index * 10;
+                    
+                    // track_uri must be a valid Spotify track URI (e.g., spotify:track:...)
+                    safeTimeout(() => {
+                        // SEND THE LOG
+                        logEvent("WARN", `visibilitychange | Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri} after ${waitincrement}s`, {
+                            step: "visibilitychange",
+                            error: "VISIBILITY_CHANGE_REFILL_QUEUE",
+                            track_id: track.id,
+                            track_uri: track.uri,
+                            track: track.name,
+                            track_artist: track.artist,
+                            playlist: track.playlist,
+                            device_id: device_id,
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
+                        addToQueue(track.uri);
+                        console.log(`Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri} after ${waitincrement}s`);
+                    }, waitincrement * 1000);
+                });
+            }
+        }
+        else{
+            console.log(`Didn't enter queue section`)
+        }
+    }
 }
 
 async function resumeOnThisDevice(resumePlay = false) {
@@ -5471,6 +5672,8 @@ document.addEventListener('visibilitychange', async () => {
 
     if (document.visibilityState === 'visible') {
 
+        appVisible = true
+
         console.warn("App visibility changed - VISIBLE")
                     // SEND THE LOG
                     logEvent("DEBUG", `visibilitychange - App visibility changed: VISIBILE`, {
@@ -5543,6 +5746,8 @@ document.addEventListener('visibilitychange', async () => {
                         }
                     });
 
+                    pollForReadyState()
+
                 }
                 
             
@@ -5566,6 +5771,9 @@ document.addEventListener('visibilitychange', async () => {
         }
     }
     if (document.visibilityState === 'hidden') {
+
+        appVisible = false
+
         console.warn("App visibility changed - HIDDEN")
         const expiry = localStorage.getItem('token_expiry');
         const remainingMs = expiry - Date.now();
@@ -5656,6 +5864,8 @@ document.addEventListener('visibilitychange', async () => {
                         });
                         }
                     });
+
+                    pollForReadyState()
 
                 }
                 
@@ -5891,6 +6101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             localStorage.removeItem('last_active_device')
             device_id = null
             device_ready = false;
+            isPlayerReady = false
 
             //isRecoveringFromBackground = false;
             //musicStartedOnDevice = false
@@ -6048,6 +6259,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 visualLog(`%c Mixer is Online`, "color: #ffffff; background: #009213;")
                 device_id = id;
                 device_ready = true
+                isPlayerReady = true
                 localStorage.setItem('last_active_device', id); // Keep a record
                 initBtn.textContent = "Mixer Online 🟢";
                 initBtn.style.background = "#1DB954";
@@ -6063,143 +6275,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     activeMix: activeMixId
                 });
 
-                //If we haven't started music yet (first initialization) OR power OFF or disconnect
-                if(!musicStartedOnDevice || isRecoveringFromBackground){
-                    device_ready = await waitForActiveDevice(device_id)
-                    if (device_ready) {
-                        visualLog("%c 🚀 Mixer is fully synchronized. Ready for music.", "color: #1DB954; font-weight: bold;");
-                        console.log("%c 🚀 Mixer is fully synchronized. Ready for music.", "color: #1DB954; font-weight: bold;");
-                        // Now it's safe to resume your queue refill or pick a random song
-
-
-                        devicePoweredOn = true; 
-                    }
-                    else{
-                        console.log(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
-                        visualLog(`%c 🛑 Device never became active.`, "color: #ff0000; font-weight: bold;");
-                    }
-                }
-
-                // Check if we just reconnected specifically because of a background timeout
-                if (isRecoveringFromBackground && device_ready){
-                    
-                    if(!musicPlayingOnDevice) {
-                        console.log(`Player Ready - isRecoveringFromBackground - MUSIC not playing - resumeOnThisDevice()`)
-                        await resumeOnThisDevice(false); //this still plays it, oh well
-                    }
-                    else{
-                        console.log(`Player Ready - isRecoveringFromBackground - but MUSIC ALREDY PLAYING - don't resume on device - HOPEFULLY NEVER CALLED`)
-                        await resumeOnThisDevice(true);
-                    }
-
-                    const newstate = await player.getCurrentState();
-                    // if there's a state, then spotify queue api, returns actual queue number
-                    // if there's no state, then spotify queue qpi, returns OPPOSITE of queue populated
-                    let current_track = null
-                    let next_track = null
-                    let next_tracks_length = null
-                    if(newstate){
-                        console.log(`player connected`)
-
-                        current_track = newstate.track_window.current_track;
-                        next_track = newstate.track_window.next_tracks;
-                        next_tracks_length = newstate.track_window.next_tracks.length;
-
-                        console.log('Currently Playing:', current_track.name);
-                        console.log(`Playing Next: ${next_track.name ? next_track.name : 'Queue is empty.'} next_tracks_length: ${next_tracks_length ? next_tracks_length : "next_tracks_length undefined"}`);
-                    }
-                    else{
-                        console.log(`player still not reconnected`)
-                    }
-
-
-                    await refreshAccessToken()
-
-                    let spotifyQueueEmpty = false
-                    // Example usage to check if the queue is empty
-                    await getSpotifyQueue().then(data => {
-                        if(data) console.log(`data.queue.length: ${data.queue.length}`)
-                        if(newstate) console.error(`(newstate) next_tracks_length: ${next_tracks_length ? next_tracks_length : "next_tracks_length undefined"}`)
-                    // if there's a state, then spotify queue api, returns actual queue number
-                    // if there's no state, then spotify queue qpi, returns OPPOSITE of queue populated
-                        if(newstate) data.queue.lenth = next_tracks_length ? next_tracks_length : 0
-                        if (data && data.queue.length === 0) {
-                            console.warn(`visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_POPULATED - There are ${data.queue.length} songs in the queue.`);
-                            // SEND THE LOG
-                            logEvent("WARN", `visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_POPULATED - There are ${data.queue.length} songs in the queue.`, {
-                                step: "visibilitychange",
-                                error: `VISIBILITY_CHANGE_SPOTIFY_QUEUE_POPULATED`,
-                                stack_trace: new Error().stack, // Auto-trace errors
-                                strikeCount: rateLimitStrikes,
-                                activeMix: activeMixId
-                            });
-                        } else if (data) {
-                            spotifyQueueEmpty = true
-                            console.warn("visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY - The Spotify queue is currently empty.");
-                            visualLog(`%c 🔌 Player reconnected - The Spotify queue is currently empty.`, "color: #ff8800; background: #ffffff;")
-                            // SEND THE LOG
-                            logEvent("WARN", `visibilitychange - VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY - The Spotify queue is currently empty.`, {
-                                step: "visibilitychange",
-                                error: `VISIBILITY_CHANGE_SPOTIFY_QUEUE_EMPTY`,
-                                stack_trace: new Error().stack, // Auto-trace errors
-                                strikeCount: rateLimitStrikes,
-                                activeMix: activeMixId
-                            });
-                        }
-                    });
-
-                    if(spotifyQueueEmpty){
-                        console.log(`spotifyQueueEmpty`)
-                        // Refill the Spotify queue from the internal local queue
-                        if(internalQueue && internalQueue.length === 1){
-                            const track = internalQueue[0]
-                                    logEvent("WARN", `visibilitychange | Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri}`, {
-                                        step: "visibilitychange",
-                                        error: "VISIBILITY_CHANGE_REFILL_QUEUE",
-                                        track_id: track.id,
-                                        track_uri: track.uri,
-                                        track: track.name,
-                                        track_artist: track.artist,
-                                        playlist: track.playlist,
-                                        device_id: device_id,
-                                        strikeCount: rateLimitStrikes,
-                                        activeMix: activeMixId
-                                    });
-                                    addToQueue(track.uri);
-                                    console.log(`%c Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri}`, "color: #9333e2ff");
-                        }
-                        if (internalQueue && internalQueue.length > 1) { //account for now playing in queue
-                                internalQueue.slice(1).forEach((track, index) => {
-                                // index here will start at 0, but 'track' will be the 2nd item
-
-                                // Calculate wait time: increases by 10 seconds (10000ms) for each track
-                                const waitincrement = index * 10;
-                                
-                                // track_uri must be a valid Spotify track URI (e.g., spotify:track:...)
-                                safeTimeout(() => {
-                                    // SEND THE LOG
-                                    logEvent("WARN", `visibilitychange | Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri} after ${waitincrement}s`, {
-                                        step: "visibilitychange",
-                                        error: "VISIBILITY_CHANGE_REFILL_QUEUE",
-                                        track_id: track.id,
-                                        track_uri: track.uri,
-                                        track: track.name,
-                                        track_artist: track.artist,
-                                        playlist: track.playlist,
-                                        device_id: device_id,
-                                        strikeCount: rateLimitStrikes,
-                                        activeMix: activeMixId
-                                    });
-                                    addToQueue(track.uri);
-                                    console.log(`Re-queued track: [${track.name} - ${track.artist} - ${track.playlist}] ${track.uri} after ${waitincrement}s`);
-                                }, waitincrement * 1000);
-                            });
-                        }
-                    }
-                    else{
-                        console.log(`Didn't enter queue section`)
-                    }
-                }
+                recoverFromBackground();
             });
 
             // Add this listener to handle temporary drops
@@ -6489,7 +6565,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const progressSecs = state.position / 1000
                 const targetPlaylist = `spotify:playlist:${queuePlaylistsMap.get(currentTrackIdISRC)?.playlist}`; // Or a dynamic variable
 
-                if (playlistContextEnabled && !contextSyncedForCurrentTrack && progressSecs > 10) {
+                if (playlistContextEnabled && appVisible && !contextSyncedForCurrentTrack && progressSecs > 10) {
                     console.log("Song established. Syncing context...");
                     console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
                     syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
@@ -7441,12 +7517,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Re-acquire Wake Lock if app is minimized and then returned to
     document.addEventListener('visibilitychange', async () => {
         const masterBtn = document.getElementById('touch-block-btn');
-        if (wakeLock !== null && document.visibilityState === 'visible') {
+        if (masterBtn && wakeLock !== null && document.visibilityState === 'visible') {
             await requestWakeLock();
         }
     });
 
 })
+
+function initApp() {
+
+    // When an OS discards a frozen app to free up memory, the app is killed entirely. 
+    // When the user returns, the page performs a full reload. 
+    // You can detect this by checking the document.wasDiscarded property during your 
+    // app's initialization.
+
+    // Check if we are starting fresh or returning from a discarded state
+    if (document.wasDiscarded) {
+        console.log("App was previously discarded by the OS. Restoring session...");
+        
+        // Restore view state and track context from localStorage
+        const savedProgress = localStorage.getItem('last_progress_ms');
+        const savedTrack = localStorage.getItem('last_track_uri');
+        
+        if (savedProgress && savedTrack) {
+            // Logic to resume playback at the exact point it was killed
+            // (e.g., Calling your Spotify PUT /play with position_ms)
+        }
+    } else {
+        console.log("Standard app launch.");
+    }
+    
+    // Standard initialization follows...
+}
 
 // Register Service Worker after the page has fully loaded
 window.addEventListener('load', () => {
@@ -7455,6 +7557,8 @@ window.addEventListener('load', () => {
             .then(reg => console.log('Service Worker: Registered (Scope: ' + reg.scope + ')'))
             .catch(err => console.error('Service Worker: Error', err));
     }
+
+    initApp()
 });
 
 let deferredPrompt;
@@ -7516,6 +7620,51 @@ function initInstallButton() {
         installBtn.style.display = 'none';
     });
 }
+
+window.addEventListener('freeze', (event) => {
+    // The browser is about to suspend this page
+    console.warn(`%c App FREEZE - Saving App State for recovery`, "color: #ff9100")
+    visualLog(`%c The app is being FROZEN by the Operating System - Saving App State for recovery`, "color: #ff9100")
+    showResult(`%c The app is being FROZEN by the Operating System - Saving App State for recovery`, "color: #ff9100")
+        // SEND THE LOG
+        logEvent("WARN", `%c App FREEZE - Saving App State for recovery`, {
+            step: "freezeEvent",
+            error: `FREEZE_EVENT`,
+            strikeCount: rateLimitStrikes,
+            activeMix: activeMixId
+        });
+    saveAppState();
+
+    if (window.refreshInterval) {
+        clearInterval(window.refreshInterval);
+        window.refreshInterval = null;
+        console.warn("Refresh heartbeat stopped.");
+    }
+
+}, { capture: true });
+window.addEventListener('resume', (event) => {
+    // 1. Re-initialize state (re-hydrate from localStorage)
+    //rehydrateAppState();
+    // Would you like help with the specific rehydrateAppState() logic to ensure 
+    // your Spotify tokens and current track information are restored accurately after a discard?
+    
+    // 2. Restart timers/polling
+    //startPlaybackPolling();
+    
+    // 3. Re-establish connections (SDK, WebSockets, etc.)
+    console.log("App resumed: Re-establishing connections.");
+    console.warn(`%c App RESUME - Re-establishing connections.`, "color: #ff9100")
+    visualLog(`%c The app is RESUMING from being FROZEN by the Operating System - Re-establishing connections.`, "color: #ff9100")
+    showResult(`%c The app is RESUMING from being FROZEN by the Operating System - Re-establishing connections.`, "color: #ff9100")
+        // SEND THE LOG
+        logEvent("WARN", `%c App RESUME - Re-establishing connections.`, {
+            step: "resumeEvent",
+            error: `RESUME_EVENT`,
+            strikeCount: rateLimitStrikes,
+            activeMix: activeMixId
+        });
+
+}, { capture: true });
 
 // 1. Detect when the connection is LOST
 window.addEventListener('offline', () => {
