@@ -1020,7 +1020,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: track.name,
-                    artist: `${track.artists[0].name} ${chosenplaylist.name}`,
+                    artist: `${track.artists[0].name} - ${chosenplaylist.name}`,
                     album: chosenplaylist.name,
                     chapterTitle: chosenplaylist.name,
                     artwork: [{ src: track.album.images[0].url }]
@@ -1855,7 +1855,7 @@ async function loginWithSpotify() {
         code_challenge: codeChallenge
     });
 
-    alert(`window.location: ${'https://accounts.spotify.com/authorize?' + args}`)
+    //alert(`window.location: ${'https://accounts.spotify.com/authorize?' + args}`)
     window.location = 'https://accounts.spotify.com/authorize?' + args;
 }
 
@@ -4197,7 +4197,7 @@ async function pickRandomSong(attempt = 0) {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: track.name,
-                artist: `${track.artists[0].name} ${chosenplaylist.name}`,
+                artist: `${track.artists[0].name} - ${chosenplaylist.name}`,
                 album: chosenplaylist.name,
                 chapterTitle: chosenplaylist.name,
                 artwork: [{ src: track.album.images[0].url }]
@@ -6996,8 +6996,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 //contextSyncedForCurrentTrack = false; // Reset for new song
                 // 2. Logic to trigger the swap
                 playlistContextEnabled = document.getElementById('sync-context-check').checked;
-                const progressSecs = state.position / 1000
+                let progressSecs = state.position / 1000
                 const targetPlaylist = `spotify:playlist:${queuePlaylistsMap.get(currentTrackIdISRC)?.playlist}`; // Or a dynamic variable
+
+                // Calculate how much time has passed since the last official SDK update
+                //progressSecs = (performance.now() - lastState.timestamp) / 1000;
 
                 if (playlistContextEnabled && appVisible && !contextSyncedForCurrentTrack && progressSecs > 10) {
                     console.log("Song established. Syncing context...");
@@ -7210,12 +7213,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                     
                     // Update UI (Now Playing, etc.)
                     //updateUI(currentTrack);
-                    nowPlayingText = `%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`
-                    console.log(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
-                    showResult(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
-                    visualLog(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
+                    nowPlayingText = `%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} ${(queuePlaylistsMap.get(currentTrackIdISRC)?.name != null) ? ("- " + queuePlaylistsMap.get(currentTrackIdISRC)?.name) : "---"}`
+                    console.log(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} ${(queuePlaylistsMap.get(currentTrackIdISRC)?.name != null) ? ("- " + queuePlaylistsMap.get(currentTrackIdISRC)?.name) : "---"}`, "color: #28a801;")
+                    showResult(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} ${(queuePlaylistsMap.get(currentTrackIdISRC)?.name != null) ? ("- " + queuePlaylistsMap.get(currentTrackIdISRC)?.name) : "---"}`, "color: #28a801;")
+                    visualLog(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} ${(queuePlaylistsMap.get(currentTrackIdISRC)?.name != null) ? ("- " + queuePlaylistsMap.get(currentTrackIdISRC)?.name) : "---"}`, "color: #28a801;")
                         // SEND THE LOG
-                        logEvent("INFO", `now_playing - Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, {
+                        logEvent("INFO", `now_playing - Now Playing: ${current_track.name} by ${current_track.artists[0].name} ${(queuePlaylistsMap.get(currentTrackIdISRC)?.name != null) ? ("- " + queuePlaylistsMap.get(currentTrackIdISRC)?.name) : "---"}`, {
                             step: "now_playing",
                             error: "NOW_PLAYING",
                             track: current_track.name,
@@ -7269,14 +7272,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                     }
 
                     // --- ADD TO HISTORY ---
-                    addToHistory(current_track, queuePlaylistsMap.get(currentTrackIdISRC)?.name);
+                    addToHistory(current_track, (queuePlaylistsMap.get(currentTrackIdISRC)?.name != null) ? queuePlaylistsMap.get(currentTrackIdISRC)?.name : "");
 
                     // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
                     // Add this whenever a song starts:
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.metadata = new MediaMetadata({
                             title: current_track.name,
-                            artist: `${current_track.artists[0].name} ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`,
+                            artist: `${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`,
                             album: queuePlaylistsMap.get(currentTrackIdISRC)?.name,
                             chapterTitle: queuePlaylistsMap.get(currentTrackIdISRC)?.name,
                             artwork: [{ src: current_track.album.images[0].url }]
@@ -7333,6 +7336,33 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
                     //player.activateElement(); 
+
+
+
+
+                    safeTimeout(() => {
+                //////////////////////////////////////////
+                //contextSyncedForCurrentTrack = false; // Reset for new song
+                // 2. Logic to trigger the swap
+                playlistContextEnabled = document.getElementById('sync-context-check').checked;
+                const progressSecs = state.position / 1000
+                const targetPlaylist = `spotify:playlist:${queuePlaylistsMap.get(currentTrackIdISRC)?.playlist}`; // Or a dynamic variable
+
+                // Calculate how much time has passed since the last official SDK update
+                //progressSecs = (performance.now() - lastState.timestamp) / 1000;
+
+                //if (playlistContextEnabled && appVisible && !contextSyncedForCurrentTrack && progressSecs > 10) {
+                if (playlistContextEnabled && appVisible && !contextSyncedForCurrentTrack) {
+                    console.log("Song established. Syncing context...");
+                    console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
+                    syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
+                }
+
+                if(!contextSyncedForCurrentTrack){
+                    updateSyncIndicator(false)
+                }
+                //////////////////////////////////////////
+                    }, 10000);
 
 
 
