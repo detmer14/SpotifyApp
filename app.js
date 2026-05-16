@@ -1765,8 +1765,8 @@ function formatTime(ms) {
 //To securely integrate your app, you should use the Authorization Code Flow with PKCE. This is the modern standard for client-side apps that cannot hide a "Client Secret".
 // --- AUTHENTICATION CONFIG ---
 //const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
-const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
-const client_secret = '8a23ec4328a4408485bb556c26a9c1d1'
+const clientId = ''; // Replace with your actual Client ID
+const client_secret = ''
 //const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'http://192.168.1.141:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
