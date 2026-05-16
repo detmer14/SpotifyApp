@@ -26,12 +26,17 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
 </head>
 <body>
+    <!-- <video id="keep-alive-video" loop muted playsinline width="1" height="1">
+    <source src="tiny-silent-video.mp4" type="video/mp4">
+    </video> -->
+
     <div id="offline-status" style="display: none;">
         <span>📡 Waiting for signal...</span>
     </div>
+    
     <!-- Top-level Authentication Bar -->
     <header style="padding: 10px; background: #121212; display: flex; justify-content: space-between; align-items: center;">
-        <h1 style="color: #1DB954; margin: 0; font-size: 1.2em;">Mixer Lab</h1>
+        <h1 style="color: #1DB954; margin: 0; font-size: 1.2em;">Mixer</h1>
         <div id="session-info" style="font-size: 0.8em; color: #535353; margin-top: 10px;">
             Session Expires in: <span id="timer-display">--:--</span>
         </div>
@@ -62,10 +67,30 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
                 ▶ Play
             </button>
 
+            <!-- Gear button to trigger the menu -->
+            <button id="settings-toggle-btn" style="font-size: 24px; cursor: pointer; border: none; background: none; color: white;">
+                &#9881;
+            </button>
+
+            <!-- Your existing settings menu, now with a 'hidden' class by default -->
+            <div id="settings-menu" class="hidden" style="border: 1px solid #ccc; padding: 10px; margin-top: 20px; position: absolute; background: white; z-index: 100;">
+                <h3>Mixer Settings</h3>
+                <form id="settings-form" onsubmit="return false;">
+                    <label>Client ID: <input type="text" id="client-id-input" autocomplete="username"></label><br>
+                    <label>Client Secret: <input type="password" id="client-secret-input" autocomplete="current-password"></label><br>
+                    <button onclick="saveSettings()">Save Credentials</button>
+                    <div class="setting-item">
+                        <button onclick="window.open('https://detmer14.github.io/')">View Setup Guide & Documentation</button>
+                        <!-- <button onclick="window.open('/docs', '_blank')">View Setup Guide & Documentation</button> -->
+                        <button onclick="window.open('https://discord.gg', '_blank')">Join Discord for Support</button>
+                    </div>
+                </form>
+            </div>
+
         <!-- </div> -->
     </header>
 
-    <h1>Ben Burt Spotify Playlist Mixer</h1>
+    <h2 style="background: #1DB954; text-align: center;">Spotify Playlist Mixer by Ben Burt</h2>
     <!-- <button id="pick">Pick Random Song</button> -->
     <section id="mix-combiner-section">
         <h3>Combine Mixes:</h3>
@@ -93,8 +118,8 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     <section>
         <h3>Playlists:</h3>
         <div id="playlist-inputs">
-            <input type="text" id="new-playlist-name" style="font-size: 1.5rem;" placeholder="Playlist Name">
-            <input type="number" id="new-playlist-count" style="font-size: 1.5rem; width: 150px" placeholder="Track Count" min="1">
+            <input type="text" id="new-playlist-name" style="font-size: 1.5rem;" placeholder="Playlist URL">
+            <input type="number" id="new-playlist-count" style="display: none; font-size: 1.5rem; width: 150px" placeholder="Track Count" min="1">
             <button id="add-playlist"
                 style="background: #0061cf; color: white; border: 1px solid #1DB954; padding: 8px 15px; border-radius: 20px; cursor: pointer;"
             >Add Playlist</button>
@@ -274,6 +299,12 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     <div class="setting-item">
         <input type="checkbox" id="sync-context-check">
         <label for="sync-context-check">Auto-Sync Playlist Context</label>
+        <!-- <label for="context-sync">Context URI Mode:</label> -->
+        <!-- The status indicator dot -->
+        <span id="sync-dot" class="sync-indicator"></span>
+    </div>
+    <div class="setting-item">
+        <button id="touch-block-btn" class="status-btn">Touch Block: OFF</button>
     </div>
 
     <!-- Manual Playback Entry -->
@@ -339,6 +370,20 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     };
     </script>
 
+    <script>
+        function saveSettings() {
+            const id = document.getElementById('client-id-input').value;
+            const secret = document.getElementById('client-secret-input').value;
+            localStorage.setItem('spotify_client_id', id);
+            localStorage.setItem('spotify_client_secret', secret);
+            alert("Settings saved to local storage!");
+        }
+
+        // Load values on menu open
+        document.getElementById('client-id-input').value = localStorage.getItem('spotify_client_id') || "";
+        document.getElementById('client-secret-input').value = localStorage.getItem('spotify_client_secret') || "";
+    </script>
+
     <!-- ========================= -->
     <!-- Spotify Web Playback SDK -->
     <!-- ========================= -->
@@ -346,6 +391,10 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
 
     <!-- Adding v=timestamp to FORCE no caching of app.js - so newest version is always pulled down -->
     <script src="app.js?v=20260501"></script>
-
+    
+<!-- The Full Screen Shield (Bottom of Body) -->
+<div id="screen-shield" style="display: none;">
+    <button id="unlock-btn">UNLOCK</button>
+</div>
 </body>
 </html>

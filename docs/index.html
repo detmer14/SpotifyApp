@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Spotify Playlst Mixer Documentation</title>
+    <!-- Basic styling to make it look like a real page -->
+    <link rel="stylesheet" href="https://unpkg.com/docsify/themes/vue.css">
+    <!-- buble.css, dark.css, dolphin.css -->
+     <!-- Syntax highlighting
+    <link rel-"stylesheet" hred="//unpkg.com/prismjs/themes/prism-tomorrow.css"> -->
+</head>
+<body>
+  <div id="app">Loading...</div>
+  <script>
+window.$docsify = {
+  name: 'Spotify Playlist Mixer Guide',
+  repo: 'https://github.com', //detmer14/SpotifyApp'
+  loadSidebar: false, //set to true if you have _sidebar.md
+  loadNavbar: false, //set to true if you have _navbar.md
+  coverpage: false,
+  
+  // ADD THESE TWO LINES:
+  el: '#app',          // Explicitly tell it where to render
+  basePath: './',      // Look for files in the current directory
+  
+  // This tells docsify which file to use as the home page
+  homepage: 'index.md', 
+
+  search: 'auto', //search functionality
+
+  //syntax highlighting
+  highlight: {
+    javascript: true,
+    html: true,
+    css: true,
+    python: true
+  },
+
+  // Navigation
+  topMargin: 90,
+  maxLevel: 4,
+  subMaxLevel: 3,
+
+  //Theme customization
+  themeColor: '#1DB954' //spotify green
+
+}
+  </script>
+  <!-- The "Magic" that renders your .md files -->
+   <!-- Docsify Core -->
+  <script src="https://unpkg.com/docsify/lib/docsify.min.js"></script>
+</body>
+</html>

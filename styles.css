@@ -1,3 +1,38 @@
+.hidden {
+    display: none;
+}
+
+/* Ensure the parent container (header or header-right) has this */
+.header-right-container {
+    position: relative; /* Acts as the "anchor" for the absolute menu */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+#settings-menu {
+    position: absolute;
+    /* Position the menu just to the left of its parent's right edge */
+    /* Adjust 'right' value based on your gear icon's width */
+    right: 40px; 
+    top: 50px; /* Adjust based on your header height */
+    
+    background: white;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    z-index: 100;
+    
+    /* Red shadow as requested */
+    box-shadow: 0 4px 8px rgba(255, 0, 0, 0.5); 
+}
+
+/* Ensure gear icon stays to the right */
+#settings-toggle-btn {
+    position: relative;
+    z-index: 101; /* Higher than menu so it stays accessible */
+}
+
 .weight-slider:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -171,7 +206,79 @@ pointer-events: none; /* User can click "through" it if they need to */
 animation: slideDown 0.3s ease-out;
 }
 
+/* Base style for the status dot */
+.sync-indicator {
+  height: 12px;
+  width: 12px;
+  background-color: #bbb; /* Default gray for inactive */
+  border-radius: 50%;     /* Makes it a perfect circle */
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+  transition: background-color 0.3s ease; /* Smooth color change */
+}
+
+/* Style when synced (active) */
+.sync-indicator.active {
+  background-color: #19C558; /* Spotify-style green */
+  box-shadow: 0 0 8px rgba(25, 197, 88, 0.6); /* Subtle glow */
+  animation: pulse-green 2s infinite; /* Optional pulsing effect */
+}
+
+/* Optional pulse animation */
+@keyframes pulse-green {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+
 @keyframes slideDown {
     from { top: -50px; opacity: 0; }
     to { top: 20px; opacity: 1; }
+}
+
+
+/* Full screen invisible barrier */
+#screen-shield {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.01); /* Nearly transparent */
+    z-index: 9998; /* Just below the unlock button */
+    touch-action: none; /* Disables scrolling/zooming while active */
+}
+
+/* The floating unlock button */
+#unlock-btn {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 80px;
+    background: rgba(255, 0, 0, 0.5); /* Semi-transparent red */
+    color: white;
+    border: none;
+    border-radius: 10px 0 0 10px;
+    z-index: 9999;
+    font-weight: bold;
+    font-size: 10px;
+}
+
+/* Toggle Button Styling */
+.status-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #888;
+    color: white;
+    transition: background 0.3s;
+}
+
+.btn-active {
+    background-color: #ff0000 !important;
 }
