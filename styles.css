@@ -1,3 +1,38 @@
+.hidden {
+    display: none;
+}
+
+/* Ensure the parent container (header or header-right) has this */
+.header-right-container {
+    position: relative; /* Acts as the "anchor" for the absolute menu */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+#settings-menu {
+    position: absolute;
+    /* Position the menu just to the left of its parent's right edge */
+    /* Adjust 'right' value based on your gear icon's width */
+    right: 40px; 
+    top: 50px; /* Adjust based on your header height */
+    
+    background: white;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    z-index: 100;
+    
+    /* Red shadow as requested */
+    box-shadow: 0 4px 8px rgba(255, 0, 0, 0.5); 
+}
+
+/* Ensure gear icon stays to the right */
+#settings-toggle-btn {
+    position: relative;
+    z-index: 101; /* Higher than menu so it stays accessible */
+}
+
 .weight-slider:disabled {
     opacity: 0.5;
     cursor: not-allowed;
