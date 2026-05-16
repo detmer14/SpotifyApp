@@ -108,8 +108,12 @@ Because this is a developer-tier tool, there are a few steps to connect your Spo
 
 ## 🔧 Initial Setup 🛠
 
-### 1. Create a Spotify Developer App
-To use this mixer, you must act as your own "developer."
+### 1. Create a Spotify Developer App (unless a friend is "hosting" you)
+To use this mixer, you must act as your own "developer" or be "hosted" by a friend who already has this app set up with their Spotify "developer" account.
+If a friend is "hosting" you, work with them to get your Spotify email address added to their Developer Dashboard so Spotify will grant you access to this app (Covered in **step #3** below). Once your friend has your Spotify email address added, skip to **step #4** below to "Login with Spotify" in the Spotify Playlist Mixer App to connect your spotify account.
+
+Otherwise, if you are hosting yourself or your friends, follow these steps:
+
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 
    Or you can to get it it here:
@@ -174,6 +178,21 @@ Because this app is in "Development Mode," Spotify requires you to explicitly al
 4. If you want a friend to use the app, you must add their email here as well. (up to 5 including yourself)
 
 ![Screenshot](Untitled7.png)
+
+### 4. Login to Spotify from inside the Spotify Playlist Mixer App
+Now that your Spotify email has been authorized with the App in Spotify Develop Dashboard (either yours or your friend's who is hosting you), you simply need to Login to Spotify from within the Spotify Playlist Mixer App.
+1. Open the App (either on the web at [https://benburtspotifyapp.netlify.app/](https://benburtspotifyapp.netlify.app/) OR in the Mobile or Broweser App if you happen to have insalled the PWA app)
+2. Click on the red button "Login with Spotify". This will redirect you to Spotify to authorize the app with your Spotify Account. If you haven't already logged into Spotify on the web, please do so.
+
+![Screenshot](Untitled10.png)
+
+3. This page lists the permissions this App needs in order to access your Playlists and Tracks/Songs, Play them in the App, queue further songs in Spotify, and know information about the songs that are playing. You simply need to click "Agree". It should then redirect you back to the app. If you're in the Mobile app and the page appears reformatted for web instead of mobile, just swipe down to refresh the app and it will load in Mobile mode again. You may see a couple of pop-ups saying that your "token is expired". Don't worry about that, the App is just going through it's process of saving the authorization tokens that Spotify now has from a successful login. Just click "OK" and you should be good to move on.
+
+![Screenshot](Untitled9.png)
+
+4. At this point, the App should be synced with your Spotify Account. You can "Power On" the Mixer and start playing music (Instructions for that below if you need them.)
+
+![Screenshot](Untitled11.png)
 
 
 ---
