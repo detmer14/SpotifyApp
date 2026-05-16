@@ -1765,13 +1765,13 @@ function formatTime(ms) {
 //To securely integrate your app, you should use the Authorization Code Flow with PKCE. This is the modern standard for client-side apps that cannot hide a "Client Secret".
 // --- AUTHENTICATION CONFIG ---
 //const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
-const clientId = ''; // Replace with your actual Client ID
+let clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
 const client_secret = ''
 //const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'http://192.168.1.141:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'netlifylocation';
-const redirectUri = window.location.origin + '/'; 
+let  redirectUri = window.location.origin + '/'; 
 // This automatically picks http://127.0.0.1 locally 
 // AND https://your-app.netlify.app once hosted!
 const scope = 'user-read-private user-read-email streaming user-modify-playback-state playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative user-read-playback-state user-read-currently-playing';
@@ -1835,10 +1835,14 @@ async function redirectToSpotifyAuth() {
 }
 
 async function loginWithSpotify() {
-    const clientId = localStorage.getItem('spotify_client_id');
-    const redirectUri = window.location.origin + '/';
+    clientId = localStorage.getItem('spotify_client_id');
+    redirectUri = window.location.origin + '/';
     
-    if (!clientId) return alert("Please set your Client ID in the settings menu.");
+    if (!clientId){
+        //Show settings menu automatically
+        document.getElementById('settings-menu').classList.remove('hidden')
+        return alert("Please set your Client ID in the settings menu.");
+    }
 
     // Generate PKCE parameters and save the verifier
     const codeVerifier = generateRandomString(128);

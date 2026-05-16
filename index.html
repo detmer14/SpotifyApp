@@ -77,10 +77,10 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
                 <h3>Mixer Settings</h3>
                 <form id="settings-form" onsubmit="return false;">
                     <label>Client ID: <input type="text" id="client-id-input" autocomplete="username"></label><br>
-                    <label>Client Secret: <input type="password" id="client-secret-input" autocomplete="current-password"></label><br>
+                    <!-- <label>Client Secret: <input type="password" id="client-secret-input" autocomplete="current-password"></label><br> -->
                     <button onclick="saveSettings()">Save Credentials</button>
                     <div class="setting-item">
-                        <button onclick="window.open('https://detmer14.github.io/')">View Setup Guide & Documentation</button>
+                        <button onclick="window.open('https://detmer14.github.io/SpotifyApp/')">View Setup Guide & Documentation</button>
                         <!-- <button onclick="window.open('/docs', '_blank')">View Setup Guide & Documentation</button> -->
                         <button onclick="window.open('https://discord.gg', '_blank')">Join Discord for Support</button>
                     </div>
@@ -373,15 +373,17 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
     <script>
         function saveSettings() {
             const id = document.getElementById('client-id-input').value;
-            const secret = document.getElementById('client-secret-input').value;
+            //const secret = document.getElementById('client-secret-input').value;
             localStorage.setItem('spotify_client_id', id);
-            localStorage.setItem('spotify_client_secret', secret);
+            //localStorage.setItem('spotify_client_secret', secret);
             alert("Settings saved to local storage!");
+            document.getElementById('settings-menu').classList.toggle('hidden')
+
         }
 
         // Load values on menu open
         document.getElementById('client-id-input').value = localStorage.getItem('spotify_client_id') || "";
-        document.getElementById('client-secret-input').value = localStorage.getItem('spotify_client_secret') || "";
+        //document.getElementById('client-secret-input').value = localStorage.getItem('spotify_client_secret') || "";
     </script>
 
     <!-- ========================= -->

@@ -17,7 +17,7 @@ The **Spotify Playlist Mixer by Ben Burt** is a custom Application designed for 
 
 1. Connect Your Spotify Account
 
-   Simply log in with your Spotify credentials. If you are "hosting" yourself and others as users of this app, you will need to configure the "Client ID" and "Client Secret" <This is covered lower>
+   Simply log in with your Spotify credentials. If you are "hosting" yourself and others as users of this app, you will need to configure the "Client ID" <This is covered lower>
 
    This Mixer App uses Spotify's secure OAuth authentication.
 
@@ -151,9 +151,9 @@ Otherwise, if you are hosting yourself or your friends, follow these steps:
 
 ### 2. Get Your Credentials
 1. In your new app dashboard, click **Settings**.
-2. Find your **Client ID** and **Client Secret**.
+2. Find your **Client ID**.
 3. Copy these and paste them into the **Settings Menu (⚙️)** in the Mixer PWA.
-   * *Note: Your Client Secret is like a password. Do not share it!*
+   * *Note: Your Client Secret is also available in your dashboard. However, you will NOT need it to log in with this APP. Your Client Secret is like a password. Do not share it!*
 
 
 .
@@ -293,7 +293,7 @@ This tool was also born out of a desire to bridge the gap between distinct music
    *   **Intelligent Playlist Context Syncing**: When enabled, the mixer hot-swaps the playback context to your target playlist. This feeds the playlist into Spotify's awareness and algorithm, facilitating unique recommendations by Spotify based on how you are mixing playlists and songs together. This also ensures Spotify’s "Now Playing" and "Next Up" queue reflect your playlist and new mood without an abrupt transition.
    *   **Latency-Aware Playback**: High-precision math accounts for mobile network delays, ensuring that when context swaps occur, the song continues exactly where you left off—down to the millisecond.
    *   **Pocket-Safe Mode**: A dedicated "Touch Block" feature that utilizes the **Screen Wake Lock API** to keep the app active while preventing accidental skips or likes while the phone is in your pocket.
-   *   **Privacy-First Architecture**: Built with modern **PKCE Authorization**, your Client Secret and sensitive data are stored locally on your device and never sent to a third-party server.
+   *   **Privacy-First Architecture**: Built with modern **PKCE Authorization**, your Client Secret is never used or stored by the App, and Spotify uses your Client Secret (from your Developer Dashboard) on their own backend server, thus maintaining its security.
 
 ### Why do I need a Client ID?
 Because this app is currently in **Developer/Beta Mode** (And really always will be due to 2026 Spotify limitations), Spotify requires each user of the application to be in a group of 1-5 accounts under a separate Client ID where one user "owns" management of those users. This gives you full control over your data and ensures you are recognized by Spotify as an active participant in their developer ecosystem.
