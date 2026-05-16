@@ -13,12 +13,14 @@ let SESSION_ID;
 let APP_DEVICE_ID;
 let CURRENT_USER_IP;
 let userInitiatedPause = false;
+let autoPlayBlocked = false;
 let ghostPauseRecovery = false
 let lastPickTime = 0;
 let internalQueue = []; // Array of {id, name, artist, playlistName}
 let playbackHistory = []; // Global array to store track objects
 let historyIndex = -1; // -1 means we are on the "live" mixer track
 let buttonPreviousNext = false;
+let nowPlayingText = ""
 let queuePlaylistName = ""
 const queuePlaylistNames = [
   { id: "id1", name: 'Alice' },
@@ -92,6 +94,7 @@ async function emergencyStop() {
     musicPlayingOnDevice = false
     isRefreshing = false
     //userInitiatedPause = false //leave this for reconnect
+    autoPlayBlocked = false
     ghostPauseRecovery = false
     //internalQueue = []
     //playbackHistory = []
@@ -177,6 +180,7 @@ async function logEvent(level, message, metadata = {}) {
                     level: level,
                     user_id: currentSpotifyUser,
                     user_url: `https://open.spotify.com/user/${currentSpotifyUser}`,
+                    device_id: device_id,
                     session_id: SESSION_ID,
                     app_device_id: APP_DEVICE_ID,
                     user_ip_address: CURRENT_USER_IP,
@@ -339,6 +343,7 @@ async function fetchUserProfile() {
 }
 
 function setUserInitiatedPause(){
+    autoPlayBlocked = false
     if(userInitiatedPause){
         userInitiatedPause = false;
     console.error(`userInitiatedPause ${userInitiatedPause}`)
@@ -351,6 +356,11 @@ function setUserInitiatedPause(){
 }
 
 async function togglePlayback(){
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
 
     if (!player || !devicePoweredOn) {
         alert("Powering player on first. Then starting music");
@@ -419,11 +429,12 @@ async function togglePlayback(){
                         step: "playPauseBtn_main",
                         error: "PLAY_PAUSE_BTN_MAIN",
                         pause: "PAUSE",
-                        device_id: device_id,
                         strikeCount: rateLimitStrikes,
                         activeMix: activeMixId
                     });
             });
+    
+            showResult(`${nowPlayingText}`, "color: #129900;")
         }
 
     }
@@ -538,14 +549,46 @@ async function playTrack(trackUri, isRetry = false) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-                await refreshAccessToken();
+                //await refreshAccessToken();
             }
 
             if(!isRetry){
 
+                await refreshAccessToken();
+
                 // Logic to re-fetch devices or re-initialize player
                 // 1. Tell the SDK to re-announce itself to Spotify
-                await player.connect();
+                if(player){
+                    // The SDK will try to reconnect itself, but we can nudge it:
+                    await player.connect().then(success => {
+                        if (success) {
+                            visualLog(`%c Playing song - Player reconnected successfully`, "color: #2d8a02")
+                            showResult(`%c Playing song - Player reconnected successfully`, "color: #2d8a02")
+                            console.warn(`%c Playing song - Player reconnected successfully`, "color: #2d8a02")
+                            // SEND THE LOG
+                            logEvent("WARN", `%c playTrack - Player reconnect SUCCESS`, {
+                                step: "playTrack",
+                                error: `PLAYTRACK_RECONNECT_SUCCESS`,
+                                stack_trace: new Error().stack, // Auto-trace errors
+                                strikeCount: rateLimitStrikes,
+                                activeMix: activeMixId
+                            });
+                        } 
+                        else {
+                            visualLog(`%c Playing song - Player Re-Connection failed.`, "color: #ff0000;");
+                            showResult(`%c Playing song - Player Re-Connection failed.`, "color: #ff0000;");
+                            console.error(`%c Playing song - Player Re-Connection failed.`, "color: #ff0000;");
+                            // SEND THE LOG
+                            logEvent("WARN", `%c playTrack - Player reconnect FAIL`, {
+                                step: "playTrack",
+                                error: `PLAYTRACK_RECONNECT_FAIL`,
+                                stack_trace: new Error().stack, // Auto-trace errors
+                                strikeCount: rateLimitStrikes,
+                                activeMix: activeMixId
+                            });
+                        }
+                    });
+                }
                 
                 // 2. Wait a split second for the 'ready' event to update the device_id
                 setTimeout(async () => {
@@ -650,6 +693,7 @@ async function playTrack(trackUri, isRetry = false) {
                 if (player){
                     await player.resume().then(() => {
                         musicStartedOnDevice = true
+                        autoPlayBlockRecovered = true
                         console.log("Local player resumed after URI injection");
                     }).catch(err => {
                         // If this fails, the browser is likely blocking autoplay
@@ -728,6 +772,12 @@ async function playTrack(trackUri, isRetry = false) {
 }
 
 async function playPreviousTrack() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     // Index 0 is CURRENT song. Index 1 is the PREVIOUS song.
     if (historyIndex + 1 >= playbackHistory.length) {
         console.log("No previous tracks in history yet.");
@@ -781,6 +831,12 @@ async function playPreviousTrack() {
 }
 
 async function playNextTrack() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     if (historyIndex > 0) {
         
         buttonPreviousNext = true;
@@ -831,6 +887,12 @@ async function playNextTrack() {
 }
 
 async function playFromSpecificPlaylist(chosenplaylist) {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     const playlistIndex = playlists.findIndex(p => p.id === chosenplaylist.id);
 
     const index = Math.floor(Math.random() * chosenplaylist.trackCount) // uniform inside playlist
@@ -913,6 +975,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
     // Safety check: only call playTrack if we actually got a track back
     if (track && track.uri) {
         console.log("Playing:", track.name);
+        nowPlayingText = `%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`
         showResult(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #0004ff;")
         visualLog(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #0004ff;")
             // SEND THE LOG
@@ -1308,20 +1371,52 @@ async function addToQueue(trackUri, isRetry = false) {
                 console.warn("addToQueue 404 Session expired. Refreshing...");
             // SEND THE LOG
             logEvent("WARN", `addToQueue - safeSpotifyFetch - 404 Session expired. Refreshing...`, {
-                step: "returnAddToQueue",
+                step: "addToQueue",
                 error: "404_SESSION_EXPIRED",
                 stack_trace: new Error().stack, // Auto-trace errors
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-                await refreshAccessToken();
+                //await refreshAccessToken();
             }
 
             if(!isRetry){
 
+                await refreshAccessToken();
+
                 // Logic to re-fetch devices or re-initialize player
                 // 1. Tell the SDK to re-announce itself to Spotify
-                await player.connect();
+                if(player){
+                    // The SDK will try to reconnect itself, but we can nudge it:
+                    await player.connect().then(success => {
+                        if (success) {
+                            visualLog(`%c Queueing song - Player reconnected successfully`, "color: #2d8a02")
+                            showResult(`%c Queueing song - Player reconnected successfully`, "color: #2d8a02")
+                            console.warn(`%c Queueing song - Player reconnected successfully`, "color: #2d8a02")
+                            // SEND THE LOG
+                            logEvent("WARN", `%c playTrack - Player reconnect SUCCESS`, {
+                                step: "addToQueue",
+                                error: `ADDTOQUEUE_RECONNECT_SUCCESS`,
+                                stack_trace: new Error().stack, // Auto-trace errors
+                                strikeCount: rateLimitStrikes,
+                                activeMix: activeMixId
+                            });
+                        } 
+                        else {
+                            visualLog(`%c Queueing song - Player Re-Connection failed.`, "color: #ff0000;");
+                            showResult(`%c Queueing song - Player Re-Connection failed.`, "color: #ff0000;");
+                            console.error(`%c Queueing song - Player Re-Connection failed.`, "color: #ff0000;");
+                            // SEND THE LOG
+                            logEvent("WARN", `%c playTrack - Player reconnect FAIL`, {
+                                step: "addToQueue",
+                                error: `ADDTOQUEUE_RECONNECT_FAIL`,
+                                stack_trace: new Error().stack, // Auto-trace errors
+                                strikeCount: rateLimitStrikes,
+                                activeMix: activeMixId
+                            });
+                        }
+                    });
+                }
                 
                 // 2. Wait a split second for the 'ready' event to update the device_id
                 setTimeout(async () => {
@@ -1575,6 +1670,12 @@ function renderLog() {
 }
 
 function toggleLogExpansion() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     const logContainer = document.getElementById('visual-log-container');
     const toggleBtn = document.getElementById('toggle-log-view');
     
@@ -1632,6 +1733,12 @@ progressBar.onchange = (e) => {
 
 // 3. Skip 15s Logic
 function seekRelative(offset) {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     player.getCurrentState().then(state => {
         if (!state) return;
         const newPos = Math.max(0, Math.min(state.duration, state.position + offset));
@@ -1659,6 +1766,7 @@ function formatTime(ms) {
 // --- AUTHENTICATION CONFIG ---
 //const clientId = 'YOUR_SPOTIFY_CLIENT_ID'; // Replace with your actual Client ID
 const clientId = '3bb9a06bf9a24bc09260891c9d153abd'; // Replace with your actual Client ID
+const client_secret = '8a23ec4328a4408485bb556c26a9c1d1'
 //const redirectUri = 'http://127.0.0.1:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'http://192.168.1.141:8000/'; // Must match your Dashboard EXACTLY
 //const redirectUri = 'https://benburtspotifyapp.netlify.app/'; // Must match your Dashboard EXACTLY
@@ -1686,6 +1794,11 @@ const sha256 = async (plain) => {
 const base64encode = (input) => {
     return btoa(String.fromCharCode(...new Uint8Array(input)))
         .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+};
+
+const generateCodeChallenge = async (verifier) => {
+    const hashed = await sha256(verifier);
+    return base64encode(hashed);
 };
 
 // This function starts the process by redirecting the user to Spotify’s secure login page.
@@ -1720,6 +1833,138 @@ async function redirectToSpotifyAuth() {
     alert("Redirecting to: " + authUrl.toString());
     window.location.href = authUrl.toString(); // Redirects the entire page
 }
+
+async function loginWithSpotify() {
+    const clientId = localStorage.getItem('spotify_client_id');
+    const redirectUri = window.location.origin + '/';
+    
+    if (!clientId) return alert("Please set your Client ID in the settings menu.");
+
+    // Generate PKCE parameters and save the verifier
+    const codeVerifier = generateRandomString(128);
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    localStorage.setItem('code_verifier', codeVerifier);
+
+    // Redirect to Spotify Authorization URL with PKCE parameters
+    const args = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        scope: scope,
+        redirect_uri: redirectUri,
+        code_challenge_method: 'S256',
+        code_challenge: codeChallenge
+    });
+
+    alert(`window.location: ${'https://accounts.spotify.com/authorize?' + args}`)
+    window.location = 'https://accounts.spotify.com/authorize?' + args;
+}
+
+async function getAccessToken() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const codeVerifier = localStorage.getItem('code_verifier');
+    const clientId = localStorage.getItem('spotify_client_id');
+
+    // POST request to exchange code and verifier for access token
+    const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        code_verifier: codeVerifier
+    });
+
+    const response = await safeSpotifyFetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+    });
+
+    if(response === "MAX_CALLS_PER_MINUTE"){
+        console.warn("getToken - safeSpotifyFetch - MAX_CALLS_PER_MINUTE")
+            // SEND THE LOG
+            logEvent("ERROR", `getToken - safeSpotifyFetch - MAX_CALLS_PER_MINUTE`, {
+                step: "getToken",
+                error: `MAX_CALLS_PER_MINUTE`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+    }
+    if(response === "SOFT_LOCKED"){
+        console.warn("getToken - safeSpotifyFetch - SOFT_LOCKED")
+            // SEND THE LOG
+            logEvent("ERROR", `getToken - safeSpotifyFetch - SOFT_LOCKED`, {
+                step: "getToken",
+                error: `SOFT_LOCKED`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+    }
+    if(response === "429_MAX_STRIKES"){
+        console.warn("getToken - safeSpotifyFetch - 429_MAX_STRIKES")
+            // SEND THE LOG
+            logEvent("ERROR", `getToken - safeSpotifyFetch - 429_MAX_STRIKES`, {
+                step: "getToken",
+                error: `429_MAX_STRIKES`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+    }
+    if(response === "429_STRIKE"){
+        console.warn("getToken - safeSpotifyFetch - 429_STRIKE")
+            // SEND THE LOG
+            logEvent("ERROR", `getToken - safeSpotifyFetch - 429_STRIKE`, {
+                step: "getToken",
+                error: `429_STRIKE`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+    }
+
+    if(response.status) console.log(`getAccessToken ressponse.status: ${response.status}`)
+
+    if(response.status === 400){
+        console.warn(`getAccessToken - fetch PAYLOAD mismatch`)
+        return
+    }
+
+    if(!response.ok){
+        // Log the actual error message from Spotify (e.g., "invalid_grant")
+                if (response && typeof response.text === 'function') {
+                const text = await response.text(); // Get raw text first (never crashes)
+                const errorData = text ? JSON.parse(text) : {}; // Only parse if text exists
+
+                console.error(errorData?.error?.message || "Forbidden or Not Found");  
+                }              //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+        //throw new Error(errorBody.error.message || "Forbidden or Not Found");
+    }
+
+    const data = await response.json();
+
+    if (data.access_token) {
+        window.localStorage.setItem('access_token', data.access_token);
+        
+        // --- ADD THIS LINE ---
+        // Record exactly when this token will die (current time + 3600 seconds)
+        const expiryTime = Date.now() + (3600 * 1000); 
+        // Calculate absolute expiry: current time + (seconds from Spotify * 1000)
+        const expiresAt = Date.now() + (data.expires_in * 1000);
+        //window.localStorage.setItem('token_expiry', expiryTime);            
+        window.localStorage.setItem('token_expiry', expiresAt);            
+
+        // --- NEW: Store the refresh token ---
+        if (data.refresh_token) {
+            window.localStorage.setItem('refresh_token', data.refresh_token);
+            console.warn("Refresh token saved for continuous play!");
+        }
+    }
+
+}
+
 
 async function getToken(code) {
     const codeVerifier = window.localStorage.getItem('code_verifier');
@@ -1983,6 +2228,34 @@ async function refreshAccessToken(refreshRetry = false) {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
+
+            console.warn("Session actually expired. Clearing tokens.");
+        //visualLog(`%c Session actually expired. Please re-login.`, "color: #ff8800; background: #ffffff;")
+            // SEND THE LOG
+            logEvent("ERROR", `refreshAccessToken - Refresh failed, but staying on page, LOGIN NEEDED:`, {
+                step: "refreshAccessToken",
+                error: `REFRESH_TOKEN_ERROR_LOGIN_NEEDED`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+
+            // ... update button to red ...
+            // Don't redirect here! Just let the user click 'Login' manually if they need to.
+            //localStorage.removeItem('access_token');
+            //localStorage.removeItem('refresh_token');
+            showResult(`%c Session expired. Please log in again.`, "color: #ff0000;")
+            visualLog(`%c Session expired. Please log in again.`, "color: #ff0000;")
+            alert("Session expired. Please log in again.");
+            
+            // Change button text to show user is logged in
+            document.getElementById('login-button').textContent = "Login with Spotify";
+            document.getElementById('login-button').disabled = false;
+            document.getElementById('login-button').style.background = "#ff0000";
+            return false
         }
 
         if(response.status){
@@ -2224,7 +2497,6 @@ function pollForReadyState() {
                 logEvent("WARN", `pollForReadyState - Player reconnected successfully.`, {
                     step: "pollForReadyState",
                     error: "POLL_FOR_READY_PLAYER_SUCCESS",
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -2242,7 +2514,6 @@ function pollForReadyState() {
                 logEvent("WARN", `pollForReadyState - Ready poll timed out. Forcing recovery fallback.`, {
                     step: "pollForReadyState",
                     error: "POLL_FOR_READY_PLAYER_TIMEOUT",
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -2354,7 +2625,6 @@ async function recoverFromBackground(){
                             track: track.name,
                             track_artist: track.artist,
                             playlist: track.playlist,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -2379,7 +2649,6 @@ async function recoverFromBackground(){
                             track: track.name,
                             track_artist: track.artist,
                             playlist: track.playlist,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -2443,13 +2712,38 @@ async function resumeOnThisDevice(resumePlay = false) {
                 }
         }
         // The SDK will try to reconnect itself, but we can nudge it:
-        player.connect().then(success => {
-            if (success) {
-                console.warn("resumeOnThisDevice - Connection request sent to Spotify!");
-            } else {
-                console.error("resumeOnThisDevice - Connection failed. Check your Premium status.");
-            }
-        });
+        if(player){
+            // The SDK will try to reconnect itself, but we can nudge it:
+            player.connect().then(success => {
+                if (success) {
+                    visualLog(`%c Reclaiming playback session - Player reconnected successfully`, "color: #2d8a02")
+                    showResult(`%c Reclaiming playback session - Player reconnected successfully`, "color: #2d8a02")
+                    console.log(`%c App RESUMING - Player reconnected successfully`, "color: #2d8a02")
+                    // SEND THE LOG
+                    logEvent("WARN", `%c Reclaim playback session - Player reconnect SUCCESS`, {
+                        step: "resumeEvent",
+                        error: `RESUMEONDEVICE_EVENT_RECONNECT_SUCCESS`,
+                        stack_trace: new Error().stack, // Auto-trace errors
+                        strikeCount: rateLimitStrikes,
+                        activeMix: activeMixId
+                    });
+                } 
+                else {
+                    visualLog(`%c Reclaiming playback session - Player Re-Connection failed.`, "color: #ff0000;");
+                    showResult(`%c Reclaiming playback session - Player Re-Connection failed.`, "color: #ff0000;");
+                    console.error(`%c Reclaiming playback session - Player Re-Connection failed.`, "color: #ff0000;");
+                    // SEND THE LOG
+                    logEvent("WARN", `%c Reclaim playback session - Player reconnect FAIL`, {
+                        step: "resumeEvent",
+                        error: `RESUMEONDEVICE_EVENT_RECONNECT_FAIL`,
+                        stack_trace: new Error().stack, // Auto-trace errors
+                        strikeCount: rateLimitStrikes,
+                        activeMix: activeMixId
+                    });
+                }
+            });
+        }
+
         showResult(`%c Mixer resumed on this phone / web broswer.`, "color: #2d8a02;")
         visualLog(`%c Mixer resumed on this phone / web broswer.`, "color: #2d8a02;")
         console.warn("Mixer resumed on this phone.");
@@ -3705,6 +3999,10 @@ function pickByWeightAlgorithm(activePlaylists){
 
 async function pickRandomSong(attempt = 0) {
 
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
 
     if (!player){
             // SEND THE LOG
@@ -3725,9 +4023,10 @@ async function pickRandomSong(attempt = 0) {
     player.connect().then(success => {
         if (success) {
             console.warn("Connection request sent to Spotify!");
-        } else {
-            console.log(`%c pickRandomSong - Error: PLAYER_CONNECTION_FAIL`, "color: #ff0000; background: #ffffff;")
-            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
+        } 
+        else {
+            console.error(`%c pickRandomSong - Error: PLAYER_CONNECTION_FAIL`, "color: #ff0000; background: #ffffff;")
+            visualLog(`%c Connection failed.`, "color: #ff0000; background: #ffffff;")
         // SEND THE LOG
         logEvent("ERROR", `pickRandomSong - Error: PLAYER_CONNECTION_FAIL`, {
             step: "pickRandomSong",
@@ -3736,9 +4035,10 @@ async function pickRandomSong(attempt = 0) {
             strikeCount: rateLimitStrikes,
             activeMix: activeMixId
         });
-            console.error("Connection failed. Check your Premium status.");
+            console.error("Connection failed.");
         }
     });
+    
 
     lastPickTime = Date.now(); // Update timestamp whenever a pick is made (manual or auto)
     const activePlaylists = playlists.filter(p => p.enabled)
@@ -3853,6 +4153,7 @@ async function pickRandomSong(attempt = 0) {
 
     // Safety check: only call playTrack if we actually got a track back
     if (track && track.uri) {
+        nowPlayingText = `%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`
         console.log(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #129900;")
         showResult(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #129900;")
         visualLog(`%c Now Playing: ${track.name} by ${track.artists[0].name} - ${chosenplaylist.name}`, "color: #129900;")
@@ -4324,6 +4625,12 @@ function updateNewMixName() {
 }
 
 function combineSelectedMixes() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     const selectedKeys = Array.from(document.querySelectorAll('.combine-check:checked')).map(cb => cb.value);
     const newName = document.getElementById('combine-mix-name').value || "New Combined Mix";
     
@@ -4376,7 +4683,6 @@ function combineSelectedMixes() {
                             step: "combineSelectedMixes",
                             error: "COMBINE_MIXES",
                             mix_name: mixes[newId].name,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -4415,7 +4721,6 @@ function addActiveToCombineList() {
                             step: "addActiveToCombineList",
                             error: "SELECTED_CURRENT_MIX_COMBINE",
                             mix_name: mixes[activeMixId].name,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -4679,6 +4984,11 @@ div.innerHTML = `
             playlists.splice(index, 1)
             saveAppState()
             renderPlaylists()
+            
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
         }
 
         // Inside your renderPlaylists loop:
@@ -4801,6 +5111,12 @@ function savePlaylists(){
 
 
 document.getElementById('add-playlist').onclick = async () => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     const input = document.getElementById('new-playlist-name').value.trim();
     let playlistData;
 
@@ -4902,6 +5218,12 @@ function deleteCurrentMix() {
 }
 
 function generateShareLink() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     if (!activeMixId || !mixes[activeMixId]) return alert("Select a mix first!");
 
     const mixData = mixes[activeMixId];
@@ -4925,7 +5247,6 @@ function generateShareLink() {
                         logEvent("WARN", `generateShareLink | Mix Code copied! Paste this on your other device.`, {
                             step: "generateShareLink",
                             error: "GENERATE_SHARE_LINK_SUCCESS",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -4939,7 +5260,6 @@ function generateShareLink() {
                             error: "GENERATE_SHARE_LINK_FAIL",
                             stack_trace: new Error().stack, // Auto-trace errors
                             error_message: err,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -4949,6 +5269,12 @@ function generateShareLink() {
 }
 
 async function importMix() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     try {
         // Request text from the system clipboard
         const text = await navigator.clipboard.readText();
@@ -4983,7 +5309,6 @@ async function importMix() {
                             step: "importMix",
                             error: "IMPORT_MIX_SUCCESS",
                             mix_name: sharedMix.name,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -4999,7 +5324,6 @@ async function importMix() {
                             error: "IMPORT_MIX_FAIL",
                             stack_trace: new Error().stack, // Auto-trace errors
                             error_message: e,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -5330,6 +5654,12 @@ async function duplicatePlaylist(oldId, oldName) {
 }
 
 async function refreshPlaylistCount(playlistId, playlistIndex) {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     
     if(SessionPlaylistTrackCountUpdated[`${activeMixId}${playlistId}`]?.updated){
         console.log(`%c Playlist already updated: ${playlists[playlistIndex].name}`, "color: #ff0000;")
@@ -5617,6 +5947,12 @@ function showResult(message, ...styles) {
 
 
 function toggleTouchBlock(enable) {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
     const shield = document.getElementById('screen-shield');
     const masterBtn = document.getElementById('touch-block-btn');
 
@@ -5712,19 +6048,19 @@ document.addEventListener('visibilitychange', async () => {
                         logEvent("WARN", `visibilitychange VISIBLE - 🔌 Player disconnected while away. Reconnecting...`, {
                             step: "visibilitychange",
                             error: "VISIBILITY_CHANGE_VISIBLE_PLAYER_DISCONNECTED_RECONNECT",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
                     // Only reconnect if the state is gone
                     await player.connect().then(async success => {
                         if (success) {
-                            console.warn("Connection request sent to Spotify!");
+                            console.warn(`%c 🔌 VISIBLE - Player reconnected successfully`, "color: #2d8a02")
+                            visualLog(`%c 🔌 VISIBLE - Player reconnected successfully`, "color: #2d8a02")
                         // SEND THE LOG
                         logEvent("WARN", `visibilitychange VISIBLE | Connection request sent to Spotify! SUCCESS`, {
                             step: "visibilitychange",
                             error: "VISIBILITY_CHANGE_VISIBLE_PLAYER_CONNECTION_SUCCESS",
-                            device_id: device_id,
+                            stack_trace: new Error().stack, // Auto-trace errors
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -5732,14 +6068,14 @@ document.addEventListener('visibilitychange', async () => {
 
                         } 
                         else {
-                            console.error("Connection failed. Check your Premium status.");
-                            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
+                            visualLog(`%c 🔌 VISIBLE - Player Re-Connection failed.`, "color: #ff0000;");
+                            showResult(`%c 🔌 VISIBLE - Player Re-Connection failed.`, "color: #ff0000;");
+                            console.error(`%c 🔌 VISIBLE - Player Re-Connection failed.`, "color: #ff0000;");
                         // SEND THE LOG
                         logEvent("ERROR", `visibilitychange VISIBLE | Connection request sent to Spotify! FAIL`, {
                             step: "visibilitychange",
                             error: "VISIBILITY_CHANGE_VISIBLE_PLAYER_CONNECTION_FAIL",
                             stack_trace: new Error().stack, // Auto-trace errors
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -5747,7 +6083,6 @@ document.addEventListener('visibilitychange', async () => {
                     });
 
                     pollForReadyState()
-
                 }
                 
             
@@ -5760,7 +6095,7 @@ document.addEventListener('visibilitychange', async () => {
             });
         }
         else{
-        console.warn("App visibility changed - VISIBLE - player disconnected")
+            console.warn("App visibility changed - VISIBLE - player disconnected")
                     // SEND THE LOG
                     logEvent("DEBUG", `visibilitychange - App visibility changed: VISIBILE - player disconnected`, {
                         step: "visibilitychange",
@@ -5831,19 +6166,19 @@ document.addEventListener('visibilitychange', async () => {
                         logEvent("WARN", `visibilitychange HIDDEN - 🔌 Player disconnected while away. Reconnecting...`, {
                             step: "visibilitychange",
                             error: "VISIBILITY_CHANGE_PLAYER_HIDDEN_DISCONNECTED_RECONNECT",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
                     // Only reconnect if the state is gone
                     await player.connect().then(async success => {
                         if (success) {
-                            console.warn("Connection request sent to Spotify!");
+                            console.warn(`%c 🔌 HIDDEN - Player reconnected successfully`, "color: #2d8a02")
+                            visualLog(`%c 🔌 HIDDEN - Player reconnected successfully`, "color: #2d8a02")
                         // SEND THE LOG
-                        logEvent("WARN", `visibilitychange | Connection request sent to Spotify! SUCCESS`, {
+                        logEvent("WARN", `visibilitychange HIDDEN | Connection request sent to Spotify! SUCCESS`, {
                             step: "visibilitychange",
-                            error: "VISIBILITY_CHANGE_PLAYER_HIDDEN_CONNECTION_SUCCESS",
-                            device_id: device_id,
+                            error: "VISIBILITY_CHANGE_HIDDEN_PLAYER_CONNECTION_SUCCESS",
+                            stack_trace: new Error().stack, // Auto-trace errors
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -5851,19 +6186,20 @@ document.addEventListener('visibilitychange', async () => {
 
                         } 
                         else {
-                            console.error("Connection failed. Check your Premium status.");
-                            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
+                            visualLog(`%c 🔌 HIDDEN - Player Re-Connection failed.`, "color: #ff0000;");
+                            showResult(`%c 🔌 HIDDEN - Player Re-Connection failed.`, "color: #ff0000;");
+                            console.error(`%c 🔌 HIDDEN - Player Re-Connection failed.`, "color: #ff0000;");
                         // SEND THE LOG
                         logEvent("ERROR", `visibilitychange HIDDEN | Connection request sent to Spotify! FAIL`, {
                             step: "visibilitychange",
                             error: "VISIBILITY_CHANGE_HIDDEN_PLAYER_CONNECTION_FAIL",
                             stack_trace: new Error().stack, // Auto-trace errors
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
                         }
                     });
+
 
                     pollForReadyState()
 
@@ -5935,7 +6271,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     await fetchUserProfile()
     console.log(`DOM content loaded`)
     
-    
+    const toggleBtn = document.getElementById('settings-toggle-btn');
+    const settingsMenu = document.getElementById('settings-menu');
+
+    if (toggleBtn && settingsMenu) {
+        toggleBtn.addEventListener('click', () => {
+            // Toggles the 'hidden' class: adding it if missing, removing if present
+            settingsMenu.classList.toggle('hidden');
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
+        });
+    }
+
     // Initialize the PWA install button logic
     initInstallButton();
 
@@ -5969,7 +6320,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
-        await getToken(code); // This saves the initial tokens
+        //await getToken(code); // This saves the initial tokens
+        await getAccessToken();
         // Clean the URL immediately so we don't process this code again
         window.history.replaceState({}, document.title, "/");
 
@@ -6060,7 +6412,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     // --- END IMPORT LOGIC ---
 
-    document.getElementById('login-button').onclick = redirectToSpotifyAuth
+    //document.getElementById('login-button').onclick = redirectToSpotifyAuth
+    document.getElementById('login-button').onclick = loginWithSpotify
 
 
     // const token = localStorage.getItem('access_token');
@@ -6108,6 +6461,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             musicPlayingOnDevice = false
             isRefreshing = false
             //userInitiatedPause = false //leave this for reconnect
+            autoPlayBlocked = false
             ghostPauseRecovery = false
             //internalQueue = []
             //playbackHistory = []
@@ -6162,33 +6516,108 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            // // Add this to your Power On click handler
-            // const silencer = document.createElement('video');
-            // silencer.src = "https://githubusercontent.com";
-            // silencer.loop = true;
-            // silencer.muted = true; // Muted video still counts as 'active' for the browser
-            // silencer.play().catch(e => console.log("Silent video blocked until next click."));
-            try {
-                const video = document.createElement('video');
+
+
+
+            // try {
+            //     const video = document.getElementById('keep-alive-video');
+            //     if (video) {
+            //         // Ensure the source filename matches what you put in your directory!
+            //         //video.src = "./silent-wake.mp4"; 
+                    
+            //         // Firing this inside the click event satisfies the "User Gesture" policy
+            //         await video.play();
+            //         console.log("🟢 Repos-hosted Video Wake Lock Active");
+
+            //         video.addEventListener('timeupdate', () => {
+            //             // This log will flood your console if the video is running successfully
+            //             console.log(`🌀 Wake lock actively cycling. Current time: ${video.currentTime}`);
+                    
+            //         // Optional: Update your "showResult" UI string to give you visual feedback
+            //         // showResult(`System active (Lock progress: ${keepAliveVideo.currentTime.toFixed(1)}s)`);
+            //         });
+            //     }
                 
-                // This is a 1-second, black, silent MP4 in Base64 format
-                video.src = 'data:video/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21pc28yYXZjMQAAAAhmcmVlAAAAG21kYXTeBAAAbGlieDI2NCAtIGNvcmUgMTY0IAAAAApmoW9vcHMAAAAALW1vb3YAAABsbXZoZAAAAAAAAAAAAAAAAAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAABidHJrawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAIAAAACAAAAAABAAAAAAUlbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAABAAAAVVYfUAAAAAAAAMWhkbHIAAAAAAAAAAHZpZGVvAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAFHZtYmhkAAAAAQAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAASVzdGJsAAAAd3N0c2QAAAAAAAAAAQAAAGdhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAgACABIAAAASAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGP//AAAALmF2Y2MBQsAr/+EAFWfEArAtvA8AAAMAAQAAAwAyDxArpSABAAZIDpAgAAAAEHBhc3AAAAABAAAAAQAAABhzdHRzAAAAAAAAAAEAAAABAAAAQAAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAUc3RzegAAAAAAAAAIAAAAAQAAABRzdGNvAAAAAAAAAAEAAAA0AAAAYXVkdGEAAABZTWV0YQAAAAAAAAAhSGRscgAAAAAAAAAAbWRpcgAAAAAAAAAAAAAAAAAAAAAALWlsc3QAAAApAKW5hbQAAACFEYXRhAFVudGl0bGVkIChIUCBNZWRpYSBTdHJlYW0pAAAAEGlkYXQAAAAAAAAAAQ==';
+            //     // Continue with standard Spotify initialization...
+            //     player.activateElement();
+            // } catch (err) {
+            //     console.warn("❌ Workplace security policy blocked physical video playback:", err);
+            // }
+
+    
+            // // // Add this to your Power On click handler
+            // // const silencer = document.createElement('video');
+            // // silencer.src = "https://githubusercontent.com";
+            // // silencer.loop = true;
+            // // silencer.muted = true; // Muted video still counts as 'active' for the browser
+            // // silencer.play().catch(e => console.log("Silent video blocked until next click."));
+            // try {
+            //     // Prevent creating duplicate video nodes if one already exists
+            //     if (document.getElementById('wake-lock-video')) return;
+
+            //     const video = document.createElement('video');
+            //     video.id = 'wake-lock-video';
+            //     video.src = 'data:video/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21pc28yYXZjMQAAAAhmcmVlAAAAG21kYXTeBAAAbGlieDI2NCAtIGNvcmUgMTY0IAAAAApmoW9vcHMAAAAALW1vb3YAAABsbXZoZAAAAAAAAAAAAAAAAAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAABidHJrawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAIAAAACAAAAAABAAAAAAUlbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAABAAAAVVYfUAAAAAAAAMWhkbHIAAAAAAAAAAHZpZGVvAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAFHZtYmhkAAAAAQAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAASVzdGJsAAAAd3N0c2QAAAAAAAAAAQAAAGdhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAgACABIAAAASAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGP//AAAALmF2Y2MBQsAr/+EAFWfEArAtvA8AAAMAAQAAAwAyDxArpSABAAZIDpAgAAAAEHBhc3AAAAABAAAAAQAAABhzdHRzAAAAAAAAAAEAAAABAAAAQAAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAUc3RzegAAAAAAAAAIAAAAAQAAABRzdGNvAAAAAAAAAAEAAAA0AAAAYXVkdGEAAABZTWV0YQAAAAAAAAAhSGRscgAAAAAAAAAAbWRpcgAAAAAAAAAAAAAAAAAAAAAALWlsc3QAAAApAKW5hbQAAACFEYXRhAFVudGl0bGVkIChIUCBNZWRpYSBTdHJlYW0pAAAAEGlkYXQAAAAAAAAAAQ==';
                 
-                video.loop = true;
-                video.muted = true;
-                video.setAttribute('playsinline', ''); // Essential for iOS/Android background play
-                video.style.display = 'none'; // Keep it hidden from the UI
+            //     video.loop = true;
+            //     video.muted = true;
+            //     video.setAttribute('playsinline', ''); 
+            //     video.style.display = 'none'; 
                 
-                document.body.appendChild(video);
-                await video.play();
-                console.log("🟢 Hidden Video Wake Lock (Base64) Active");
-            } catch (err) {
-                console.warn("🟡 Hidden Video Hack failed:", err);
-            }
+            //     document.body.appendChild(video);
+                
+            //     // This execution succeeds because it runs inside a direct user-click timeline
+            //     await video.play();
+            //     console.log("🟢 Hidden Video Wake Lock (Base64) Active");
+            // } catch (err) {
+            //     console.warn("🟡 Hidden Video Hack failed:", err);
+            // }
+
+
+            // try {
+            //     // Avoid duplicating the node
+            //     if (document.getElementById('wake-lock-audio')) return;
+
+            //     const audio = document.createElement('audio');
+            //     audio.id = 'wake-lock-audio';
+                
+            //     // A 1-second completely silent MP3 base64 string
+            //     audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAAATGFtZTMuOTguMgAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA';
+                
+            //     audio.loop = true;
+            //     audio.muted = true;
+            //     audio.style.display = 'none';
+                
+            //     document.body.appendChild(audio);
+                
+            //     // Play immediately inside your user click handler
+            //     await audio.play();
+            //     console.log("🟢 Hidden Audio Wake Lock Active");
+            // } catch (err) {
+            //     console.warn("🟡 Hidden Audio Hack failed:", err);
+            // }            
+
 
             // Since the video approach is being blocked, let's switch to the "Silent Audio Heartbeat" method. It's often more compatible with mobile Chrome because it uses the Web Audio API to generate a signal, which avoids codec errors entirely. 
             // The "Silent Audio Heartbeat" Strategy
             // This code creates a continuous, silent audio stream. Android Chrome will see this as "Active Media," making it much less likely to kill your tab when the screen is off. 
+
+            /// Why the AudioContext Heartbeat is Crucial for Mobile and ChromeEven when autoplay is successfully enabled, 
+            // this silent oscillator serves essential performance functions:
+            // 1. Preventing "Tab Sleeping" (Chrome & Mobile)Mobile 
+            // operating systems and desktop Chrome aggressively pause background tabs to conserve RAM and battery. 
+            // If your mixer is minimized or your phone screen dims, Chrome will freeze your background loops 
+            // (including your 30-second context check).The Benefit: An active AudioContext registers your PWA as a Live Audio Utility. 
+            // This prevents Chrome from freezing your background loops, allowing your interval timer to continue checking progress_ms 
+            // and firing your context changes cleanly.
+            // 2. Keeping the Spotify "Playback Pipe" PrimeThe Spotify Web Playback SDK utilizes Web Assembly (WASM) and local audio 
+            // nodes to process decryption keys. If the browser detects no local audio output activity for an extended period, it may 
+            // shut down the audio channel pipeline.The Benefit: The heartbeat acts as a low-level signal loop, keeping the browser 
+            // audio engine open and preventing the Spotify SDK connection from timing out when songs switch.
+            // 3. Bypassing Mobile Background Audio ThrottlingOn mobile devices (iOS Safari and mobile Chrome), your navigator.wakeLock 
+            // keeps the phone screen illuminated, but it does not stop the browser from restricting background data fetch chains.
+            // The Benefit: The Audio Heartbeat handles the audio processing side, while the Wake Lock handles the screen side. 
+            // Together, they create a robust framework for running code while your phone is in your pocket.
             let audioHeartbeat = null;
             //async function enableWakeLock() {
                 try {
@@ -6234,23 +6663,23 @@ document.addEventListener("DOMContentLoaded", async () => {
            // }
 
             
-            // Alternative: Silent Audio Context
-            // If your system is extremely restricted and blocks even large data URIs, you can use the Web Audio API to generate "silence." It’s less effective for keeping the screen on than video, but it’s great for preventing Chrome from suspending the "playback pipe".            
-            //function startSilentAudio() {
-                const context = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = context.createOscillator();
-                const gainNode = context.createGain();
+            // // Alternative: Silent Audio Context
+            // // If your system is extremely restricted and blocks even large data URIs, you can use the Web Audio API to generate "silence." It’s less effective for keeping the screen on than video, but it’s great for preventing Chrome from suspending the "playback pipe".            
+            // //function startSilentAudio() {
+            //     const context = new (window.AudioContext || window.webkitAudioContext)();
+            //     const oscillator = context.createOscillator();
+            //     const gainNode = context.createGain();
 
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(440, context.currentTime); // Standard tone
-                gainNode.gain.setValueAtTime(0, context.currentTime); // Volume = 0 (Silence)
+            //     oscillator.type = 'sine';
+            //     oscillator.frequency.setValueAtTime(440, context.currentTime); // Standard tone
+            //     gainNode.gain.setValueAtTime(0, context.currentTime); // Volume = 0 (Silence)
 
-                oscillator.connect(gainNode);
-                gainNode.connect(context.destination);
+            //     oscillator.connect(gainNode);
+            //     gainNode.connect(context.destination);
 
-                oscillator.start();
-                console.warn("🔊 Silent Audio Context Active");
-            //}
+            //     oscillator.start();
+            //     console.warn("🔊 Silent Audio Context Active");
+            // //}
 
             // Ready
             player.addListener('ready', async ({ device_id: id }) => {
@@ -6270,7 +6699,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 logEvent("WARN", `ready listener - device_id: ${device_id}`, {
                     step: "ready_listener",
                     error: "READY_LISTENER",
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -6297,7 +6725,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 logEvent("WARN", `not_ready listener - Device has gone offline - device_id: ${device_id}`, {
                     step: "not_ready_listener",
                     error: "NOT_READY_LISTENER",
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -6306,6 +6733,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
 
             player.addListener('autoplay_failed', () => {
+
+
                 console.warn("AUTOPLAY BLOCKED: The browser stopped the next song from starting.");
                 showResult(`%c Browser blocked autoplay. Tap 'Play' to resume the mixer.`, "color: #b700ff;")
                 visualLog(`%c Browser blocked autoplay. Tap 'Play' to resume the mixer.`, "color: #b700ff;")
@@ -6314,10 +6743,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 logEvent("WARN", `autoplay_failed - AUTOPLAY BLOCKED: The browser stopped the next song from starting.`, {
                     step: "autoplay_failed",
                     error: "AUTOPLAY_FAILED",
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
+
+                userInitiatedPause = true; //spotify pauses music when next song comes in
+                autoPlayBlocked = true;
 
                 // Optional: Make the Play/Pause button glow or shake to get the user's attention
                 const playBtn = document.getElementById('play-pause');
@@ -6349,7 +6780,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     error: "INITIALIZATION_ERROR",
                     error_message: message,
                     stack_trace: new Error().stack, // Auto-trace errors
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -6381,30 +6811,29 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // The Move: Just refresh the token in localStorage. Then, let the visibilitychange listener handle the player.connect() the moment the user unlocks the phone.
                 player.connect().then(success => {
                     if (success) {
-                        console.warn("Connection request sent to Spotify!");
-                        showResult(`%c Player reconnected`, "color: #00a30e;")
-                        visualLog(`%c Player reconnected`, "color: #00a30e;")
+                        console.warn(`%c authentication_error - Refreshing Authentication - Player reconnected`, "color: #00a30e;")
+                        showResult(`%c Refreshing Authentication - Player reconnected`, "color: #00a30e;")
+                        visualLog(`%c Refreshing Authentication - Player reconnected`, "color: #00a30e;")
                         // SEND THE LOG
-                        logEvent("WARN", `authentication_error - SDK Authentication Error: ${message} | visibility: ${document.visibilityState} | Session expired. Re-authenticating... | Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds} | Connection request sent to Spotify! SUCCESS`, {
+                        logEvent("WARN", `authentication_error - SDK Authentication Error: ${message} | visibility: ${document.visibilityState} | Session expired. Re-authenticating... | Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds} | Player Reconnected! SUCCESS`, {
                             step: "authentication_error",
                             error: "AUTHENTICATION_ERROR_REAUTH_SUCCESS",
                             stack_trace: new Error().stack, // Auto-trace errors
                             error_message: message,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-                    } else {
-                        console.error("Connection failed. Check your Premium status.");
-                        showResult(`%c Player reconnect failed`, "color: #ff0000;")
-                        visualLog(`%c Player reconnect failed`, "color: #ff0000;")
+                    } 
+                    else {
+                        console.error(`%c authentication_error - Refreshing Authentication - Player reconnect failed`, "color: #ff0000;")
+                        showResult(`%c Refreshing Authentication - Player reconnect failed`, "color: #ff0000;")
+                        visualLog(`%c Refreshing Authentication - Player reconnect failed`, "color: #ff0000;")
                         // SEND THE LOG
-                        logEvent("WARN", `authentication_error - SDK Authentication Error: ${message} | visibility: ${document.visibilityState} | Session expired. Re-authenticating... | Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds} | Connection failed. Check your Premium status. FAIL`, {
+                        logEvent("WARN", `authentication_error - SDK Authentication Error: ${message} | visibility: ${document.visibilityState} | Session expired. Re-authenticating... | Session Expire timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds} | Connection failed. FAIL`, {
                             step: "authentication_error",
                             error: "AUTHENTICATION_ERROR_REAUTH_FAIL",
                             stack_trace: new Error().stack, // Auto-trace errors
                             error_message: message,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6456,7 +6885,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         logEvent("INFO", `playback_hijacked - Playback hijacked by another device.`, {
                             step: "playback_hijacked",
                             error: "PLAYBACK_HIJACKED_NOPLAYBACK",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6467,7 +6895,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         logEvent("INFO", `playback_hijacked - Mixer is no longer the active device.`, {
                             step: "playback_hijacked",
                             error: "PLAYBACK_HIJACKED_NOTACTIVE",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6493,7 +6920,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         logEvent("INFO", `ghost_pause - Ghost pause detected! Forcing resume...`, {
                             step: "ghost_pause",
                             error: "GHOST_PAUSE",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6514,6 +6940,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         // If music is paused, show "Play" button (Green)
                         playPauseBtn.textContent = "▶ Play";
                         playPauseBtn.style.background = "#1DB954"; // Spotify Green
+                        document.getElementById('play-pause-btn').textContent = "▶";
+                        document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
                     }
 
                     // MUSIC PLAYING
@@ -6532,11 +6960,19 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 player.pause()
                                 //player.togglePlay()
                             //}, 1000);
+                        playPauseBtn.textContent = "▶ Play";
+                        playPauseBtn.style.background = "#1DB954"; // Spotify Green
+                        document.getElementById('play-pause-btn').textContent = "▶";
+                        document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
                             }
                             else{ //music recovering is indication we're done recovering
                                 isRecoveringFromBackground = false; // Reset the flag
                                 //console.error(`********* FALSE isRecoveringFromBackground ${isRecoveringFromBackground}`)
                                 // actual player_state_changed will handle this if TRUE userInitiatedPause
+                        playPauseBtn.textContent = "⏸ Pause";
+                        playPauseBtn.style.background = "#FF5722"; // Deep Orange
+                        document.getElementById('play-pause-btn').textContent = "⏸";
+                        document.getElementById('play-pause-btn').style.background = "#1DB954"; // Spotify Green
                             }
                         //}
                         // Reset the flag whenever the music is actually playing
@@ -6546,8 +6982,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         // }
                         //console.error(`player_state_changed - state.NOT-paused - userInitiatedPause ${userInitiatedPause}`)
                         // If music is playing, show "Pause" button (Orange/Red)
-                        playPauseBtn.textContent = "⏸ Pause";
-                        playPauseBtn.style.background = "#FF5722"; // Deep Orange
                     }
                 }
 
@@ -6646,14 +7080,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const hasPlayedEnough = (Date.now() - lastPickTime) > 5000;
 
 
-                if (isAtEnd && hasPlayedEnough) {
+                if (isAtEnd && hasPlayedEnough) { //gotta catch when autoplay block stops it
                     console.log("Track naturally finished. Picking next...");
 
-                    // If the song that just started is the one at the top of our queue, remove it
-                    if (internalQueue.length > 0 && internalQueue[0].id === currentTrackIdISRC) {
-                        internalQueue.shift(); 
-                        renderQueue();
-                    }
+                    // // If the song that just started is the one at the top of our queue, remove it
+                    // if (internalQueue.length > 0 && internalQueue[0].id === currentTrackIdISRC) {
+                    //     internalQueue.shift(); 
+                    //     renderQueue();
+                    // }
 
                     // Force a small interaction signal
                     player.getVolume().then(v => {
@@ -6665,13 +7099,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                     // --- THE KEY FIX ---
                     // 1. Re-activate the element to satisfy autoplay rules
                     // Nudge the browser to keep the audio context alive
+                    if(player){
                     player.activateElement(); 
                     player.connect().then(success => {
                         if (success) {
-                            console.warn("Connection request sent to Spotify!");
-                        } else {
-                            console.error(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
-                            visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
+                            console.warn(`%c player_state_change - end of song - Player reconnected successfully`, "color: #2d8a02")
+                        } 
+                        else {
+                            console.error(`%c player_state_change - end of song - Player Connection failed.`, "color: #ff0000; background: #ffffff;")
+                            visualLog(`%c Player Connection failed.`, "color: #ff0000; background: #ffffff;")
+                            showResult(`%c Player Connection failed.`, "color: #ff0000; background: #ffffff;")
                         // SEND THE LOG
                         logEvent("ERROR", `player_state_changed - Track naturally finished - Error: PLAYER_CONNECTION_FAIL`, {
                             step: "player_state_changed",
@@ -6680,9 +7117,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-                            console.error("player_state_changed - Track naturally finished - Error: PLAYER_CONNECTION_FAIL. Check your Premium status.");
+                            console.error("player_state_changed - Track naturally finished - Error: PLAYER_CONNECTION_FAIL.");
                         }
                     });
+                    }
                     
                     // Small trick: Set volume to current level to trigger an 'interaction' event
                     player.getVolume().then(v => player.setVolume(v));
@@ -6693,20 +7131,46 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     // 2. Explicitly resume the player so it's in a 'playing' state 
                     // before the new URI arrives
-                    await player.resume(); 
+                    if(!autoPlayBlocked){
+                        console.log(`autoPlayBlocked not blocked: ${autoPlayBlocked}`)
+                        await player.resume(); 
+
+                        const returnPickRandom = await pickRandomSong(); 
+                        if(returnPickRandom !== "SUCCESS"){
+                            console.warn("player_state_changed - end of song - pickRandomSong - FAIL:", returnPickRandom)
+                        }
+
+                        lastPickTime = now; // Mark the time of this pick
+                        // Clear the ID so the next track can be detected as a change
+                        //currentTrackId = null; 
+                        //player.activateElement(); 
+                        //pickRandomSong();                     
+                    }
+                    else{
+                        // if(autoPlayBlockRecovered){
+
+                        console.log(`autoPlayBlocked blocked: ${autoPlayBlocked}`)
+                        
+                        // userInitiatedPause = false
+                        // player.activateElement();
+                        // await player.resume(); 
+
+                        // autoPlayBlockRecovered = false
+                        // const returnPickRandom = await pickRandomSong(); 
+                        // if(returnPickRandom !== "SUCCESS"){
+                        //     console.warn("player_state_changed - end of song - pickRandomSong - FAIL:", returnPickRandom)
+                        // }
+
+                        // lastPickTime = now; // Mark the time of this pick
+                        // // Clear the ID so the next track can be detected as a change
+                        // //currentTrackId = null; 
+                        // //player.activateElement(); 
+                        // //pickRandomSong();         
+                        // }            
+                    }
                     //musicStartedOnDevice = true
 
-                    const returnPickRandom = await pickRandomSong(); 
 
-                    if(returnPickRandom !== "SUCCESS"){
-                        console.warn("player_state_changed - end of song - pickRandomSong - FAIL:", returnPickRandom)
-                    }
-
-                    lastPickTime = now; // Mark the time of this pick
-                    // Clear the ID so the next track can be detected as a change
-                    //currentTrackId = null; 
-                    //player.activateElement(); 
-                    //pickRandomSong();                     
                 }
                 
                 // --- THE FIX: Detect a new song has started ---
@@ -6746,6 +7210,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     
                     // Update UI (Now Playing, etc.)
                     //updateUI(currentTrack);
+                    nowPlayingText = `%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`
                     console.log(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
                     showResult(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
                     visualLog(`%c Now Playing: ${current_track.name} by ${current_track.artists[0].name} - ${queuePlaylistsMap.get(currentTrackIdISRC)?.name}`, "color: #28a801;")
@@ -6777,7 +7242,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             error: "ACTIVE_MIX",
                             mix_name: mixes[activeMixId].name,
                             playlists_enabled: playlists_text,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6799,7 +7263,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             track_id_isrc: currentTrackIdISRC,
                             previous_track_id: currentTrackId,
                             previous_track_id_isrc: lastTrackId,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6913,34 +7376,38 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             console.warn("Powering on...");
             // Use activateElement for mobile/Android compatibility
-            player.activateElement(); 
-            player.connect().then(success => {
-                if (success) {
-                    console.warn("Connection request sent to Spotify!");
-                    visualLog(`%c Spotify player connected.`, "color: #2a9600; background: #ffffff;")
+            if(player){
+                player.activateElement();
+                // The SDK will try to reconnect itself, but we can nudge it:
+                await player.connect().then(success => {
+                    if (success) {
+                        visualLog(`%c Powering On - Player reconnected successfully`, "color: #2d8a02")
+                        showResult(`%c Powering On - Player reconnected successfully`, "color: #2d8a02")
+                        console.warn(`%c initial_player_connection - Powering On - Player reconnected successfully`, "color: #2d8a02")
                         // SEND THE LOG
-                        logEvent("WARN", `initial_player_connection | Connection request sent to Spotify! SUCCESS`, {
+                        logEvent("WARN", `%c initial_player_connection - Player reconnect SUCCESS`, {
                             step: "initial_player_connection",
-                            error: "INITIAL_PLAYER_CONNECTION_SUCCESS",
-                            device_id: device_id,
-                            strikeCount: rateLimitStrikes,
-                            activeMix: activeMixId
-                        });
-                } 
-                else {
-                    console.error("Connection failed. Check your Premium status.");
-                    visualLog(`%c Connection failed. Check your Premium status.`, "color: #ff0000; background: #ffffff;")
-                        // SEND THE LOG
-                        logEvent("ERROR", `initial_player_connection | Connection request sent to Spotify! FAIL`, {
-                            step: "initial_player_connection",
-                            error: "INITIAL_PLAYER_CONNECTION_FAIL",
+                            error: `INITIAL_PLAYER_CONNECTION_SUCCESS`,
                             stack_trace: new Error().stack, // Auto-trace errors
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-                }
-            });
+                    } 
+                    else {
+                        visualLog(`%c Powering On - Player Re-Connection failed.`, "color: #ff0000;");
+                        showResult(`%c Powering On - Player Re-Connection failed.`, "color: #ff0000;");
+                        console.error(`%c initial_player_connection - Powering On - Playing song - Player Re-Connection failed.`, "color: #ff0000;");
+                        // SEND THE LOG
+                        logEvent("WARN", `%c initial_player_connection - Player reconnect FAIL`, {
+                            step: "initial_player_connection",
+                            error: `INITIAL_PLAYER_CONNECTION_FAIL`,
+                            stack_trace: new Error().stack, // Auto-trace errors
+                            strikeCount: rateLimitStrikes,
+                            activeMix: activeMixId
+                        });
+                    }
+                });
+            }
 
             await refreshAccessToken()
 
@@ -6970,7 +7437,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         logEvent("INFO", `50_MIN_REFRESH_TOKEN | Mixer is active, keeping token warm...`, {
                             step: "50_MIN_REFRESH_TOKEN",
                             error: "50_MIN_REFRESH_TOKEN",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -6984,23 +7450,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.warn("Pinging Spotify to keep device active...");
                     player.connect().then(success => {
                         if (success) {
-                            console.warn("Connection request sent to Spotify!");
+                        console.warn(`%c ping_spotify_connection - Player reconnected successfully`, "color: #2d8a02")
                         // SEND THE LOG
                         logEvent("WARN", `ping_spotify_connection | Connection request sent to Spotify! SUCCESS`, {
                             step: "ping_spotify_connection",
                             error: "PING_SPOTIFY_CONNECTION_SUCCESS",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
-                        } else {
-                            console.error("Connection failed. Check your Premium status.");
+                        } 
+                        else {
+                        console.error(`%c ping_spotify_connection - Refreshing Player - Player Re-Connection failed.`, "color: #ff0000;");
+                        logEvent(`%c Refreshing Player - Playing song - Player Re-Connection failed.`, "color: #ff0000;");
+                        showResult(`%c Refreshing Player - Playing song - Player Re-Connection failed.`, "color: #ff0000;");
                         // SEND THE LOG
                         logEvent("ERROR", `ping_spotify_connection | Connection request sent to Spotify! FAIL`, {
                             step: "ping_spotify_connection",
                             error: "PING_SPOTIFY_CONNECTION_FAIL",
                             stack_trace: new Error().stack, // Auto-trace errors
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7020,7 +7487,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "mediaSession_skip_button",
                             error: "MEDIA_SESSION_SKIP_BUTTON",
                             skip: "SKIP",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7036,7 +7502,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "mediaSession_pause",
                             error: "MEDIA_SESSION_PAUSE",
                             pause: "PAUSE",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7053,7 +7518,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "mediaSession_play",
                             error: "MEDIA_SESSION_PLAY",
                             play: "PLAY",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7061,6 +7525,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     if (player){
                         console.log(`Media Session Play Button - player.resume()`)
                         player.resume()
+                        showResult(`${nowPlayingText}`, "color: #129900;")
                     }
                     navigator.mediaSession.playbackState = "playing";
                 });
@@ -7071,6 +7536,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (playPauseBtn) {
         playPauseBtn.onclick = async () => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
 
             if (!player || !devicePoweredOn) {
                 alert("Powering player on first. Then starting music");
@@ -7136,11 +7606,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "playPauseBtn_main",
                             error: "PLAY_PAUSE_BTN_MAIN",
                             pause: "PAUSE",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
                 });
+                showResult(`${nowPlayingText}`, "color: #129900;")
             }
         }
     }
@@ -7171,12 +7641,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         })
     })
 
-    document.getElementById('pick').onclick = pickRandomSong
+    document.getElementById('pick').onclick = async () => {
+
+        if (!player || !devicePoweredOn) {
+            alert("Powering player on first. Then starting music");
+            initBtn.click()
+
+            // Create a promise that resolves when a specific event is heard
+            // await new Promise((resolve) => {
+            //     initBtn.click();
+            //     window.addEventListener('devicePoweredOn', resolve, { once: true });
+            // });
+
+            // Wait until devicePoweredOn is true
+            await new Promise((resolve) => {
+                const checkInterval = setInterval(() => {
+                console.log(`%c checking devicePoweredOn`, "color: #ff00ffff; background: #000000;");
+                    if (player && devicePoweredOn) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100); // check every 100ms
+            });
+        }
+        // Code below will now wait for 'devicePoweredOn'
+
+        if(!player || !devicePoweredOn){
+            return
+        }
+
+        pickRandomSong()
+    }
     // document.getElementById('pick').onclick = () => {
     //     alert ("button clicked")
     // }
 
     document.getElementById('skip-button').onclick = () => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         if (player) {
             player.nextTrack().then(() => {
                 console.log('Skipped to the next track!');
@@ -7185,7 +7691,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "internal_skip_button",
                             error: "INTERNAL_SKIP_BUTTON",
                             skip: "SKIP",
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7197,7 +7702,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             error: "INTERNAL_SKIP_BUTTON_ERROR",
                             stack_trace: new Error().stack, // Auto-trace errors
                             error_message: err,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7230,6 +7734,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     document.getElementById("generate-playlist").onclick = async () => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         //Force a save and a small wait to ensure all rebalancing math is finished
         isProgrammaticSliderUpdate = false; //emergency reset
         saveAppState() //Force current UI values into the logic state
@@ -7241,6 +7751,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     document.getElementById("save-mix").onclick = () => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         const name = document.getElementById("new-mix-name").value.trim()
         if(!name){
             alert("Enter a mix name")
@@ -7264,7 +7780,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "save_mix",
                             error: "SAVE_MIX",
                             mix_name: name,
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7312,7 +7827,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             step: "master_playlist_toggle",
                             error: "MASTER_PLAYLIST_TOGGLE",
                             enabled: isChecked ? 'enabled' : 'disabled',
-                            device_id: device_id,
                             strikeCount: rateLimitStrikes,
                             activeMix: activeMixId
                         });
@@ -7360,6 +7874,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Loop through them and add a click event to each
     buttons.forEach(button => {
         button.addEventListener('click', () => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
             console.log("Button clicked! Performing JS code...");
 
             const list = document.getElementById('playlist-list');
@@ -7387,6 +7907,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     document.getElementById('toggle-list-btn-mix').onclick = function() {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         const list = document.getElementById('stored-mixes-list');
         const btn = this;
 
@@ -7405,6 +7931,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     document.getElementById('playlist-container').addEventListener('click', (e) => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         if (e.target.classList.contains('playlist-solo-btn')) {
             const targetId = e.target.getAttribute('data-id');
             
@@ -7428,6 +7960,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     document.getElementById('playlist-list').addEventListener('click', (e) => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         const btn = e.target.closest('.step-btn');
         if (!btn) return;
 
@@ -7485,6 +8023,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     document.getElementById('history-list').addEventListener('click', async (e) => {
+
+            // Log user gesture to keep tab active
+            // This "primes" the browser to trust the SDK for the rest of the session
+            // Call player.activateElement() on EVERY user interaction
+            if(player) player.activateElement(); 
+
         if (e.target.classList.contains('history-play-btn')) {
             const uri = e.target.getAttribute('data-uri');
             
@@ -7642,7 +8186,7 @@ window.addEventListener('freeze', (event) => {
     }
 
 }, { capture: true });
-window.addEventListener('resume', (event) => {
+window.addEventListener('resume', async (event) => {
     // 1. Re-initialize state (re-hydrate from localStorage)
     //rehydrateAppState();
     // Would you like help with the specific rehydrateAppState() logic to ensure 
@@ -7664,6 +8208,38 @@ window.addEventListener('resume', (event) => {
             activeMix: activeMixId
         });
 
+    await refreshAccessToken()
+    
+    if(player){
+        // The SDK will try to reconnect itself, but we can nudge it:
+        player.connect().then(success => {
+            if (success) {
+                visualLog(`%c App RESUMING - Player reconnected successfully`, "color: #2d8a02")
+                showResult(`%c App RESUMING - Player reconnected successfully`, "color: #2d8a02")
+                console.warn(`%c App RESUMING - Player reconnected successfully`, "color: #2d8a02")
+        // SEND THE LOG
+        logEvent("WARN", `%c App RESUME - Player reconnect SUCCESS`, {
+            step: "resumeEvent",
+            error: `RESUME_EVENT_RECONNECT_SUCCESS`,
+            strikeCount: rateLimitStrikes,
+            activeMix: activeMixId
+        });
+            } 
+            else {
+                visualLog(`%c App RESUMING - Player Re-Connection failed.`, "color: #ff0000;");
+                showResult(`%c App RESUMING - Player Re-Connection failed.`, "color: #ff0000;");
+                console.error(`%c App RESUMING - Player Re-Connection failed.`, "color: #ff0000;");
+        // SEND THE LOG
+        logEvent("WARN", `%c App RESUME - Player reconnect FAIL`, {
+            step: "resumeEvent",
+            error: `RESUME_EVENT_RECONNECT_FAIL`,
+            strikeCount: rateLimitStrikes,
+            activeMix: activeMixId
+        });
+            }
+        });
+    }
+
 }, { capture: true });
 
 // 1. Detect when the connection is LOST
@@ -7677,7 +8253,6 @@ window.addEventListener('offline', () => {
                 logEvent("WARN", `offline_listener - 🚀 Internet connection lost.`, {
                     step: "offline_listener",
                     error: "OFFLINE_LISTENER",
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -7705,7 +8280,6 @@ window.addEventListener('online', async () => {
                     step: "online_listener",
                     error: "ONLINE_LISTENER",
                     offlineDurationSeconds: durationSeconds,
-                    device_id: device_id,
                     strikeCount: rateLimitStrikes,
                     activeMix: activeMixId
                 });
@@ -7764,7 +8338,6 @@ window.addEventListener('online', async () => {
                                 logEvent("INFO", `50_MIN_REFRESH_TOKEN | Mixer is active, keeping token warm...`, {
                                     step: "50_MIN_REFRESH_TOKEN",
                                     error: "50_MIN_REFRESH_TOKEN",
-                                    device_id: device_id,
                                     strikeCount: rateLimitStrikes,
                                     activeMix: activeMixId
                                 });
