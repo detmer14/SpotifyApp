@@ -7359,7 +7359,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (playlistContextEnabled && appVisible && !contextSyncedForCurrentTrack) {
                     console.log("Song established. Syncing context...");
                     console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
-                    syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
+                    syncSpotifyContext(targetPlaylist, currentTrackURI, (state.position+10000));
                 }
 
                 if(!contextSyncedForCurrentTrack){
