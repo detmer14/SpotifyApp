@@ -125,6 +125,20 @@ The Fix: In your index.html, add this meta tag to discourage the browser from th
             >Add Playlist</button>
         </div>
 
+        <div id="folder-creation-panel" style="margin-bottom: 15px; padding: 10px; background: #222; border-radius: 4px;">
+            <input type="text" id="new-folder-name" placeholder="Enter New Folder Name..." style="padding: 5px; width: 200px;">
+            <button id="add-folder-btn" class="status-btn" style="background: #1DB954;">➕ Add Folder</button>
+        </div>
+
+        <!-- Folder creation controller layout block -->
+        <div id="folder-manager-ui" style="margin: 15px 0; padding: 12px; background: #181818; border: 1px solid #282828; border-radius: 6px; display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="folder-name-input" placeholder="Enter New Folder Name..." 
+                style="background: #ffffff; color: rgb(0, 0, 0); border: 1px solid #3e3e3e; padding: 6px 10px; border-radius: 4px; flex-grow: 1;">
+            <button id="submit-folder-btn" style="background: #1DB954; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                ➕ Add Folder
+            </button>
+        </div>
+
         <div id="mix-controls">            
             <input id="new-mix-name" style="font-size: 1.5rem;" placeholder="Mix name">
             <button id="save-mix"

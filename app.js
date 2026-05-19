@@ -3561,6 +3561,25 @@ let activeMixId = null
 let selectionMode = "balanced" // normal | balanced | percentage (mix) | relative (weight)
 let isProgrammaticSliderUpdate = false //to prevent infinite loops when sliders rebalance
 
+// Example array definition for your main configuration loop
+let currentMixConfiguration = {
+    mixName: "My Custom Blend",
+    nodes: [] // This will store both individual playlists and folder nodes
+};
+
+// This is your safe, updated mix configuration object layout
+let activeMixProfile = {
+    id: "my-mix-123",
+    name: "Prog Rock Mix",
+    playlists: [
+        // Your existing playlist arrays stay EXACTLY like this
+        { id: "37i9dQZF1DX", name: "Classic Rock", sliderValue: 20, parentFolderId: null }
+    ],
+    folders: [
+        // 🟢 New folders array layer added safely adjacent to your data
+    ]
+};
+
 const multipliers = [0.25, 0.5, 0.75, 1.0, 1.25, 1.75, 2.5];
 
 let SessionPlaylistTrackCountUpdated = {}
@@ -4729,6 +4748,56 @@ function addActiveToCombineList() {
                             activeMix: activeMixId
                         });
     }
+}
+
+function addFolderToConfiguration(name) {
+    const newFolder = {
+        id: 'folder_' + Date.now(),
+        type: 'folder',
+        name: name,
+        isExpanded: true,
+        folderBalancingEnabled: false,
+        sliderValue: 50,
+        pickCounter: 0,
+        isEnabled: true,
+        playlists: [] // Loose elements will be dragged into here later
+    };
+    currentMixConfiguration.nodes.push(newFolder);
+    renderMixInterface(); // Refresh layout views
+}
+
+function createNewFolder(folderName) {
+    if (!folderName.trim()) return;
+
+    // Check if your profile has the folders array initialized (for old setups)
+    if (!activeMixProfile.folders) {
+        activeMixProfile.folders = [];
+    }
+
+    const newFolder = {
+        id: 'folder_' + Date.now(),
+        name: folderName,
+        isExpanded: true,
+        folderBalancingEnabled: false, // Default state
+        sliderValue: 50,               // Default weight midpoint
+        pickCounter: 0,
+        isEnabled: true
+    };
+
+    activeMixProfile.folders.push(newFolder);
+    saveMixToLocalStorage(); // Keep states updated
+    
+    // Rerender your view
+    renderMixInterface();
+}
+
+const submitFolderBtn = document.getElementById('submit-folder-btn');
+if (submitFolderBtn) {
+    submitFolderBtn.addEventListener('click', () => {
+        const inputField = document.getElementById('folder-name-input');
+        createNewFolder(inputField.value);
+        inputField.value = ''; // Reset form input string context
+    });
 }
 
 function createDefaultMix() {
@@ -7359,7 +7428,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (playlistContextEnabled && appVisible && !contextSyncedForCurrentTrack) {
                     console.log("Song established. Syncing context...");
                     console.log(`%c playlistContextEnabled ${playlistContextEnabled} targetPlaylist: ${targetPlaylist}`, "color: #51ff00ff;")
-                    syncSpotifyContext(targetPlaylist, currentTrackURI, state.position);
+                    syncSpotifyContext(targetPlaylist, currentTrackURI, (state.position+10000));
                 }
 
                 if(!contextSyncedForCurrentTrack){
