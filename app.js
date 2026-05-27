@@ -3622,17 +3622,18 @@ const stationNetwork = [
     { id: "KGNT",       playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // KOOL 103.9 KGNT  Your Greatest Hits
     { id: "KLZX",       playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // 95.0 KLZX Classic Rock
     { id: "KVFX",       playlistId: "7iyYX42dtmd82tuMIIetlL" }, // 94.5 KVFX VFX Top 40
-    { id: "KBERFM",     playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // KBER
-    { id: "KUBLFMAAC",  playlistId: "2nDRY8T9SruY4U0Dy4OkTS" } // KUBL - KBULL 93 The Bull Country
+    { id: "KBERFM",     playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // KBER 101
+    { id: "KUBLFMAAC",  playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }  // KUBL - KBULL 93 The Bull Country
 ];
 
 //This will round down to the nearest whole integer
 let currentStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
+currentStationNetworkAllowed = 0
 
 let spotifyRadioSleepTime = 2 //min
 // --- MASTER TRACKING CONFIGURATION ---
 const REQ_COOLDOWN_MS = 3.5 * 60 * 60 * 1000; // Hard 3-hour cooldown
-const GLOBAL_SEARCH_CAP = 250;              // Global session search limit
+const GLOBAL_SEARCH_CAP = 200;              // Global session search limit
 let globalSearchesPerformed = 0;             // Shared counter across all stations
 
 async function syncAllRadiosToSpotify(){
@@ -3791,8 +3792,8 @@ async function syncAllRadiosToSpotify(){
             await sleep(spotifyRadioSleepTime * 60 * 1000);
 
             //KBER 101
+            await syncKBERToSpotify("KBERFM","0zMyia0KzbLTi0pEse7i0c") // KBER 101
             console.log("⏸️ Sleeping for 1 minute...");
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
             if(syncRadioSpotifyRateLimit || !spotifySyncAllowed){
                 spotifyRadioSleepTime = 0
             }
@@ -3830,7 +3831,7 @@ async function syncAllRadiosToSpotify(){
  * @param {string} accessToken - Your active Spotify Web API access token.
  * @param {string} playlistId - The target Spotify Playlist ID.
  */
-let syncRadioSpotifyRateLimit = true
+let syncRadioSpotifyRateLimit = false
 let totalSpotifyRateLimit = false
 // Session-level cache for searches (Cleared on page refresh)
 let globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
@@ -3859,6 +3860,9 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
         }
         if(stationNetwork[currentStationNetworkAllowed].id !== stationID){
             console.log(`Current station ${stationID} not granted Spotify Search Gate`)
+            console.log(`stationNetwork[currentStationNetworkAllowed].id: ${stationNetwork[currentStationNetworkAllowed].id}`)
+            //console.log(`currentStationNetworkAllowed: ${currentStationNetworkAllowed}`)
+            //console.log(`currentStationNetworkAllowed: ${currentStationNetworkAllowed}`)
         }
     }
 
@@ -4120,6 +4124,11 @@ console.dir(playlistData.items, { depth: null });
                 
                 //localStorage.setItem(pacingKey, Date.now().toString());
             }
+            console.log(`syncRadioSpotifyRateLimit: ${syncRadioSpotifyRateLimit}`)
+            console.log(`spotifySyncAllowed: ${spotifySyncAllowed}`)
+            console.log(`stationNetwork[currentStationNetworkAllowed].id: '${stationNetwork[currentStationNetworkAllowed].id}'`)
+            console.log(`stationID: '${stationID}'`)
+            console.log(`globalSearchesPerformed: ${globalSearchesPerformed}`)
 
         console.log(`Analyzing accumulated history backlog for station: ${stationID}...`);
         
@@ -4138,6 +4147,8 @@ console.dir(playlistData.items, { depth: null });
             const rawArtist = item.TPE1?.trim() || "";
             const rawTitle = item.TIT2?.trim() || "";
             if (!rawArtist || !rawTitle) continue;
+
+            console.log(`rawArtist: ${rawArtist} rawTitle: ${rawTitle}`)
 
             const artist = cleanMetadataString(rawArtist);
             const title = cleanMetadataString(rawTitle);
@@ -4238,10 +4249,12 @@ console.dir(playlistData.items, { depth: null });
                     spotifySyncAllowed = false
                 }
                 if(stationNetwork[currentStationNetworkAllowed].id !== stationID){
-                    //console.log(`Current station ${stationID} not granted Spotify Search Gate`)
+                    console.log(`Current station ${stationID} not granted Spotify Search Gate`)
                 }
 
-                tracksToSaveForLater.push(item);
+                if(!globalSongCache[cacheKey] && !globalSongCache[fuzzyMatchKey]){
+                    tracksToSaveForLater.push(item);
+                }
                 continue;
             }
             
@@ -4325,8 +4338,8 @@ console.dir(playlistData.items, { depth: null });
                 
                 if (tracks.length > 0) {
                     const foundUri = tracks[0].uri;
-                    const foundartist = tracks[0].artist;
-                    const foundtitle = tracks[0].name;
+                    let foundartist = tracks[0].artists[0].name;
+                    let foundtitle = tracks[0].name;
                     
                     // 🔄 UPDATE OR INITIALIZE TRACK RECORD LOGIC
                     if (globalSongCache[cacheKey]) {
@@ -4365,7 +4378,7 @@ console.dir(playlistData.items, { depth: null });
                         console.log(`✅ [New Search Cached]: ${title} - ${artist} -> ${foundUri}`);
                     }
 
-                    foundartist = cleanMetadataString(tracks[0].artist);
+                    foundartist = cleanMetadataString(tracks[0].artists[0].name);
                     foundtitle = cleanMetadataString(tracks[0].name);
                     //const cacheKey = `${artist}-${title}`.toLowerCase();
 
@@ -4550,6 +4563,16 @@ async function syncKBERToSpotify(stationID = 9999, playlistId = 9999) {
     // --- STEP 0: Load Pending Tracks from LocalStorage ---
     let pendingStorageKey = `pending_tracks_${stationID}`;
     const mirrorKey = `playlist_mirror_${stationID}`;
+
+    // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
+    if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
+        if (globalSearchesPerformed >= GLOBAL_SEARCH_CAP) {
+            console.warn(`🛑 Global Session Cap of ${GLOBAL_SEARCH_CAP} reached mid-run! Deferring remaining tracks.`);
+        }
+        if(stationNetwork[currentStationNetworkAllowed].id !== stationID){
+            console.log(`Current station ${stationID} not granted Spotify Search Gate`)
+        }
+    }
 
     // Triton Digital Open API endpoint configuration for KBER
     //const kberUrl = "https://allorigins.win";
@@ -4866,7 +4889,7 @@ console.dir(item, { depth: null });
 
                 if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
                     trackUrisToAdd.push(foundUri);
-                    console.log(`Song attempted, but not successfully in playlist. Adding to batch artist: ${artist} title: ${title}`)
+                    console.log(`Song in Global Song Cache, but not in THIS playlist. Adding to batch artist: ${artist} title: ${title}`)
                 }
                 console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
                 continue; //It's in cache, no need to search for it
@@ -4911,6 +4934,7 @@ console.dir(item, { depth: null });
                 }
                 if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
                     trackUrisToAdd.push(foundUri);
+                    console.log(`Song in Global Song Cache [Fuzzy Match], but not in THIS playlist. Adding to batch artist: ${artist} title: ${title}`)
                 }
                 continue;
             }
@@ -4926,10 +4950,12 @@ console.dir(item, { depth: null });
                     spotifySyncAllowed = false
                 }
                 if(stationNetwork[currentStationNetworkAllowed].id !== stationID){
-                    //console.log(`Current station ${stationID} not granted Spotify Search Gate`)
+                    console.log(`Current station ${stationID} not granted Spotify Search Gate`)
                 }
 
-                tracksToSaveForLater.push(item);
+                if(!globalSongCache[cacheKey] && !globalSongCache[fuzzyMatchKey]){
+                    tracksToSaveForLater.push(item);
+                }
                 continue;
             }
 
@@ -4961,8 +4987,8 @@ console.dir(item, { depth: null });
             
             if (tracks.length > 0) {
                     const foundUri = tracks[0].uri;
-                    const foundartist = tracks[0].artist;
-                    const foundtitle = tracks[0].name;
+                    let foundartist = tracks[0].artists[0].name;
+                    let foundtitle = tracks[0].name;
                     
                     // 🔄 UPDATE OR INITIALIZE TRACK RECORD LOGIC
                     if (globalSongCache[cacheKey]) {
@@ -5001,7 +5027,7 @@ console.dir(item, { depth: null });
                         console.log(`✅ [New Search Cached]: ${title} - ${artist} -> ${foundUri}`);
                     }
 
-                    foundartist = cleanMetadataString(tracks[0].artist);
+                    foundartist = cleanMetadataString(tracks[0].artists[0].name);
                     foundtitle = cleanMetadataString(tracks[0].name);
                     //const cacheKey = `${artist}-${title}`.toLowerCase();
 
@@ -5403,13 +5429,13 @@ console.dir(playlistData.items, { depth: null });
         }
         }
         else{
-            const mirrorKey = `playlist_mirror_${stationID}`;
+            const mirrorKey = `playlist_mirror_${stationCall}`;
 
             // ✅ 100% Network-free startup pull!
             existingTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
 
             if (existingTrackUris.size === 0) {
-                console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
+                console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationCall}...`);
                 
                 // Execute your standard full-playlist pagination loop here to fetch from Spotify
                 // ... (Your existing code to populate existingTrackUris from Spotify) ...
@@ -5417,7 +5443,7 @@ console.dir(playlistData.items, { depth: null });
                 // Save it to localStorage so you never have to make this API fetch again!
                 localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
             } else {
-                console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
+                console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationCall}. Zero API cost.`);
             }
         }
 
@@ -5481,7 +5507,7 @@ console.dir(playlistData.items, { depth: null });
 
                 if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
                     trackUrisToAdd.push(foundUri);
-                    console.log(`Song attempted, but not successfully in playlist. Adding to batch artist: ${artist} title: ${title}`)
+                    console.log(`Song in Global Song Cache, but not in THIS playlist. Adding to batch artist: ${artist} title: ${title}`)
                 }
                 console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
                 continue; //It's in cache, no need to search for it
@@ -5526,6 +5552,7 @@ console.dir(playlistData.items, { depth: null });
                 }
                 if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
                     trackUrisToAdd.push(foundUri);
+                    console.log(`Song in Global Song Cache [Fuzzy Match], but not in THIS playlist. Adding to batch artist: ${artist} title: ${title}`)
                 }
                 continue;
             }
@@ -5544,7 +5571,9 @@ console.dir(playlistData.items, { depth: null });
                     //console.log(`Current station ${stationCall} not granted Spotify Search Gate`)
                 }
 
-                metadataToSaveForLater.push(item);
+                if(!globalSongCache[cacheKey] && !globalSongCache[fuzzyMatchKey]){
+                    metadataToSaveForLater.push(item);
+                }
                 continue;
             }
 
@@ -5572,8 +5601,8 @@ console.dir(playlistData.items, { depth: null });
                 const tracks = searchData.tracks?.items || [];
                 if (tracks.length > 0) {
                     const foundUri = tracks[0].uri;
-                    const foundartist = tracks[0].artist;
-                    const foundtitle = tracks[0].name;
+                    let foundartist = tracks[0].artists[0].name;
+                    let foundtitle = tracks[0].name;
                     
                     // 🔄 UPDATE OR INITIALIZE TRACK RECORD LOGIC
                     if (globalSongCache[cacheKey]) {
@@ -5612,7 +5641,7 @@ console.dir(playlistData.items, { depth: null });
                         console.log(`✅ [New Search Cached]: ${title} - ${artist} -> ${foundUri}`);
                     }
 
-                    foundartist = cleanMetadataString(tracks[0].artist);
+                    foundartist = cleanMetadataString(tracks[0].artists[0].name);
                     foundtitle = cleanMetadataString(tracks[0].name);
                     //const cacheKey = `${artist}-${title}`.toLowerCase();
 
@@ -10296,7 +10325,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
 if(returnRefreshAccessToken && 1){
 
-    syncRadioSpotifyRateLimit = true
+    syncRadioSpotifyRateLimit = false
 
     syncAllRadiosToSpotify()
 
