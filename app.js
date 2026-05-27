@@ -1868,6 +1868,7 @@ async function getAccessToken() {
     const code = urlParams.get('code');
     const codeVerifier = localStorage.getItem('code_verifier');
     const clientId = localStorage.getItem('spotify_client_id');
+    console.log(`getAccessToken`)
 
     // POST request to exchange code and verifier for access token
     const body = new URLSearchParams({
@@ -3625,12 +3626,13 @@ const stationNetwork = [
     { id: "KUBLFMAAC",  playlistId: "2nDRY8T9SruY4U0Dy4OkTS" } // KUBL - KBULL 93 The Bull Country
 ];
 
-let currentStationNetworkAllowed = 0
+//This will round down to the nearest whole integer
+let currentStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
 
 let spotifyRadioSleepTime = 2 //min
 // --- MASTER TRACKING CONFIGURATION ---
 const REQ_COOLDOWN_MS = 3.5 * 60 * 60 * 1000; // Hard 3-hour cooldown
-const GLOBAL_SEARCH_CAP = 300;              // Global session search limit
+const GLOBAL_SEARCH_CAP = 250;              // Global session search limit
 let globalSearchesPerformed = 0;             // Shared counter across all stations
 
 async function syncAllRadiosToSpotify(){
@@ -3828,9 +3830,10 @@ async function syncAllRadiosToSpotify(){
  * @param {string} accessToken - Your active Spotify Web API access token.
  * @param {string} playlistId - The target Spotify Playlist ID.
  */
-let syncRadioSpotifyRateLimit = false
+let syncRadioSpotifyRateLimit = true
+let totalSpotifyRateLimit = false
 // Session-level cache for searches (Cleared on page refresh)
-const globalSongCache = {};
+let globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
 // ⏱️ TIMEOUT GATE: Check if 1 hour (3600000 ms) has passed since the last Spotify search
 const pacingKey = `last_spotify_sync_time`;
 let spotifySyncAllowed = true;
@@ -3846,17 +3849,18 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
 
     // --- STEP 0: Load Pending Tracks from LocalStorage ---
     let pendingStorageKey = `pending_tracks_${stationID}`;
+    const mirrorKey = `playlist_mirror_${stationID}`;
 
 
-            // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
-            if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
-                if (globalSearchesPerformed >= GLOBAL_SEARCH_CAP) {
-                    console.warn(`🛑 Global Session Cap of ${GLOBAL_SEARCH_CAP} reached mid-run! Deferring remaining tracks.`);
-                }
-                if(stationNetwork[currentStationNetworkAllowed].id !== stationID){
-                    console.log(`Current station ${stationID} not granted Spotify Search Gate`)
-                }
-            }
+    // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
+    if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
+        if (globalSearchesPerformed >= GLOBAL_SEARCH_CAP) {
+            console.warn(`🛑 Global Session Cap of ${GLOBAL_SEARCH_CAP} reached mid-run! Deferring remaining tracks.`);
+        }
+        if(stationNetwork[currentStationNetworkAllowed].id !== stationID){
+            console.log(`Current station ${stationID} not granted Spotify Search Gate`)
+        }
+    }
 
 
 
@@ -3973,7 +3977,8 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
                 else{
                     console.log(`${stationID} unable to parse rawContent`)
                 }
-            } catch (e) {
+            } 
+            catch (e) {
                 console.warn(`⚠️ Proxy gateway ${proxyUrl.split('/')[2]} failed or timed out.`);
             }
         }
@@ -4016,7 +4021,7 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
             console.log("No historical tracks found in the feed.");
         }
 
-    }    
+    }
 
         // Deduplicate local history array to avoid searching for the same song twice in one run
         const uniqueHistory = Array.from(new Set(history.map(s => JSON.stringify(s)))).map(s => JSON.parse(s));
@@ -4032,10 +4037,12 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
 console.dir(uniqueHistory, { depth: null });
 
 
+        let existingTrackUris = new Set();
+        if(!totalSpotifyRateLimit){
+
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
         
-        const existingTrackUris = new Set();
         // Start with the initial 100-item page endpoint
         let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
 
@@ -4048,6 +4055,7 @@ console.dir(uniqueHistory, { depth: null });
 
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
+                    totalSpotifyRateLimit = true
                     break;
                 }
 
@@ -4074,6 +4082,25 @@ console.dir(playlistData.items, { depth: null });
             } catch (err) {
                 console.error("❌ Exception encountered while fetching playlist tracks:", err);
                 break;
+            }
+        }
+        }
+        else{
+            const mirrorKey = `playlist_mirror_${stationID}`;
+
+            // ✅ 100% Network-free startup pull!
+            existingTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+
+            if (existingTrackUris.size === 0) {
+                console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
+                
+                // Execute your standard full-playlist pagination loop here to fetch from Spotify
+                // ... (Your existing code to populate existingTrackUris from Spotify) ...
+                
+                // Save it to localStorage so you never have to make this API fetch again!
+                localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+            } else {
+                console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
             }
         }
 
@@ -4106,25 +4133,103 @@ console.dir(playlistData.items, { depth: null });
             // ✅ Only process items categorized explicitly as music
             if (item.TXXX_category !== 'music') continue;
 
+            // 🧼 RUN PRE-PROCESSOR: Clean and normalize raw station inputs instantly
             // ✅ Use the ID3 metadata tags (TIT2 and TPE1)
-            const artist = item.TPE1?.trim();
-            const title = item.TIT2?.trim();
+            const rawArtist = item.TPE1?.trim() || "";
+            const rawTitle = item.TIT2?.trim() || "";
+            if (!rawArtist || !rawTitle) continue;
+
+            const artist = cleanMetadataString(rawArtist);
+            const title = cleanMetadataString(rawTitle);
             const cacheKey = `${artist}-${title}`.toLowerCase();
 
+            if (!artist || !title) continue;
+            console.log(`artist: ${artist} title: ${title}`)
+
             // Check Global Session Cache First
+            // 🅰️ CHECK 1: Strict Direct Key Match Check
             if (globalSongCache[cacheKey]) {
-                const foundUri = globalSongCache[cacheKey];
-                if (!existingTrackUris.has(foundUri) && !trackUrisToAdd.includes(foundUri)) {
-                    trackUrisToAdd.push(foundUri);
-                    console.log(`Song attempted, but not successfully in playlist. Adding to batch artist: ${artist} title: ${title}`)
+                const cachedTrack = globalSongCache[cacheKey];
+                const foundUri = cachedTrack.uri;
+                const alternates = cachedTrack.alternate_uris || []
+
+                // Target property arrays check: Has THIS station already synced this track?
+                const alreadySyncedOnThisStation = cachedTrack.stations_synced.includes(stationID);
+
+                console.log(`Song already in Global Song Cache - artist: ${artist} title: ${title}`)
+
+                // 🛡️ CANONICAL CROSS-REFERENCE CHECK: Does the playlist contain ANY known version of this song?
+                let isAnyVariantOnPlaylist
+                if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                    console.log(`Original track not in playlist, but alternate track is.`)
+                    isAnyVariantOnPlaylist = true
                 }
-                console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
+
+                if(alreadySyncedOnThisStation) {
+                    // Case 1: Already searched AND already added to this specific playlist. 
+                    // Completely drop from this execution loop fraction! No network action needed.
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                }
+                else {
+                    // Mark this station ID inside the global cache array matrix immediately
+                    cachedTrack.stations_synced.push(stationID);
+                }
+
+                if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                    trackUrisToAdd.push(foundUri);
+                    console.log(`Song in Global Song Cache, but not in THIS playlist. Adding to batch artist: ${artist} title: ${title}`)
+                }
+                continue; //It's in cache, no need to search for it
+            }
+
+            // 🅱️ CHECK 2: Fuzzy Cache Scanner Intercept
+            // Threshold set to 0.88 (88% similarity) to catch typos while protecting accuracy
+            // Why an 88% Threshold is the Sweet Spot
+            // Setting the similarity threshold requires balancing coverage and precision:
+            // Too High (e.g., 98%): Misses basic variations like Lady "a" vs Lady A.
+            // Too Low (e.g., 70%): Risk falsely auto-mapping distinct tracks with similar title structures 
+            // (e.g., matching Guns N' Roses - Live and Let Die to Paul McCartney - Live and Let Die).
+            // The Sweet Spot (88%): Safely catches missing punctuation, quote formats, and stray 
+            // line markers, while keeping completely different songs separated accurately.
+            const fuzzyMatchKey = scanCacheForFuzzyMatch(artist, title, globalSongCache, 0.88);
+
+            if (fuzzyMatchKey) {
+                const cachedTrack = globalSongCache[fuzzyMatchKey];
+                const foundUri = cachedTrack.uri;
+                const alternates = cachedTrack.alternate_uris || []
+
+                // Target property arrays check: Has THIS station already synced this track?
+                const alreadySyncedOnThisStation = cachedTrack.stations_synced.includes(stationID);
+
+                console.log(`Song already in Global Song Cache [Fuzzy Match] - artist: ${artist} title: ${title}`)
+
+                // 🛡️ CANONICAL CROSS-REFERENCE CHECK: Does the playlist contain ANY known version of this song?
+                let isAnyVariantOnPlaylist
+                if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                    console.log(`Original track not in playlist, but alternate track is.`)
+                    isAnyVariantOnPlaylist = true
+                }
+
+                if(alreadySyncedOnThisStation) {
+                    // Case 1: Already searched AND already added to this specific playlist. 
+                    // Completely drop from this execution loop fraction! No network action needed.
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                }
+                else{
+                    // Add your station ID to this track's historical syncing records matrix
+                    cachedTrack.stations_synced.push(stationID);
+                }
+                if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                    trackUrisToAdd.push(foundUri);
+                    console.log(`Song in Global Song Cache [Fuzzy Match], but not in THIS playlist. Adding to batch artist: ${artist} title: ${title}`)
+                }
                 continue;
             }
 
-            console.log(`artist: ${artist} title: ${title}`)
+            // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+            // Save the updated object map right after this station finishes its loop logic pass
+            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
 
-            if (!artist || !title) continue;
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
             if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
@@ -4172,29 +4277,29 @@ console.dir(playlistData.items, { depth: null });
                     }
                 });
 
-    if (proxyResponse.status === 429) {
-        // This will only run if the proxy server ALSO gets rate limited by Spotify
-        const retryAfter = proxyResponse.headers.get("retry-after");
-        console.log(`⏱️ Both local and proxy IPs rate limited. Retry after: ${retryAfter}s`);
-        tracksToSaveForLater.push(item);
-        continue; 
-    } 
-    
-    if (proxyResponse.status === 200) {
-        console.log(`✅ Proxy successfully bypassed the 429 limit.`);
-        
-        // CRITICAL: Extract and process the data so you don't lose the track!
-        const data = await proxyResponse.json();
-        
-        // Add your normal track processing logic here, for example:
-        // const track = data.tracks.items[0];
-        // saveSpotifyTrack(track); 
-        
-        //continue; // Successfully recovered, move to the next item
-    }
-    
-    // Catch-all for other proxy errors (403, 500, etc.)
-    console.error(`❌ Proxy failed with status: ${proxyResponse.status}`);
+                if (proxyResponse.status === 429) {
+                    // This will only run if the proxy server ALSO gets rate limited by Spotify
+                    const retryAfter = proxyResponse.headers.get("retry-after");
+                    console.log(`⏱️ Both local and proxy IPs rate limited. Retry after: ${retryAfter}s`);
+                    tracksToSaveForLater.push(item);
+                    continue; 
+                } 
+                
+                if (proxyResponse.status === 200) {
+                    console.log(`✅ Proxy successfully bypassed the 429 limit.`);
+                    
+                    // CRITICAL: Extract and process the data so you don't lose the track!
+                    const data = await proxyResponse.json();
+                    
+                    // Add your normal track processing logic here, for example:
+                    // const track = data.tracks.items[0];
+                    // saveSpotifyTrack(track); 
+                    
+                    //continue; // Successfully recovered, move to the next item
+                }
+                
+                // Catch-all for other proxy errors (403, 500, etc.)
+                console.error(`❌ Proxy failed with status: ${proxyResponse.status}`);
 
                 if (proxyResponse.status === 429) {
                     // The public proxy exposes ALL headers to the browser by default
@@ -4220,29 +4325,112 @@ console.dir(playlistData.items, { depth: null });
                 
                 if (tracks.length > 0) {
                     const foundUri = tracks[0].uri;
-                    globalSongCache[cacheKey] = foundUri; // Store in session cache
-                    if (!existingTrackUris.has(foundUri) && !trackUrisToAdd.includes(foundUri)) {
-                        trackUrisToAdd.push(foundUri);
-                        console.log(`✅ Found New Track: ${title} - ${artist}`);
+                    const foundartist = tracks[0].artist;
+                    const foundtitle = tracks[0].name;
+                    
+                    // 🔄 UPDATE OR INITIALIZE TRACK RECORD LOGIC
+                    if (globalSongCache[cacheKey]) {
+                        // Entry already exists, meaning this live search discovered an alternative variant link
+                        const cachedTrack = globalSongCache[cacheKey];
+                        console.log(`✅ [New Search already in Cache]: ${title} - ${artist} -> ${foundUri}`);
+
+                        if (!cachedTrack.alternate_uris) cachedTrack.alternate_uris = [];
+                        
+                        // Append to variants list if it's a completely new unique ID string
+                        if (cachedTrack.uri !== foundUri && !cachedTrack.alternate_uris.includes(foundUri)) {
+                            cachedTrack.alternate_uris.push(foundUri);
+                            console.log(`🔗 [Variant Added] Appended alternate track alias mapping: ${foundUri}`);
+                            if(tracks[0].linked_from?.id){
+                                cachedTrack.alternate_uris.push(tracks[0].linked_from?.url)
+                            }
+                        }
+                        
+                        if (!cachedTrack.stations_synced.includes(stationID)) {
+                            cachedTrack.stations_synced.push(stationID);
+                        }
+                    }
+                    else {
+                        // Brand new record initialization structure
+                        globalSongCache[cacheKey] = {
+                            uri: foundUri,
+                            alternate_uris: [], // Ready to collect variations on subsequent runs
+                            resolved_title: foundtitle,
+                            resolved_artist: foundartist,
+                            stations_synced: [stationID]
+                        };
+                        if(tracks[0].linked_from?.id){
+                            globalSongCache[cacheKey].alternate_uris.push(tracks[0].linked_from?.uri)
+                        }
+
+                        console.log(`✅ [New Search Cached]: ${title} - ${artist} -> ${foundUri}`);
                     }
 
+                    foundartist = cleanMetadataString(tracks[0].artist);
+                    foundtitle = cleanMetadataString(tracks[0].name);
+                    //const cacheKey = `${artist}-${title}`.toLowerCase();
+
+                    const foundfuzzyMatchKey = scanCacheForFuzzyMatch(foundartist, foundtitle, globalSongCache, 0.88);
+
+                    if (foundfuzzyMatchKey) {
+                        // Entry already exists, meaning this live search discovered an alternative variant link
+                        const cachedTrack = globalSongCache[foundfuzzyMatchKey];
+                        console.log(`✅ [New Search already [Fuzzy Match] in Cache]: ${title} - ${artist} -> ${foundUri}`);
+
+                        if (!cachedTrack.alternate_uris) cachedTrack.alternate_uris = [];
+
+                        if (cachedTrack.uri !== foundUri && !cachedTrack.alternate_uris.includes(foundUri)) {
+                            cachedTrack.alternate_uris.push(foundUri)
+                            console.log(`🔗 [Variant Added] Appended alternate track alias [Fuzzy Match] mapping: ${foundUri}`);
+                            if(tracks[0].linked_from?.id){
+                                cachedTrack.alternate_uris.push(tracks[0].linked_from?.url)
+                            }
+                        }
+                        
+                        if(!cachedTrack.stations_synced.includes(stationID)){
+                            cachedTrack.stations_synced.push(stationID);
+                        }
+                    }
+                    
                     // ✅ DUPLICATE CHECK: Skip adding to queue if it's already on your playlist
                     if (existingTrackUris.has(foundUri)) {
                         console.log(`⏭️ Skipping (Already in Playlist): ${title} - ${artist}`);
                     } 
-                    // else {
-                    //     trackUrisToAdd.push(foundUri);
-                    //     console.log(`✅ Found New Track: ${title} - ${artist}`);
-                    // }
-                } 
+
+                    // ✅ DUPLICATE CHECK: Skip adding to playlist if it's already on your playlist
+                    const alternates = globalSongCache[cacheKey].alternate_uris
+                    //No alternates exist - otherwise we wouldn't have gotten this far
+                    let isAnyVariantOnPlaylist
+                    if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                        console.log(`Original track not in playlist, but alternate track is.`)
+                        isAnyVariantOnPlaylist = true
+                    }
+                    const fuzzyalternates = globalSongCache[cacheKey].alternate_uris
+                    //No alternates exist - otherwise we wouldn't have gotten this far
+                    let isAnyFuzzyVariantOnPlaylist
+                    if(fuzzyalternates.some(altUri => existingTrackUris.has(altUri))){
+                        console.log(`Original [Fuzzy Match] track not in playlist, but alternate track is.`)
+                        isAnyVariantOnPlaylist = true
+                    }
+
+                    if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !isAnyFuzzyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                        trackUrisToAdd.push(foundUri);
+                        console.log(`✅ Found New Track: ${title} - ${artist}`);
+                    }
+
+                    console.log(`✅ [Search Complete] Processed: ${title} - ${artist} -> ${foundUri}`);
+                }
                 else {
                     console.log(`❌ Not Found on Spotify: ${title} - ${artist}`);
                 }
-            } else {
+            }
+            else {
                 console.log(`⚠️ Search failed for: ${title} - ${artist} (Status: ${searchResponse.status})`);
             }
         }
 
+        // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+        // Save the updated object map right after this station finishes its loop logic pass
+        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
@@ -4292,6 +4480,12 @@ console.dir(playlistData.items, { depth: null });
                     }
                     if (appendResponse.ok) {
                         console.log("🎉 Success! Playlist updated.");
+
+                        // ✅ Keep the local reverse-mirror perfectly synced with Spotify's servers
+                        for (const uri of batch) {
+                            existingTrackUris.add(uri);
+                        }
+                        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
                     } 
                     else {
                         const errData = await appendResponse.json();
@@ -4330,7 +4524,7 @@ console.dir(playlistData.items, { depth: null });
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : "🎉 Station sync complete.");
 
-    } 
+    }
     catch (error) {
         console.error("Error syncing radio playlist:", error);
     }
@@ -4355,6 +4549,7 @@ async function syncKBERToSpotify(stationID = 9999, playlistId = 9999) {
 
     // --- STEP 0: Load Pending Tracks from LocalStorage ---
     let pendingStorageKey = `pending_tracks_${stationID}`;
+    const mirrorKey = `playlist_mirror_${stationID}`;
 
     // Triton Digital Open API endpoint configuration for KBER
     //const kberUrl = "https://allorigins.win";
@@ -4532,10 +4727,13 @@ if(newStationSearchAllowed){
             return;
         }
 
+
+        let existingTrackUris = new Set();
+        if(!totalSpotifyRateLimit){
+
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
         
-        const existingTrackUris = new Set();
         // Start with the initial 100-item page endpoint
         let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
 
@@ -4548,6 +4746,7 @@ if(newStationSearchAllowed){
 
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
+                    totalSpotifyRateLimit = true
                     break;
                 }
 
@@ -4576,6 +4775,27 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
+        }
+        else{
+            const mirrorKey = `playlist_mirror_${stationID}`;
+
+            // ✅ 100% Network-free startup pull!
+            existingTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+
+            if (existingTrackUris.size === 0) {
+                console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
+                
+                // Execute your standard full-playlist pagination loop here to fetch from Spotify
+                // ... (Your existing code to populate existingTrackUris from Spotify) ...
+                
+                // Save it to localStorage so you never have to make this API fetch again!
+                localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+            } else {
+                console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
+            }
+        }
+
+
 
         console.log(`🎯 Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
 
@@ -4595,32 +4815,109 @@ console.dir(uniqueHistory, { depth: null });
                 //localStorage.setItem(pacingKey, Date.now().toString());
             }
 
-        // 2. Loop through XML nodes instead of a JSON array
-        for (let i = 0; i < uniqueHistory.length; i++) {
-            const item = uniqueHistory[i];
+        // 2. Loop through tracks and find their Spotify URIs
+        for (const item of uniqueHistory) {
 console.dir(item, { depth: null });
             
-            const artist = item.TPE1?.trim();
-            const title = item.TIT2?.trim();
+            // 🧼 RUN PRE-PROCESSOR: Clean and normalize raw station inputs instantly
+            // ✅ Use the ID3 metadata tags (TIT2 and TPE1)
+            const rawArtist = item.TPE1?.trim() || "";
+            const rawTitle = item.TIT2?.trim() || "";
+            if (!rawArtist || !rawTitle) continue;
+
+            const artist = cleanMetadataString(rawArtist);
+            const title = cleanMetadataString(rawTitle);
             const cacheKey = `${artist}-${title}`.toLowerCase();
 
+            if (!artist || !title) continue;
             console.log(`artist: ${artist} title: ${title}`)
             
             // Skip ads or incomplete tracks
             if (!title || !artist || title.toLowerCase() === "advertisement") continue;
 
             // Check Global Session Cache First
+            // 🅰️ CHECK 1: Strict Direct Key Match Check
             if (globalSongCache[cacheKey]) {
-                const foundUri = globalSongCache[cacheKey];
-                if (!existingTrackUris.has(foundUri) && !trackUrisToAdd.includes(foundUri)) {
+                const cachedTrack = globalSongCache[cacheKey];
+                const foundUri = cachedTrack.uri;
+                const alternates = cachedTrack.alternate_uris || []
+
+                // Target property arrays check: Has THIS station already synced this track?
+                const alreadySyncedOnThisStation = cachedTrack.stations_synced.includes(stationID);
+
+                console.log(`Song already in Global Song Cache - artist: ${artist} title: ${title}`)
+
+                // 🛡️ CANONICAL CROSS-REFERENCE CHECK: Does the playlist contain ANY known version of this song?
+                let isAnyVariantOnPlaylist
+                if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                    console.log(`Original track not in playlist, but alternate track is.`)
+                    isAnyVariantOnPlaylist = true
+                }
+
+                if(alreadySyncedOnThisStation) {
+                    // Case 1: Already searched AND already added to this specific playlist. 
+                    // Completely drop from this execution loop fraction! No network action needed.
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                }
+                else {
+                    // Mark this station ID inside the global cache array matrix immediately
+                    cachedTrack.stations_synced.push(stationID);
+                }
+
+                if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
                     trackUrisToAdd.push(foundUri);
                     console.log(`Song attempted, but not successfully in playlist. Adding to batch artist: ${artist} title: ${title}`)
                 }
                 console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
+                continue; //It's in cache, no need to search for it
+            }
+
+            // 🅱️ CHECK 2: Fuzzy Cache Scanner Intercept
+            // Threshold set to 0.88 (88% similarity) to catch typos while protecting accuracy
+            // Why an 88% Threshold is the Sweet Spot
+            // Setting the similarity threshold requires balancing coverage and precision:
+            // Too High (e.g., 98%): Misses basic variations like Lady "a" vs Lady A.
+            // Too Low (e.g., 70%): Risk falsely auto-mapping distinct tracks with similar title structures 
+            // (e.g., matching Guns N' Roses - Live and Let Die to Paul McCartney - Live and Let Die).
+            // The Sweet Spot (88%): Safely catches missing punctuation, quote formats, and stray 
+            // line markers, while keeping completely different songs separated accurately.
+            const fuzzyMatchKey = scanCacheForFuzzyMatch(artist, title, globalSongCache, 0.88);
+
+            if (fuzzyMatchKey) {
+                const cachedTrack = globalSongCache[fuzzyMatchKey];
+                const foundUri = cachedTrack.uri;
+                const alternates = cachedTrack.alternate_uris || []
+
+                // Target property arrays check: Has THIS station already synced this track?
+                const alreadySyncedOnThisStation = cachedTrack.stations_synced.includes(stationID);
+
+                console.log(`Song already in Global Song Cache [Fuzzy Match] - artist: ${artist} title: ${title}`)
+
+                // 🛡️ CANONICAL CROSS-REFERENCE CHECK: Does the playlist contain ANY known version of this song?
+                let isAnyVariantOnPlaylist
+                if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                    console.log(`Original track not in playlist, but alternate track is.`)
+                    isAnyVariantOnPlaylist = true
+                }
+
+                if(alreadySyncedOnThisStation) {
+                    // Case 1: Already searched AND already added to this specific playlist. 
+                    // Completely drop from this execution loop fraction! No network action needed.
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                }
+                else{
+                    // Add your station ID to this track's historical syncing records matrix
+                    cachedTrack.stations_synced.push(stationID);
+                }
+                if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                    trackUrisToAdd.push(foundUri);
+                }
                 continue;
             }
 
-            if (!artist || !title) continue;
+            // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+            // Save the updated object map right after this station finishes its loop logic pass
+            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
             if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
@@ -4663,26 +4960,109 @@ console.dir(item, { depth: null });
             const tracks = searchData.tracks?.items || [];
             
             if (tracks.length > 0) {
-                const foundUri = tracks[0].uri;
-                globalSongCache[cacheKey] = foundUri; // Store in session cache
-                if (!existingTrackUris.has(foundUri) && !trackUrisToAdd.includes(foundUri)) {
-                    trackUrisToAdd.push(foundUri);
-                    console.log(`✅ Found New Track: ${title} - ${artist}`);
-                }
+                    const foundUri = tracks[0].uri;
+                    const foundartist = tracks[0].artist;
+                    const foundtitle = tracks[0].name;
+                    
+                    // 🔄 UPDATE OR INITIALIZE TRACK RECORD LOGIC
+                    if (globalSongCache[cacheKey]) {
+                        // Entry already exists, meaning this live search discovered an alternative variant link
+                        const cachedTrack = globalSongCache[cacheKey];
+                        console.log(`✅ [New Search already in Cache]: ${title} - ${artist} -> ${foundUri}`);
 
-                // ✅ DUPLICATE CHECK: Skip adding to queue if it's already on your playlist
-                if (existingTrackUris.has(foundUri)) {
-                    console.log(`⏭️ Skipping (Already in Playlist): ${title} - ${artist}`);
-                } 
-                // else {
-                //     trackUrisToAdd.push(foundUri);
-                //     console.log(`✅ Found New Rock Track: ${title} - ${artist}`);
-                // }
+                        if (!cachedTrack.alternate_uris) cachedTrack.alternate_uris = [];
+                        
+                        // Append to variants list if it's a completely new unique ID string
+                        if (cachedTrack.uri !== foundUri && !cachedTrack.alternate_uris.includes(foundUri)) {
+                            cachedTrack.alternate_uris.push(foundUri);
+                            console.log(`🔗 [Variant Added] Appended alternate track alias mapping: ${foundUri}`);
+                            if(tracks[0].linked_from?.id){
+                                cachedTrack.alternate_uris.push(tracks[0].linked_from?.url)
+                            }
+                        }
+                        
+                        if (!cachedTrack.stations_synced.includes(stationID)) {
+                            cachedTrack.stations_synced.push(stationID);
+                        }
+                    } 
+                    else {
+                        // Brand new record initialization structure
+                        globalSongCache[cacheKey] = {
+                            uri: foundUri,
+                            alternate_uris: [], // Ready to collect variations on subsequent runs
+                            resolved_title: foundtitle,
+                            resolved_artist: foundartist,
+                            stations_synced: [stationID]
+                        };
+                        if(tracks[0].linked_from?.id){
+                            globalSongCache[cacheKey].alternate_uris.push(tracks[0].linked_from?.uri)
+                        }
+
+                        console.log(`✅ [New Search Cached]: ${title} - ${artist} -> ${foundUri}`);
+                    }
+
+                    foundartist = cleanMetadataString(tracks[0].artist);
+                    foundtitle = cleanMetadataString(tracks[0].name);
+                    //const cacheKey = `${artist}-${title}`.toLowerCase();
+
+                    const foundfuzzyMatchKey = scanCacheForFuzzyMatch(foundartist, foundtitle, globalSongCache, 0.88);
+
+                    if (foundfuzzyMatchKey) {
+                        // Entry already exists, meaning this live search discovered an alternative variant link
+                        const cachedTrack = globalSongCache[foundfuzzyMatchKey];
+                        console.log(`✅ [New Search already [Fuzzy Match] in Cache]: ${title} - ${artist} -> ${foundUri}`);
+
+                        if (!cachedTrack.alternate_uris) cachedTrack.alternate_uris = [];
+
+                        if (cachedTrack.uri !== foundUri && !cachedTrack.alternate_uris.includes(foundUri)) {
+                            cachedTrack.alternate_uris.push(foundUri)
+                            console.log(`🔗 [Variant Added] Appended alternate track alias [Fuzzy Match] mapping: ${foundUri}`);
+                            if(tracks[0].linked_from?.id){
+                                cachedTrack.alternate_uris.push(tracks[0].linked_from?.url)
+                            }
+                        }
+                        
+                        if(!cachedTrack.stations_synced.includes(stationID)){
+                            cachedTrack.stations_synced.push(stationID);
+                        }
+                    }
+                    
+                    // ✅ DUPLICATE CHECK: Skip adding to queue if it's already on your playlist
+                    if (existingTrackUris.has(foundUri)) {
+                        console.log(`⏭️ Skipping (Already in Playlist): ${title} - ${artist}`);
+                    } 
+
+                    // ✅ DUPLICATE CHECK: Skip adding to playlist if it's already on your playlist
+                    const alternates = globalSongCache[cacheKey].alternate_uris
+                    //No alternates exist - otherwise we wouldn't have gotten this far
+                    let isAnyVariantOnPlaylist
+                    if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                        console.log(`Original track not in playlist, but alternate track is.`)
+                        isAnyVariantOnPlaylist = true
+                    }
+                    const fuzzyalternates = globalSongCache[cacheKey].alternate_uris
+                    //No alternates exist - otherwise we wouldn't have gotten this far
+                    let isAnyFuzzyVariantOnPlaylist
+                    if(fuzzyalternates.some(altUri => existingTrackUris.has(altUri))){
+                        console.log(`Original [Fuzzy Match] track not in playlist, but alternate track is.`)
+                        isAnyVariantOnPlaylist = true
+                    }
+
+                    if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !isAnyFuzzyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                        trackUrisToAdd.push(foundUri);
+                        console.log(`✅ Found New Track: ${title} - ${artist}`);
+                    }
+
+                    console.log(`✅ [Search Complete] Processed: ${title} - ${artist} -> ${foundUri}`);
             }
             else {
                 console.log(`❌ Not Found on Spotify: ${title} - ${artist}`);
             }
         }
+
+        // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+        // Save the updated object map right after this station finishes its loop logic pass
+        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
@@ -4730,6 +5110,12 @@ console.dir(item, { depth: null });
                     }
                     if (appendResponse.ok) {
                         console.log("🎉 Success! Playlist updated.");
+
+                        // ✅ Keep the local reverse-mirror perfectly synced with Spotify's servers
+                        for (const uri of batch) {
+                            existingTrackUris.add(uri);
+                        }
+                        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
                     } 
                     else {
                         const errData = await appendResponse.json();
@@ -4781,7 +5167,7 @@ async function syncKBLQToSpotify(stationCall, playlistId = 9999) {
     console.log(`%c [KBLQ Cirrus] Fetching live history from Cache Valley Media Group (${stationCall})...`, "color: #1a8cff; background: #000000;");
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
-            if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
+            if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationCall) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
                 if (globalSearchesPerformed >= GLOBAL_SEARCH_CAP) {
                     console.warn(`🛑 Global Session Cap of ${GLOBAL_SEARCH_CAP} reached mid-run! Deferring remaining tracks.`);
                 }
@@ -4793,6 +5179,7 @@ async function syncKBLQToSpotify(stationCall, playlistId = 9999) {
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     const pendingMetadataKey = `pending_tracks_${stationCall}`;
     const pendingUrisKey = `pending_uris_${stationCall}`;
+    const mirrorKey = `playlist_mirror_${stationCall}`;
 
     // --- STEP 1: PREPARE AND RESTORE TRACK QUEUES ---
     let trackUrisToAdd = JSON.parse(localStorage.getItem(pendingUrisKey)) || [];
@@ -4967,10 +5354,12 @@ console.log(`freshHistory: ${freshHistory}`)
 console.log(`uniqueHistory: ${uniqueHistory}`)
 console.log(uniqueHistory.keys)
 
+        let existingTrackUris = new Set();
+        if(!totalSpotifyRateLimit){
+
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
         
-        const existingTrackUris = new Set();
         // Start with the initial 100-item page endpoint
         let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
 
@@ -4983,6 +5372,7 @@ console.log(uniqueHistory.keys)
 
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
+                    totalSpotifyRateLimit = true
                     break;
                 }
 
@@ -5011,6 +5401,25 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
+        }
+        else{
+            const mirrorKey = `playlist_mirror_${stationID}`;
+
+            // ✅ 100% Network-free startup pull!
+            existingTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+
+            if (existingTrackUris.size === 0) {
+                console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
+                
+                // Execute your standard full-playlist pagination loop here to fetch from Spotify
+                // ... (Your existing code to populate existingTrackUris from Spotify) ...
+                
+                // Save it to localStorage so you never have to make this API fetch again!
+                localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+            } else {
+                console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
+            }
+        }
 
         console.log(`🎯 Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
 
@@ -5028,24 +5437,102 @@ console.dir(playlistData.items, { depth: null });
             }
 
         for (const item of uniqueHistory) {
-            //const artist = item.artist;
-            //const title = item.title;
-            const artist = item.TPE1?.trim();
-            const title = item.TIT2?.trim();
+            // 🧼 RUN PRE-PROCESSOR: Clean and normalize raw station inputs instantly
+            // ✅ Use the ID3 metadata tags (TIT2 and TPE1)
+            const rawArtist = item.TPE1?.trim() || "";
+            const rawTitle = item.TIT2?.trim() || "";
+            if (!rawArtist || !rawTitle) continue;
+
+            const artist = cleanMetadataString(rawArtist);
+            const title = cleanMetadataString(rawTitle);
             const cacheKey = `${artist}-${title}`.toLowerCase();
 
+            if (!artist || !title) continue;
             console.log(`artist: ${artist} title: ${title}`)
-            //const cacheKey = `${artist}|${title}`.toLowerCase();
 
-
-            // Check Session Cache
+            // Check Global Session Cache First
+            // 🅰️ CHECK 1: Strict Direct Key Match Check
             if (globalSongCache[cacheKey]) {
-                const cachedUri = globalSongCache[cacheKey];
-                if (!existingTrackUris.has(cachedUri) && !trackUrisToAdd.includes(cachedUri)) {
-                    trackUrisToAdd.push(cachedUri);
+                const cachedTrack = globalSongCache[cacheKey];
+                const foundUri = cachedTrack.uri;
+                const alternates = cachedTrack.alternate_uris || []
+
+                // Target property arrays check: Has THIS station already synced this track?
+                const alreadySyncedOnThisStation = cachedTrack.stations_synced.includes(stationCall);
+
+                console.log(`Song already global song cache - artist: ${artist} title: ${title}`)
+
+                // 🛡️ CANONICAL CROSS-REFERENCE CHECK: Does the playlist contain ANY known version of this song?
+                let isAnyVariantOnPlaylist
+                if(!existingTrackUris.has(foundUri) && alternates.some(altUri => existingTrackUris.has(altUri))){
+                    console.log(`Original track not in playlist, but alternate track is.`)
+                    isAnyVariantOnPlaylist = true
+                }
+
+                if(alreadySyncedOnThisStation) {
+                    // Case 1: Already searched AND already added to this specific playlist. 
+                    // Completely drop from this execution loop fraction! No network action needed.
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                }
+                else {
+                    // Mark this station ID inside the global cache array matrix immediately
+                    cachedTrack.stations_synced.push(stationCall);
+                }
+
+                if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                    trackUrisToAdd.push(foundUri);
+                    console.log(`Song attempted, but not successfully in playlist. Adding to batch artist: ${artist} title: ${title}`)
+                }
+                console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
+                continue; //It's in cache, no need to search for it
+            }
+
+            // 🅱️ CHECK 2: Fuzzy Cache Scanner Intercept
+            // Threshold set to 0.88 (88% similarity) to catch typos while protecting accuracy
+            // Why an 88% Threshold is the Sweet Spot
+            // Setting the similarity threshold requires balancing coverage and precision:
+            // Too High (e.g., 98%): Misses basic variations like Lady "a" vs Lady A.
+            // Too Low (e.g., 70%): Risk falsely auto-mapping distinct tracks with similar title structures 
+            // (e.g., matching Guns N' Roses - Live and Let Die to Paul McCartney - Live and Let Die).
+            // The Sweet Spot (88%): Safely catches missing punctuation, quote formats, and stray 
+            // line markers, while keeping completely different songs separated accurately.
+            const fuzzyMatchKey = scanCacheForFuzzyMatch(artist, title, globalSongCache, 0.88);
+
+            if (fuzzyMatchKey) {
+                const cachedTrack = globalSongCache[fuzzyMatchKey];
+                const foundUri = cachedTrack.uri;
+                const alternates = cachedTrack.alternate_uris || []
+
+                // Target property arrays check: Has THIS station already synced this track?
+                const alreadySyncedOnThisStation = cachedTrack.stations_synced.includes(stationCall);
+
+                console.log(`Song already in Global Song Cache [Fuzzy Match] - artist: ${artist} title: ${title}`)
+
+                // 🛡️ CANONICAL CROSS-REFERENCE CHECK: Does the playlist contain ANY known version of this song?
+                let isAnyVariantOnPlaylist
+                if(!existingTrackUris.has(foundUri) && alternates.some(altUri => existingTrackUris.has(altUri))){
+                    console.log(`Original track not in playlist, but alternate track is.`)
+                    isAnyVariantOnPlaylist = true
+                }
+
+                if(alreadySyncedOnThisStation) {
+                    // Case 1: Already searched AND already added to this specific playlist. 
+                    // Completely drop from this execution loop fraction! No network action needed.
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                }
+                else{
+                    // Add your station ID to this track's historical syncing records matrix
+                    cachedTrack.stations_synced.push(stationCall);
+                }
+                if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                    trackUrisToAdd.push(foundUri);
                 }
                 continue;
             }
+
+            // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+            // Save the updated object map right after this station finishes its loop logic pass
+            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
             if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationCall) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
@@ -5085,23 +5572,119 @@ console.dir(playlistData.items, { depth: null });
                 const tracks = searchData.tracks?.items || [];
                 if (tracks.length > 0) {
                     const foundUri = tracks[0].uri;
-                    globalSongCache[cacheKey] = foundUri; // Save in session tree
-                    if (!existingTrackUris.has(foundUri) && !trackUrisToAdd.includes(foundUri)) {
-                        trackUrisToAdd.push(foundUri);
-                        console.log(`✅ Found New Q92 Track: ${title} - ${artist}`);
+                    const foundartist = tracks[0].artist;
+                    const foundtitle = tracks[0].name;
+                    
+                    // 🔄 UPDATE OR INITIALIZE TRACK RECORD LOGIC
+                    if (globalSongCache[cacheKey]) {
+                        // Entry already exists, meaning this live search discovered an alternative variant link
+                        const cachedTrack = globalSongCache[cacheKey];
+                        console.log(`✅ [New Search already in Cache]: ${title} - ${artist} -> ${foundUri}`);
+
+                        if (!cachedTrack.alternate_uris) cachedTrack.alternate_uris = [];
+                        
+                        // Append to variants list if it's a completely new unique ID string
+                        if (cachedTrack.uri !== foundUri && !cachedTrack.alternate_uris.includes(foundUri)) {
+                            cachedTrack.alternate_uris.push(foundUri);
+                            console.log(`🔗 [Variant Added] Appended alternate track alias mapping: ${foundUri}`);
+                            if(tracks[0].linked_from?.id){
+                                cachedTrack.alternate_uris.push(tracks[0].linked_from?.url)
+                            }
+                        }
+                        
+                        if (!cachedTrack.stations_synced.includes(stationCall)) {
+                            cachedTrack.stations_synced.push(stationCall);
+                        }
                     }
-                } else {
+                    else {
+                        // Brand new record initialization structure
+                        globalSongCache[cacheKey] = {
+                            uri: foundUri,
+                            alternate_uris: [], // Ready to collect variations on subsequent runs
+                            resolved_title: foundtitle,
+                            resolved_artist: foundartist,
+                            stations_synced: [stationCall]
+                        };
+                        if(tracks[0].linked_from?.id){
+                            globalSongCache[cacheKey].alternate_uris.push(tracks[0].linked_from?.uri)
+                        }
+
+                        console.log(`✅ [New Search Cached]: ${title} - ${artist} -> ${foundUri}`);
+                    }
+
+                    foundartist = cleanMetadataString(tracks[0].artist);
+                    foundtitle = cleanMetadataString(tracks[0].name);
+                    //const cacheKey = `${artist}-${title}`.toLowerCase();
+
+                    const foundfuzzyMatchKey = scanCacheForFuzzyMatch(foundartist, foundtitle, globalSongCache, 0.88);
+
+                    if (foundfuzzyMatchKey) {
+                        // Entry already exists, meaning this live search discovered an alternative variant link
+                        const cachedTrack = globalSongCache[foundfuzzyMatchKey];
+                        console.log(`✅ [New Search already [Fuzzy Match] in Cache]: ${title} - ${artist} -> ${foundUri}`);
+
+                        if (!cachedTrack.alternate_uris) cachedTrack.alternate_uris = [];
+
+                        if (cachedTrack.uri !== foundUri && !cachedTrack.alternate_uris.includes(foundUri)) {
+                            cachedTrack.alternate_uris.push(foundUri)
+                            console.log(`🔗 [Variant Added] Appended alternate track alias [Fuzzy Match] mapping: ${foundUri}`);
+                            if(tracks[0].linked_from?.id){
+                                cachedTrack.alternate_uris.push(tracks[0].linked_from?.url)
+                            }
+                        }
+                        
+                        if(!cachedTrack.stations_synced.includes(stationCall)){
+                            cachedTrack.stations_synced.push(stationCall);
+                        }
+                    }
+                    
+                    // ✅ DUPLICATE CHECK: Skip adding to queue if it's already on your playlist
+                    if (existingTrackUris.has(foundUri)) {
+                        console.log(`⏭️ Skipping (Already in Playlist): ${title} - ${artist}`);
+                    } 
+
+                    // ✅ DUPLICATE CHECK: Skip adding to playlist if it's already on your playlist
+                    const alternates = globalSongCache[cacheKey].alternate_uris
+                    //No alternates exist - otherwise we wouldn't have gotten this far
+                    let isAnyVariantOnPlaylist
+                    if(alternates.some(altUri => existingTrackUris.has(altUri))){
+                        console.log(`Original track not in playlist, but alternate track is.`)
+                        isAnyVariantOnPlaylist = true
+                    }
+                    const fuzzyalternates = globalSongCache[cacheKey].alternate_uris
+                    //No alternates exist - otherwise we wouldn't have gotten this far
+                    let isAnyFuzzyVariantOnPlaylist
+                    if(fuzzyalternates.some(altUri => existingTrackUris.has(altUri))){
+                        console.log(`Original [Fuzzy Match] track not in playlist, but alternate track is.`)
+                        isAnyVariantOnPlaylist = true
+                    }
+
+                    if(!existingTrackUris.has(foundUri) && !isAnyVariantOnPlaylist && !isAnyFuzzyVariantOnPlaylist && !trackUrisToAdd.includes(foundUri)) {
+                        trackUrisToAdd.push(foundUri);
+                        console.log(`✅ Found New Track: ${title} - ${artist}`);
+                    }
+
+                    console.log(`✅ [Search Complete] Processed: ${title} - ${artist} -> ${foundUri}`);
+                }
+                else {
                     console.log(`❌ Not Found on Spotify: ${title} - ${artist}`);
                 }
             }
+            else {
+                console.log(`⚠️ Search failed for: ${title} - ${artist} (Status: ${searchResponse.status})`);
+            }
         }
 
-        if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
+        // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+        // Save the updated object map right after this station finishes its loop logic pass
+        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+
+        if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationCall)){
             globalSearchesPerformed = 0
         }
 
         //If we didn't hit the limit, go to next station
-        if(spotifySyncAllowed && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
+        if(spotifySyncAllowed && (stationNetwork[currentStationNetworkAllowed].id === stationCall)){
             currentStationNetworkAllowed = ((currentStationNetworkAllowed + 1) % stationNetwork.length)
         }
 
@@ -5127,7 +5710,20 @@ console.dir(playlistData.items, { depth: null });
                         failedUris = [...failedUris, ...batch];
                         break; 
                     }
-                    if (!appendResponse.ok) failedUris = [...failedUris, ...batch];
+                    if (appendResponse.ok) {
+                        console.log("🎉 Success! Playlist updated.");
+
+                        // ✅ Keep the local reverse-mirror perfectly synced with Spotify's servers
+                        for (const uri of batch) {
+                            existingTrackUris.add(uri);
+                        }
+                        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+                    } 
+                    else {
+                        const errData = await appendResponse.json();
+                        console.error("Failed to add tracks to playlist:", errData);
+                        failedUris = [...failedUris, ...batch];
+                    }
                 } catch (err) {
                     failedUris = [...failedUris, ...batch];
                 }
@@ -5392,6 +5988,117 @@ async function gatherIHeartStationTrack(siteId = "KAAZ-FM", stationLabel = "Rock
         console.error(`Error parsing iHeart JSON payload data:`, error);
     }
 }
+
+/**
+ * Calculates the Levenshtein Distance between two strings
+ * and returns a similarity score between 0.0 (no match) and 1.0 (perfect match).
+ */
+function getLevenshteinSimilarity(str1, str2) {
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+    
+    if (s1 === s2) return 1.0;
+    if (s1.length === 0 || s2.length === 0) return 0.0;
+
+    const trackMatrix = [];
+
+    // Initialize the distance matrix rows and columns
+    for (let i = 0; i <= s2.length; i++) {
+        trackMatrix[i] = [i];
+    }
+    for (let j = 0; j <= s1.length; j++) {
+        trackMatrix[0][j] = j;
+    }
+
+    // Fill out the edit distance matrix numbers
+    for (let i = 1; i <= s2.length; i++) {
+        for (let j = 1; j <= s1.length; j++) {
+            if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                trackMatrix[i][j] = trackMatrix[i - 1][j - 1];
+            } else {
+                trackMatrix[i][j] = Math.min(
+                    trackMatrix[i - 1][j - 1] + 1, // substitution character cost
+                    Math.min(
+                        trackMatrix[i][j - 1] + 1, // insertion character cost
+                        trackMatrix[i - 1][j] + 1  // deletion character cost
+                    )
+                );
+            }
+        }
+    }
+
+    // Calculate percentage similarity based on the maximum string length
+    const distance = trackMatrix[s2.length][s1.length];
+    const maxLength = Math.max(s1.length, s2.length);
+    
+    return (maxLength - distance) / maxLength;
+}
+
+/**
+ * Scans the local persistent cache keys to find any close typographical matches.
+ * Returns the matching cache key object data string if a hit occurs, otherwise null.
+ */
+function scanCacheForFuzzyMatch(freshArtist, freshTitle, globalSongCache, threshold = 0.88) {
+    const freshSlug = `${freshArtist}|${freshTitle}`.toLowerCase();
+    
+    let bestMatchKey = null;
+    let highestScore = 0;
+
+    // Loop through every unique key currently saved inside your local storage cache
+    for (const cachedKey of Object.keys(globalSongCache)) {
+        // Run the Levenshtein calculator metric against the key strings
+        const score = getLevenshteinSimilarity(freshSlug, cachedKey);
+        
+        if (score > highestScore) {
+            highestScore = score;
+            bestMatchKey = cachedKey;
+        }
+    }
+
+    // If the best match meets or beats your safety threshold, accept it
+    if (highestScore >= threshold && bestMatchKey) {
+        console.log(`✨ [Fuzzy Match Hit!] Local match confidence: ${(highestScore * 100).toFixed(1)}%`);
+        console.log(`   Input:  "${freshTitle}" by ${freshArtist}`);
+        console.log(`   Cached: "${globalSongCache[bestMatchKey].resolved_title}" by ${globalSongCache[bestMatchKey].resolved_artist}`);
+        return bestMatchKey;
+    }
+
+    return null; // Absolute cache miss
+}
+
+/**
+ * Normalizes input metadata strings to maximize local cache matches.
+ * Strips bracketed text filler, nested quotes, rogue symbols, and extra spaces.
+ */
+function cleanMetadataString(inputString) {
+    if (!inputString) return "";
+
+    let cleaned = inputString;
+
+    // 1. Remove bracketed text filler like (Remastered), [Radio Edit], (Live from Studio), etc.
+    cleaned = cleaned.replace(/\([^)]*\)/g, ""); // Strips everything inside round brackets ()
+    cleaned = cleaned.replace(/\[[^\]]*\]/g, ""); // Strips everything inside square brackets []
+
+    // 2. Normalize artist/track variations (e.g., "Featuring", "Feat.", "Ft.") by splitting them
+    // This ensures "Artist A feat. Artist B" matches cleanly against just "Artist A"
+    cleaned = cleaned.replace(/\b(feat|ft|featuring)\b.*/i, "");
+
+    // 3. Strip all variations of single, double, curly, and directional quotes
+    cleaned = cleaned.replace(/["'“”‘’`’]/g, "");
+
+    // 4. Convert specific common connector symbols like hyphens or slashes to clean spaces
+    cleaned = cleaned.replace(/[-–—\/]/g, " ");
+
+    // 5. Strip out any remaining special punctuation symbols that cause string fracturing
+    cleaned = cleaned.replace(/[.,?!@#$%^&*()_+={}\[\]|\\:;<>~]/g, "");
+
+    // 6. Enforce lowercase transformation and compress multiple whitespace fractures into a single space
+    cleaned = cleaned.toLowerCase();
+    cleaned = cleaned.replace(/\s+/g, " ");
+    
+    return cleaned.trim();
+}
+
 
 
 
@@ -6275,6 +6982,23 @@ async function getTrackAtIndex(token, playlistId, index){
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
+
+                const rawArtist = track.artists[0].name.trim();
+                const rawTitle = track.name.trim();
+                const cacheartist = cleanMetadataString(rawArtist);
+                const cachetitle = cleanMetadataString(rawTitle);
+                const cacheKey = `${cacheartist}-${cachetitle}`.toLowerCase();
+
+                // ✅ HYDRATE NEW CACHE SCHEMATIC ROW NATIVELY
+                globalSongCache[cacheKey] = {
+                    uri: track.uri,
+                    resolved_title: cachetitle,
+                    resolved_artist: cacheartist,
+                    stations_synced: ["GLOBAL"] // Initialize array with the current station ID tracking block
+                };
+                // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+                // Save the updated object map right after this station finishes its loop logic pass
+                localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
             }
 
             // 1. Check if the track is playable in your region
@@ -6335,7 +7059,8 @@ async function getTrackAtIndex(token, playlistId, index){
             }
 
             return track; 
-        } else {
+        }
+        else {
             console.error("getTrackAtIndex - No track found at this index:", index);
             // SEND THE LOG
             logEvent("WARN", `getTrackAtIndex - NO_TRACK_FOUND - No track found at this index: ${index}`, {
@@ -8765,7 +9490,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                             activeMix: activeMixId
                         });
                     showResumeOverlay(true);
-                } else if (state.is_active === false) {
+                } 
+                else if (state.is_active === false) {
                     console.warn("Mixer is no longer the active device.");
                         // SEND THE LOG
                         logEvent("INFO", `playback_hijacked - Mixer is no longer the active device.`, {
@@ -8775,7 +9501,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                             activeMix: activeMixId
                         });
                     showResumeOverlay(true);
-                } else {
+                } 
+                else {
                     // If we are active again, hide the overlay
                     showResumeOverlay(false);
                 }
@@ -8913,6 +9640,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                             activeMix: activeMixId
                         });
 
+                        const rawArtist = current_track.artists[0].name.trim();
+                        const rawTitle = current_track.name.trim();
+                        const cacheartist = cleanMetadataString(rawArtist);
+                        const cachetitle = cleanMetadataString(rawTitle);
+                        const cacheKey = `${cacheartist}-${cachetitle}`.toLowerCase();
+
+                        // ✅ HYDRATE NEW CACHE SCHEMATIC ROW NATIVELY
+                        globalSongCache[cacheKey] = {
+                            uri: track.uri,
+                            resolved_title: cachetitle,
+                            resolved_artist: cacheartist,
+                            stations_synced: ["GLOBAL"] // Initialize array with the current station ID tracking block
+                        };
+
                         if(current_track.linked_from?.id){
                             console.warn(`linked_from.id ${current_track.linked_from?.id} ${lastTrackId}`);
                             console.warn("currentTrackIdISRC:", currentTrackIdISRC)
@@ -8925,6 +9666,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                             currentTrackURI = current_track.linked_from?.uri
                             lastPickTime = Date.now() //reset timer for new song
 
+                            const rawArtist = current_track.linked_from?.artists[0].name.trim();
+                            const rawTitle = current_track.linked_from?.name.trim();
+                            const cacheartist = cleanMetadataString(rawArtist);
+                            const cachetitle = cleanMetadataString(rawTitle);
+                            const cacheKey = `${cacheartist}-${cachetitle}`.toLowerCase();
+
+                            // ✅ HYDRATE NEW CACHE SCHEMATIC ROW NATIVELY
+                            globalSongCache[cacheKey].alternate_uris.push(current_track.linked_from?.uri)
                         } //endif
                         else{
 
@@ -8935,6 +9684,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                             //return; //exit: we just started a song, don't pick a new one!
                             // Update your 'Now Playing' UI here if needed
                         }
+
+                        // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+                        // Save the updated object map right after this station finishes its loop logic pass
+                        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+
                     }
                 }
                 else {
@@ -9541,6 +10295,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // -----------------------------------
     
 if(returnRefreshAccessToken && 1){
+
+    syncRadioSpotifyRateLimit = true
 
     syncAllRadiosToSpotify()
 
