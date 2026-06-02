@@ -3668,8 +3668,8 @@ const stationNetwork = [
     { id: "KVFX",                   playlistId: "7iyYX42dtmd82tuMIIetlL" }, // 94.5 KVFX VFX Top 40
     { id: "KBERFM",                 playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // KBER 101
     { id: "KUBLFMAAC",              playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // KUBL - KBULL 93 The Bull Country
-    { id: "XM_octane",              playlistId: "0p50gUG6ST0n37PYtEjEq6" }, // XM Octane Ch. 37 - Hard Rock 
-    { id: "XM_bluegrassjunction",   playlistId: "0yDtWHSgoMeqicg3ZDubf3" }, // XM Bluegrass Junction  Ch. 77
+    { id: "XM_octane",              playlistId: "0p50gUG6ST0n37PYtEjEq6" }, // * XM Octane Ch. 37 - Hard Rock 
+    { id: "XM_bluegrassjunction",   playlistId: "0yDtWHSgoMeqicg3ZDubf3" }, // * XM Bluegrass Junction  Ch. 77
     { id: "XM_thepulse",            playlistId: "3dGDQkqGftK9CrXeMmxtIE" }, // XM The Pulse Ch. 5 - Today's pop
     { id: "XM_siriusxmhits1",       playlistId: "27yiTJGKwlRaXHBrV35TeE" }, // XM SiriusXM Hits 1 Ch. 2 - pop - Today's hits
     { id: "XM_poprocks",            playlistId: "1kIlP87uYebdUWici4BDon" }, // XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
@@ -3677,8 +3677,8 @@ const stationNetwork = [
     { id: "XM_theblend",            playlistId: "2yBlKOrxYIkY7UUqTObxI9" }, // XM The Blend Ch. 16 - Blending nice & easy pop
     { id: "XM_alt2k",               playlistId: "7xF8OvyRYxWu4U0AZc975f" }, // XM Alt2K Ch. 27 - Alt Rock
     { id: "XM_1stwave",             playlistId: "5U6gy40PLZaBLoy2IHvlQq" }, // XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
-    { id: "XM_lithium",             playlistId: "75jLeew4WERen7gpuFe6nn" }, // XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
-    { id: "XM_kidzbopradio",        playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // XM KIDZ BOP Radio Ch. 135 - kids
+    { id: "XM_lithium",             playlistId: "75jLeew4WERen7gpuFe6nn" }, // * XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
+    { id: "XM_kidzbopradio",        playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // * XM KIDZ BOP Radio Ch. 135 - kids
     { id: "XM_altnation",           playlistId: "2815SuqCB3fUK18yiiOhzy" }, // XM Alt Nation Ch. 36 - Modern Alternative
     { id: "XM_siriusxmturbo",       playlistId: "5m0nEzUNccNny2fBuSNIql" }, // XM Turbo Ch. 41 - 90s and 2000s Hard Rock
     { id: "XM_thehighway",          playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // XM The Highway Ch. 56 - New Country
@@ -3696,6 +3696,7 @@ const stationNetwork = [
 //This will round down to the nearest whole integer
 let currentStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
 currentStationNetworkAllowed = 5
+let beginningStationNetworkAllowed
 let currentRadioPlaylistUpdateAllowed = 0;
 
 let spotifyRadioSleepTime = 2 //min
@@ -3709,10 +3710,16 @@ async function syncAllRadiosToSpotify(){
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         console.log("⏰ Starting scheduled multi-station playlist sync sequence...");
 
+    beginningStationNetworkAllowed = currentStationNetworkAllowed
     currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
         try {
 
-            globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+            //globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+            // ✅ Ensure runtime cache has data before starting lookups
+            //if (!globalSongCache || Object.keys(globalSongCache).length === 0) {
+                globalSongCache = await loadIndexedDbToRuntimeCache();
+            //}
+
 
             const lastSyncTime = parseInt(localStorage.getItem(pacingKey)) || 0;
             // console.log(`lastSyncTime: ${lastSyncTime}`)
@@ -3730,6 +3737,7 @@ async function syncAllRadiosToSpotify(){
             else {
                 console.log(`%c 🔓 Spotify Search Gate Open! Proceeding with live track queries...`, "color: #d9ff00ff; background: #005f00;");
                 spotifySyncAllowed = true
+                globalSearchesPerformed = 0
                 // Update the timestamp only when a full search run is allowed to start
                 localStorage.setItem(pacingKey, Date.now().toString());
             }
@@ -3901,7 +3909,10 @@ async function syncAllRadiosToSpotify(){
 
             // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
             // Save the updated object map right after this station finishes its loop logic pass
-            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+            // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+            await flushRuntimeCacheToIndexedDb(globalSongCache);
 
             console.log("✅ All stations synced successfully. Next master cycle in 10 minutes.");
         } catch (error) {
@@ -3988,7 +3999,14 @@ async function syncXMstationsToSpotify(){
 let syncRadioSpotifyRateLimit = false
 let totalSpotifyRateLimit = false
 // Session-level cache for searches (Cleared on page refresh)
-let globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+let globalSongCache = {}
+//let globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+//globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+// ✅ Ensure runtime cache has data before starting lookups
+//if (!globalSongCache || Object.keys(globalSongCache).length === 0) {
+// globalSongCache = await loadIndexedDbToRuntimeCache();
+//}
+
 // ⏱️ TIMEOUT GATE: Check if 1 hour (3600000 ms) has passed since the last Spotify search
 const pacingKey = `last_spotify_sync_time`;
 let spotifySyncAllowed = true;
@@ -4314,7 +4332,7 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
                 // XM handles multiple artists in an array; map the primary first element string safely
                 const artist = Array.isArray(t.track?.artists) ? t.track.artists[0] : "";
                 
-                console.log(`XM song: artist: ${artist} title: ${title}`)
+                //console.log(`XM song: artist: ${artist} title: ${title}`)
 
                 // 🧬 GET THE DIRECT SPOTIFY URI INSTANTLY (Bypasses the search counter!)
                 const spotifyId = t.spotify?.id;
@@ -4323,7 +4341,7 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999) {
                     if (spotifyId) {
                         const compiledUri = `spotify:track:${spotifyId.trim()}`;
 
-                        console.log(`spotifyId: ${spotifyId}`)
+                        //console.log(`spotifyId: ${spotifyId}`)
                         
                         let cachedTrack
                         let foundUri
@@ -4411,7 +4429,7 @@ console.dir(uniqueHistory, { depth: null });
 
         let existingTrackUris = new Set();
 
-        if(!totalSpotifyRateLimit && spotifySyncAllowed && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
+        if(!totalSpotifyRateLimit && spotifySyncAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -4479,7 +4497,7 @@ console.dir(playlistData.items, { depth: null });
                         if (!record.stations_synced.includes(stationID)) {
                             record.stations_synced.push(stationID);
                         }
-                    } 
+                    }
                     else {
                         // Initialize a brand new persistent cache schematic entry object mapping
                         globalSongCache[cacheKey] = {
@@ -4529,7 +4547,7 @@ console.dir(playlistData.items, { depth: null });
                 if (nextPageUrl) {
                     console.log(`...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
                     // Tiny 100ms pause to ensure your pagination loop doesn't slam the endpoint
-                    await delay(100); 
+                    await delay(800); 
                 }
             } catch (err) {
                 console.error("❌ Exception encountered while fetching playlist tracks:", err);
@@ -4696,7 +4714,10 @@ console.dir(playlistData.items, { depth: null });
 
             // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
             // Save the updated object map right after this station finishes its loop logic pass
-            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+            // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+            //await flushRuntimeCacheToIndexedDb(globalSongCache);
 
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
@@ -4868,7 +4889,7 @@ console.dir(playlistData.items, { depth: null });
                     // ✅ DUPLICATE CHECK: Skip adding to queue if it's already on your playlist
                     if (existingTrackUris.has(foundUri)) {
                         console.log(`⏭️ Skipping (Already in Playlist): ${title} - ${artist}`);
-                    } 
+                    }
 
                     // ✅ DUPLICATE CHECK: Skip adding to playlist if it's already on your playlist
                     const alternates = globalSongCache[cacheKey].alternate_uris
@@ -4904,10 +4925,14 @@ console.dir(playlistData.items, { depth: null });
 
         // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
         // Save the updated object map right after this station finishes its loop logic pass
-        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+        // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+        await flushRuntimeCacheToIndexedDb(globalSongCache);
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
+            spotifySyncAllowed = false
         }
 
         let stationWithin5 = false
@@ -5012,7 +5037,9 @@ console.dir(playlistData.items, { depth: null });
             localStorage.removeItem(pendingUrisKey);
         }
 
-        console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : "🎉 Station sync complete.");
+        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #a7a7a7;")
+
+        console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : `🎉 ${stationID} Station sync complete!`);
     }
     catch (error) {
         console.error("Error syncing radio playlist:", error);
@@ -5247,7 +5274,7 @@ if(newStationSearchAllowed){
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
 
-        if(!totalSpotifyRateLimit && spotifySyncAllowed && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
+        if(!totalSpotifyRateLimit && spotifySyncAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -5360,7 +5387,7 @@ console.dir(playlistData.items, { depth: null });
                 if (nextPageUrl) {
                     console.log(`...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
                     // Tiny 100ms pause to ensure your pagination loop doesn't slam the endpoint
-                    await delay(100); 
+                    await delay(800); 
                 }
             } catch (err) {
                 console.error("❌ Exception encountered while fetching playlist tracks:", err);
@@ -5515,7 +5542,10 @@ console.dir(uniqueHistory, { depth: null });
 
             // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
             // Save the updated object map right after this station finishes its loop logic pass
-            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+            // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+            //await flushRuntimeCacheToIndexedDb(globalSongCache);
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
             if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationID) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
@@ -5664,10 +5694,14 @@ console.dir(uniqueHistory, { depth: null });
 
         // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
         // Save the updated object map right after this station finishes its loop logic pass
-        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+        // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+        await flushRuntimeCacheToIndexedDb(globalSongCache);
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
+            spotifySyncAllowed = false
         }
 
         let stationWithin5 = false
@@ -5770,8 +5804,10 @@ console.dir(uniqueHistory, { depth: null });
             localStorage.removeItem(pendingUrisKey);
         }
 
+        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #a7a7a7;")
 
-        console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : "🎉 Station sync complete.");
+
+        console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : `🎉 ${stationID} Station sync complete!`);
 
     } 
     catch (error) {
@@ -5801,6 +5837,7 @@ async function syncKBLQToSpotify(stationCall, playlistId = 9999) {
 
     // --- STEP 1: PREPARE AND RESTORE TRACK QUEUES ---
     let trackUrisToAdd = JSON.parse(localStorage.getItem(pendingUrisKey)) || [];
+    let savedPendingUrisLength = trackUrisToAdd.length
     if (trackUrisToAdd.length > 0) {
         console.log(`%c Retrying ${trackUrisToAdd.length} pending track uris from previous run.`,"color: #ae00ffff");
         // Combine both arrays and instantly filter out duplicates
@@ -5969,7 +6006,7 @@ if(newStationSearchAllowed){
 //console.log(`freshHistory: ${freshHistory}`)
 
         if (freshHistory.length === 0) {
-            console.log("No historical tracks found in the KBLQ feed array data.");
+            console.log(`No historical tracks found in the ${stationCall} feed array data.`);
         }
 
         freshHistorySize = freshHistory.length
@@ -6005,7 +6042,7 @@ if(newStationSearchAllowed){
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationCall}. Zero API cost.`);
         }
 
-        if(!totalSpotifyRateLimit && spotifySyncAllowed && (stationNetwork[currentStationNetworkAllowed].id === stationCall)){
+        if(!totalSpotifyRateLimit && spotifySyncAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationCall)){
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -6117,7 +6154,7 @@ console.dir(playlistData.items, { depth: null });
                 if (nextPageUrl) {
                     console.log(`...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
                     // Tiny 100ms pause to ensure your pagination loop doesn't slam the endpoint
-                    await delay(100); 
+                    await delay(800); 
                 }
             } catch (err) {
                 console.error("❌ Exception encountered while fetching playlist tracks:", err);
@@ -6265,7 +6302,10 @@ console.dir(playlistData.items, { depth: null });
 
             // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
             // Save the updated object map right after this station finishes its loop logic pass
-            localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+            // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+            // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+            //await flushRuntimeCacheToIndexedDb(globalSongCache);
 
             // 🚨 CONDITION A: Global cap reached or gate is locked -> Defer immediately
             if(syncRadioSpotifyRateLimit || !spotifySyncAllowed || (stationNetwork[currentStationNetworkAllowed].id !== stationCall) || globalSearchesPerformed >= GLOBAL_SEARCH_CAP ){
@@ -6295,7 +6335,7 @@ console.dir(playlistData.items, { depth: null });
             const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${token}` } });
 
             if (searchResponse.status === 429) {
-                console.warn(`🛑 Spotify search rate limit hit on KBLQ. Deferring remaining metadata rows.`);
+                console.warn(`🛑 Spotify search rate limit hit on ${stationCall}. Deferring remaining metadata rows.`);
                 syncRadioSpotifyRateLimit = true;
                 globalSearchesPerformed = 0
                 metadataToSaveForLater.push(item);
@@ -6414,10 +6454,14 @@ console.dir(playlistData.items, { depth: null });
 
         // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
         // Save the updated object map right after this station finishes its loop logic pass
-        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+        // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+        await flushRuntimeCacheToIndexedDb(globalSongCache);
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationCall)){
             globalSearchesPerformed = 0
+            spotifySyncAllowed = false
         }
 
         let stationWithin5 = false
@@ -6427,6 +6471,10 @@ console.dir(playlistData.items, { depth: null });
         //If we didn't hit the limit, go to next station
         if(spotifySyncAllowed && (stationNetwork[currentStationNetworkAllowed].id === stationCall)){
             currentStationNetworkAllowed = ((currentStationNetworkAllowed + 1) % stationNetwork.length)
+        }
+
+        if (savedPendingUrisLength > 0) {
+            console.log(`%c Retrying ${savedPendingUrisLength} pending track uris from previous run.`,"color: #ae00ffff");
         }
 
         // --- STEP 4: BULK REVERSAL BATCH INJECTION (100 Max) ---
@@ -6453,7 +6501,7 @@ console.dir(playlistData.items, { depth: null });
                     
                     if (appendResponse.status === 429) {
                         totalSpotifyRateLimit = true
-                        console.error("🛑 Rate limit hit during KBLQ batch update execution.");
+                        console.error(`🛑 Rate limit hit during ${stationCall} batch update execution.`);
                         failedUris = [...failedUris, ...batch];
                         break; 
                     }
@@ -6507,10 +6555,12 @@ console.dir(playlistData.items, { depth: null });
             localStorage.removeItem(pendingUrisKey);
         }
 
-        console.log(syncRadioSpotifyRateLimit ? "Sync partial." : "🎉 KBLQ Q92 Sync Finished cleanly!");
+        console.log(`%c Session Changes ${stationCall}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${metadataToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUrisLength}`, "color: #00fff2; background: #a7a7a7;")
+
+        console.log(syncRadioSpotifyRateLimit ? "Sync partial." : `🎉 ${stationCall} Station sync complete!`);
 
     } catch (error) {
-        console.error("Critical parsing error processing KBLQ payload tree:", error);
+        console.error("Critical parsing error processing " + stationCall + " payload tree:", error);
     }
 }
 async function discoverU92Callsign() {
@@ -6947,8 +6997,15 @@ async function backfillGlobalCacheFromPlaylist(playlistId, stationID = "MANUAL_I
     console.log(`%c🚀 [Cache Backfill] Initializing full pagination scan for playlist ID: ${playlistId}`, "color: #1DB954; font-weight: bold;");
 
     // 1. Load the active persistent global cache object from local storage up front
-    let globalSongCache_backfill = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
-    
+    let globalSongCache_backfill = {}
+    //let globalSongCache_backfill = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+    //globalSongCache_backfill = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+    // ✅ Ensure runtime cache has data before starting lookups
+    //if (!globalSongCache_backfill || Object.keys(globalSongCache_backfill).length === 0) {
+        globalSongCache_backfill = await loadIndexedDbToRuntimeCache();
+        console.log(`🎉 Backfill cache hydrated! Total records: ${Object.keys(globalSongCache_backfill).length}`);
+    //}
+
     // Start with the initial 100-item page endpoint path
     let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
     let totalItemsProcessed = 0;
@@ -7051,7 +7108,11 @@ async function backfillGlobalCacheFromPlaylist(playlistId, stationID = "MANUAL_I
     }
 
     // 💾 MASTER LOCALSTORAGE WRITEBACK: Save everything safely back to the browser vault
-    localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache_backfill));
+    // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache_backfill));
+    // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+    // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+    await flushRuntimeCacheToIndexedDb(globalSongCache_backfill);
+
     
     console.log(`%c🎯 Backfill Complete! Processed ${totalItemsProcessed} total playlist items. Added ${newCacheEntriesAdded} brand new songs directly to 'spotify_global_song_cache'.`, "color: #1DB954; font-weight: bold;");
 }
@@ -7101,7 +7162,7 @@ async function deduplicateSpotifyPlaylist(playlistId) {
             allItems.push(...pageItems);
             
             nextPageUrl = playlistData.next;
-            if (nextPageUrl) await delay(100);
+            if (nextPageUrl) await delay(800);
 
         } catch (err) {
             console.error("❌ Failed to compile playlist item mapping sheets:", err);
@@ -7264,7 +7325,7 @@ async function migrationDeduplicatePlaylist(playlistId) {
             }
             
             nextPageUrl = data.next;
-            if (nextPageUrl) await delay(100);
+            if (nextPageUrl) await delay(800);
         }
     } catch (err) {
         console.error("❌ Failed to load source playlist:", err);
@@ -7474,6 +7535,169 @@ function cleanMetadataString(inputString) {
 
 
 // =========================================================================
+// 🗄️ INDEXEDDB PERSISTENT STORAGE CONTROLLER
+// =========================================================================
+const DB_NAME = "SpotifyRadioSyncDB";
+const DB_VERSION = 1;
+const STORE_NAME = "song_cache";
+
+/**
+ * Initializes the local database browser disk space.
+ */
+function openLocalCacheDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                // Create our local data sheet table using the fuzzy metadata match key as our index primary key
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+/**
+ * Saves a single track record natively into the browser disk without stringifying.
+ */
+async function saveLocalTrackItem(key, value) {
+    const db = await openLocalCacheDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readwrite");
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(value, key.trim().toLowerCase());
+
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Retrieves a single track entry instantly from the disk via its metadata key string.
+ */
+async function getLocalTrackItem(key) {
+    const db = await openLocalCacheDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readonly");
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(key.trim().toLowerCase());
+
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Pulls down the ENTIRE local cache dictionary object so your cloud backup routines 
+ * can package it up for Supabase in a single operation.
+ */
+async function getFullLocalTrackCacheMap() {
+    const db = await openLocalCacheDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readonly");
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.openCursor();
+        const fullMap = {};
+
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                fullMap[cursor.key] = cursor.value;
+                cursor.continue();
+            } else {
+                resolve(fullMap); // Finished traversing the whole disk space
+            }
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Bulk writes an entire dictionary map down to the disk (used during cloud pull-and-merge bootup).
+ */
+async function saveFullLocalTrackCacheMap(cacheMap) {
+    const db = await openLocalCacheDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readwrite");
+        const store = transaction.objectStore(STORE_NAME);
+        
+        Object.keys(cacheMap).forEach(key => {
+            store.put(cacheMap[key], key.trim().toLowerCase());
+        });
+
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = () => reject(transaction.error);
+    });
+}
+
+/**
+ * ✅ BOOT ACTION: Reads your entire IndexedDB storage block straight into 
+ * your existing synchronous runtime globalSongCache object.
+ */
+/**
+ * ✅ CORRECTED: Returns the hydrated disk dataset directly,
+ * avoiding JavaScript's reference-assignment limitations.
+ */
+async function loadIndexedDbToRuntimeCache() {
+    try {
+        console.log("📂 [IndexedDB] Extracting master track cache map from disk...");
+        const fullDiskMap = await getFullLocalTrackCacheMap();
+        
+        // Return the clean data structure directly
+        return fullDiskMap || {};
+        
+    }
+    catch (err) {
+        console.error("❌ [IndexedDB] Failed to extract data maps from disk filesystem storage:", err);
+        return {}; // Return empty object fallback to preserve downstream loop iteration integrity
+    }
+}
+
+/**
+ * ✅ FLUSH ACTION: Bulk-saves your updated synchronous globalSongCache object 
+ * straight back down to the IndexedDB disk at the end of a radio sync pass.
+ */
+/**
+ * ✅ CORRECTED: Bulk-saves whichever specific memory cache model 
+ * you pass into it down to the persistent browser disk space.
+ */
+async function flushRuntimeCacheToIndexedDb(targetCacheObj) {
+    try {
+        if (!targetCacheObj || Object.keys(targetCacheObj).length === 0) {
+            console.warn("⚠️ [IndexedDB] Flush bypassed: Target cache layer object is completely empty.");
+            return;
+        }
+        
+        const count = Object.keys(targetCacheObj).length;
+        console.log(`💾 [IndexedDB] Flushing ${count} tracks from runtime layout memory down to disk...`);
+        
+        await saveFullLocalTrackCacheMap(targetCacheObj);
+        console.log("🎉 [IndexedDB] Disk sync operation successfully logged.");
+    } catch (err) {
+        console.error("❌ [IndexedDB] Critical failure encountered during bulk disk write pass:", err);
+    }
+}
+
+// RUN THIS ONCE IN CONSOLE TO MIGRATE EXISTING CACHE DATA BEFORE WIPING LOCALSTORAGE
+async function migrateLocalStorageToIndexedDb() {
+    const oldCacheText = localStorage.getItem('spotify_global_song_cache');
+    if (oldCacheText) {
+        const oldData = JSON.parse(oldCacheText);
+        console.log(`🚚 Migrating ${Object.keys(oldData).length} tracks to IndexedDB...`);
+        await saveFullLocalTrackCacheMap(oldData);
+        console.log("✅ Migration complete! You can now safely delete the old localStorage key.");
+    } else {
+        console.log("No existing localStorage cache detected. Ready for a clean slate.");
+    }
+}
+//await migrateLocalStorageToIndexedDb();
+
+
+// =========================================================================
 // ☁️ CROSS-DEVICE CACHE SYNCHRONIZATION ENGINE
 // =========================================================================
 
@@ -7513,7 +7737,13 @@ async function pullAndMergeCaches(currentSpotifyUser) {
     }
 
     // Unpack your current browser local storage caches
-    const localSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+    //const localSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+    // let localSongCache = {}
+    // ✅ Ensure runtime cache has data before starting lookups
+    //if (!localSongCache || Object.keys(localSongCache).length === 0) {
+    let localSongCache = await loadIndexedDbToRuntimeCache();
+    //}
+
     const localMixCache = JSON.parse(localStorage.getItem('spotify_mix_cache')) || {};
 
     // =========================================================================
@@ -7556,7 +7786,10 @@ async function pullAndMergeCaches(currentSpotifyUser) {
                 mergedSongCache[key].alternate_uris = unifiedAlternateUris;
             }
             else{
-                mergedSongCache[key].alternate_uris.push(cloudItem.uri)
+                if(!mergedSongCache[key].alternate_uris) mergedSongCache[key].alternate_uris = []
+                if (cloudHasUri && !mergedSongCache[key].alternate_uris.includes(cloudItem.uri)) {
+                    mergedSongCache[key].alternate_uris.push(cloudItem.uri);
+                }
             }
         }
     });
@@ -7568,9 +7801,15 @@ async function pullAndMergeCaches(currentSpotifyUser) {
     const mergedMixCache = { ...localMixCache, ...cloudMixCache };
 
     // 💾 Commit unified master sets back down to the browser disk architecture
-    localStorage.setItem('spotify_global_song_cache', JSON.stringify(mergedSongCache));
+    // localStorage.setItem('spotify_global_song_cache', JSON.stringify(mergedSongCache));
+    // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+    // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+    await flushRuntimeCacheToIndexedDb(mergedSongCache);
     localStorage.setItem('spotify_mix_cache', JSON.stringify(mergedMixCache));
 
+    // Seed the working runtime variable so downstream radio sync functions can read it immediately
+    globalSongCache = mergedSongCache;
+    
     console.log(`%c🎉 Cache Synchronization Complete! Total monitored tracks: ${Object.keys(mergedSongCache).length}`, "color: #1DB954; font-weight: bold;");
 }
 
@@ -7578,7 +7817,7 @@ async function pullAndMergeCaches(currentSpotifyUser) {
  * 🅱️ BACKUP PIPELINE: Uploads local localStorage data models directly up to your 
  * Supabase cluster row using a native PostgreSQL SQL UPSERT command.
  */
-async function pushCachesToCloud(currentSpotifyUser) {
+async function pushCachesToCloud1(currentSpotifyUser) {
     if (!currentSpotifyUser || currentSpotifyUser === "guest") return;
 
     console.log("☁️ [Sync] Packing local database models for cloud upload backup...");
@@ -7606,6 +7845,63 @@ async function pushCachesToCloud(currentSpotifyUser) {
         console.error("❌ [Sync] Exception thrown inside periodic cloud upload loop phase:", e);
     }
 }
+async function pushCachesToCloud2(spotifyUserId) {
+    if (!spotifyUserId) return;
+
+    console.log("☁️ [Sync] Extracting persistent IndexedDB sheets for Supabase verification upload...");
+
+    // ✅ Natively compile the massive local tracking array maps out of IndexedDB
+    const currentLocalSongCache = await getFullLocalTrackCacheMap();
+    const currentLocalMixCache = JSON.parse(localStorage.getItem('spotify_mix_cache')) || {};
+
+    try {
+        const { error } = await supabaseClient
+            .from('user_caches')
+            .upsert({
+                spotify_id: spotifyUserId,
+                globalsongcache: currentLocalSongCache,
+                mix_cache: currentLocalMixCache,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'spotify_id' });
+
+        if (error) {
+            console.error("❌ [Sync] Cloud upload missed:", error.message);
+        } else {
+            console.log("%c☁️ [Sync] Cloud synchronization complete! Cache data safely backed up.", "color: #00c020;");
+        }
+    } catch (e) {
+        console.error("❌ Exception thrown during database push:", e);
+    }
+}
+async function pushCachesToCloud(spotifyUserId) {
+    if (!spotifyUserId) return;
+
+    console.log("☁️ [Sync] Packing runtime memory matrix models for cloud upload backup...");
+
+    // Grab the current live state of your global cache dictionary
+    const currentLocalSongCache = globalSongCache || {};
+    const currentLocalMixCache = JSON.parse(localStorage.getItem('spotify_mix_cache')) || {};
+
+    try {
+        const { error } = await supabaseClient
+            .from('user_caches')
+            .upsert({
+                spotify_id: spotifyUserId,
+                globalsongcache: currentLocalSongCache,
+                mix_cache: currentLocalMixCache,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'spotify_id' });
+
+        if (error) {
+            console.error("❌ [Sync] Cloud upload missed:", error.message);
+        } else {
+            console.log("%c☁️ [Sync] Cloud sync complete! Cache database safely secured.", "color: #00c020;");
+        }
+    } catch (e) {
+        console.error("❌ Exception thrown during cloud push execution step:", e);
+    }
+}
+
 
 /**
  * ⏰ TIME GATE REGULATOR LOOP: Initializes background timer cadence execution loops.
@@ -8521,7 +8817,11 @@ async function getTrackAtIndex(token, playlistId, index){
                 };
                 // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
                 // Save the updated object map right after this station finishes its loop logic pass
-                localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+                // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+                // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+                // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+                await flushRuntimeCacheToIndexedDb(globalSongCache);
+
             }
 
             // 1. Check if the track is playable in your region
@@ -9426,7 +9726,8 @@ async function importMix() {
         showResult(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
         visualLog(`%c Imported Mix: ${sharedMix.name}`, "color: #0004ff;")
         //window.location.reload();
-    } catch (e) {
+    }
+    catch (e) {
                         // SEND THE LOG
                         logEvent("ERROR", `importMix | Failed to import shared mix: ${e}`, {
                             step: "importMix",
@@ -9779,7 +10080,8 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
     "5oe5s6xIGEITr0YHzlc0Ey"
     ]);
 
-    if(!restrictedIds.has(playlistId)){ //keep the radio stations updated always
+    //if(!restrictedIds.has(playlistId)){ //keep the radio stations updated always
+    if(!stationNetwork.some(station => station.playlistId === playlistId)){ //keep the radio stations updated always
         if(SessionPlaylistTrackCountUpdated[`${activeMixId}${playlistId}`]?.updated){
             console.log(`%c Playlist already updated: ${playlists[playlistIndex].name}`, "color: #ff0000;")
             return; //it's already been updated once this session.
@@ -11213,8 +11515,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                         // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
                         // Save the updated object map right after this station finishes its loop logic pass
-                        localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
-
+                        // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+                        // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+                        // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+                        await flushRuntimeCacheToIndexedDb(globalSongCache);
                     }
                 }
                 else {
@@ -11825,8 +12129,8 @@ if(returnRefreshAccessToken && 1){
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 
-    syncRadioSpotifyRateLimit = false
-    totalSpotifyRateLimit = false
+    syncRadioSpotifyRateLimit = true
+    totalSpotifyRateLimit = true
 
     let spotifyRadioInterval = 15 //min
     while(1){
