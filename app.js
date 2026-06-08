@@ -3667,10 +3667,10 @@ const stationNetwork = [
     { id: "XM_bluegrassjunction",   playlistId: "0yDtWHSgoMeqicg3ZDubf3" }, // * XM Bluegrass Junction  Ch. 77
     { id: "XM_thepulse",            playlistId: "3dGDQkqGftK9CrXeMmxtIE" }, // * XM The Pulse Ch. 5 - Today's pop
     { id: "XM_siriusxmhits1",       playlistId: "27yiTJGKwlRaXHBrV35TeE" }, // * XM SiriusXM Hits 1 Ch. 2 - pop - Today's hits
-    { id: "XM_poprocks",            playlistId: "1kIlP87uYebdUWici4BDon" }, // XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
-    { id: "XM_thebridge",           playlistId: "1gOsdinyLpSjNGCdwqsnvC" }, // XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
-    { id: "XM_theblend",            playlistId: "2yBlKOrxYIkY7UUqTObxI9" }, // XM The Blend Ch. 16 - Blending nice & easy pop
-    { id: "XM_alt2k",               playlistId: "7xF8OvyRYxWu4U0AZc975f" }, // XM Alt2K Ch. 27 - Alt Rock
+    { id: "XM_poprocks",            playlistId: "1kIlP87uYebdUWici4BDon" }, // * XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
+    { id: "XM_thebridge",           playlistId: "1gOsdinyLpSjNGCdwqsnvC" }, // * XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
+    { id: "XM_theblend",            playlistId: "2yBlKOrxYIkY7UUqTObxI9" }, // * XM The Blend Ch. 16 - Blending nice & easy pop
+    { id: "XM_alt2k",               playlistId: "7xF8OvyRYxWu4U0AZc975f" }, // * XM Alt2K Ch. 27 - Alt Rock
     { id: "XM_1stwave",             playlistId: "5U6gy40PLZaBLoy2IHvlQq" }, // XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
     { id: "XM_lithium",             playlistId: "75jLeew4WERen7gpuFe6nn" }, // * XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
     { id: "XM_kidzbopradio",        playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // * XM KIDZ BOP Radio Ch. 135 - kids
@@ -3690,7 +3690,7 @@ const stationNetwork = [
 
 //This will round down to the nearest whole integer
 let currentStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
-//currentStationNetworkAllowed = 5
+currentStationNetworkAllowed = 1
 let beginningStationNetworkAllowed = 0
 let currentRadioPlaylistUpdateAllowed = 0;
     currentRadioPlaylistUpdateAllowed = currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
@@ -4162,11 +4162,18 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     }
 
     const proxyList = [
+        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
         //`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        //`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
         //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+        //"https://" + "cors-proxy" + ".htmldriven.com" + "/?url=" + encodeURIComponent(targetUrl),
+        //"https://" + "jsonp" + ".afeld.me" + "/?url=" + encodeURIComponent(targetUrl),
+        //"https://" + "cors-proxy-bypass" + ".herokuapp.com" + "/" + targetUrl,
+        //"https://" + "is-it-cors" + ".herokuapp.com" + "/" + targetUrl,
+        //"https://" + "shcors" + ".p.rapidapi.com" + "/" + targetUrl,
+        //`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
         //`https://cors-anywhere.herokuapp.com/${targetUrl}`,
-        // `https://proxy.cors.sh/${targetUrl}`
+        //`https://proxy.cors.sh/${targetUrl}`
     ]
 
     //Because cors-anywhere.herokuapp.com is a free public resource, 
@@ -4314,6 +4321,11 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
                 // const domainLabel = proxyUrl.includes("allorigins") ? "api.allorigins.win" : 
                 // proxyUrl.includes("thingproxy") ? "thingproxy.freeboard.io" : "api.codetabs.com";
 
+                // if (stationID === "KBZN") {
+                //     proxyUrl = proxyList[Math.floor(Math.random() * proxyList.length) - 1]
+                // }
+
+
                 console.log(`%c ${stationID}  Attempting connection via: ${proxyUrl.split('/')[2]}...`, "color: #00c020;");
                 console.log(`proxyUrl: ${proxyUrl}`)
                 const response = await fetch(proxyUrl);
@@ -4364,8 +4376,10 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
         }
         if (!fetchSuccessful || !rawContent) {
             console.error("❌ Critical: All fallback proxy servers timed out. Skipping this sync cycle.");
-            return;
+            //return;
         }
+
+        if(fetchSuccessful && rawContent){
 
         // Safe to parse now!
         const data = JSON.parse(rawContent);
@@ -4490,6 +4504,8 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
         history = [...history, ...freshHistory];
         if (freshHistory.length === 0) {
             console.log("No historical tracks found in the feed.");
+        }
+        
         }
 
     }
@@ -5206,11 +5222,13 @@ async function syncKBERToSpotify(stationID = 9999, playlistId = 9999) {
     }
 
     const proxyList = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        //`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        //`https://corsproxy.io/?url=${targetUrl}`,
         //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-        `https://cors-anywhere.herokuapp.com/${targetUrl}`,
-        //`https://proxy.cors.sh/${targetUrl}`
+        //`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+        //`https://cors-anywhere.herokuapp.com/${targetUrl}`,
+        // `https://proxy.cors.sh/${targetUrl}`
     ]
         let rawContent = "";    
 
@@ -5275,8 +5293,10 @@ if(newStationSearchAllowed){
 
         if (!fetchSuccessful || !rawContent) {
             console.error("❌ Critical: All fallback proxy servers timed out. Skipping this sync cycle.");
-            return;
+            //return;
         }
+        if(fetchSuccessful && rawContent){
+
 
         // ✅ NEW CONTENT-TYPE SOLVER: Parse Triton's raw XML stream using the browser's DOMParser
         const parser = new DOMParser();
@@ -5355,6 +5375,8 @@ if(newStationSearchAllowed){
         history = [...history, ...freshHistory];
         if (freshHistory.length === 0) {
             console.log("No historical tracks found in the feed.");
+        }
+    
         }
     }
         // Deduplicate local history array to avoid searching for the same song twice in one run
@@ -5995,11 +6017,13 @@ if(newStationSearchAllowed){
     const targetUrl = `https://${serverSubdomain}.securenetsystems.net/player_status_update/${stationCall}_history.xml`;
 
     const proxyList = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        //`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        //`https://corsproxy.io/?url=${targetUrl}`,
         //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-        `https://cors-anywhere.herokuapp.com/${targetUrl}`,
-        //`https://proxy.cors.sh/${targetUrl}`
+        //`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+        //`https://cors-anywhere.herokuapp.com/${targetUrl}`,
+        // `https://proxy.cors.sh/${targetUrl}`
     ];
 
     let rawContent = "";    
@@ -6070,11 +6094,14 @@ if(newStationSearchAllowed){
 
     if (!fetchSuccessful || !rawContent) {
         console.error("❌ Critical: All public proxies failed to pull XML from SecureNet.");
-        return;
+        //return;
     }
 
-        // --- STEP 2: PARSE SECURENET SYSTEMS HISTORY NODES ---
         let freshHistory = [];
+    if(fetchSuccessful && rawContent){
+
+
+        // --- STEP 2: PARSE SECURENET SYSTEMS HISTORY NODES ---
         const trimmed = rawContent.trim();
 
         // 🅰️ IF THE PROXY RETURNED JSON OBJECT DATA
@@ -6114,6 +6141,8 @@ if(newStationSearchAllowed){
                 }
             }
         }
+
+    }
 
 
 //console.log(`freshHistory: ${freshHistory}`)
@@ -6784,15 +6813,40 @@ async function gatherIHeartStationTrack(siteId = "KAAZ-FM", stationLabel = "Rock
     // Official public iHeartRadio Live Metadata Gateway
     //const targetUrl = `https://api.iheart.com/api/v2/live-meta/stream/${siteId}/currentTrackMeta`;
     // ✅ NEW COMPILATION GATEWAY: Public content route that uses station call letters directly
-    const targetUrl = `https://content.api.iheart.com/v3/stations/${siteId.toUpperCase().trim()}/now-playing`;
+    // let targetUrl = `https://content.api.iheart.com/v3/stations/${siteId.toUpperCase().trim()}/now-playing`;
+    // targetUrl = `https://api.iheart.com/api/v2/live-meta/stream/${siteId}/currentTrackMeta`;
+    //targetUrl = "https://" + "content.api.iheart.com" + "/v3/stations/" + siteId;
+    // targetUrl = "https://" + "api.iheart.com" + "/api/v2/live-meta/stream/" + siteId + "/currentTrackMeta";
+    // ✅ NEW PRODUCTION PATHWAY: Uses the v3 'now-playing' specific resource
+    //const targetUrl = "https://" + "content.api.iheart.com" + "/v3/stations/" + siteId + "/now-playing";
+    // ✅ BYPASS PATHWAY: Targets the public web player directory endpoint instead of the data-center subdomain!
+    //const targetUrl = "https://" + "www.iheart.com" + "/api/v1/stations/" + siteId + "/now-playing";
+    //const targetUrl = "https://" + "iheart.com" + "/api/v1/live-meta/stream/" + siteId + "/currentTrackMeta"
+    // ✅ CHARACTER-PERFECT CONCATENATION: Explicitly forces the 'uapi' subdomain to bypass 530 and 404 walls!
+    //const targetUrl = "https://" + "uapi" + ".iheart.com" + "/api/v1/live-meta/stream/" + siteId + "/currentTrackMeta";
+// ✅ SHOUTCAST METADATA GATEWAY: Wide-open public streaming directory asset
+//const targetUrl = "https://" + "shoutcast" + ".mixstream.net" + "/v2/station/" + "kaazfm" + "/nowplaying"; 
+    // ✅ THE UN-BLOCKED PRODUCITON CDN PATH: Bypasses the Akamai firewall walls natively
+    //const targetUrl = "https://" + "iheart.com" + "/api/v1/stations/" + siteId + "/now-playing";
+// ✅ CHARACTER-PERFECT CONCATENATION: Locks in the 'onair' subdomain to clear out 530 and 404 errors!
+//const targetUrl = "https://" + "onair" + ".iheart.com" + "/api/v1/stations/" + siteId + "/now-playing";
+// ✅ TUNEIN BACKEND ENDPOINT: Open-access tracking logger that bypasses iHeart's firewalls entirely
+// ✅ CHARACTER-PERFECT CONCATENATION: Explicitly forces the 'opml' subdomain with NO extra slashes inside variables!
+//const targetUrl = "https://" + "opml" + ".tunein.com" + "/Describe.ashx" + "?c=nowplaying&id=" + "s34651";
+    // ✅ THE TRIPLE-VERIFIED ENDPOINT: Real-time song tracker for iHeart streams
+    //const targetUrl = "https://" + "api.iheart.com" + "/api/v2/live-meta/stream/" + siteId + "/currentTrackMeta";
+// ✅ PRODUCTION 2026 API PATH: Points to the live US player cluster with zero firewalls
+const targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + siteId + "/currentTrackMeta";
+
 
 
     const proxyList = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
-        //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-        `https://cors-anywhere.herokuapp.com/${targetUrl}`,
-        //`https://proxy.cors.sh/${targetUrl}`
+        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        // `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        // //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+        // `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+        // `https://cors-anywhere.herokuapp.com/${targetUrl}`,
+        // //`https://proxy.cors.sh/${targetUrl}`
     ];
 
 
@@ -6941,7 +6995,8 @@ async function querySonglinkForSpotifyUri(artist, title) {
     const spotifySearchUrl = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`;
 
     // Odesli's public lookup can take a search term
-    const targetUrl = `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(spotifySearchUrl)}`;
+    let targetUrl = `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(spotifySearchUrl)}`;
+
     const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
 
     console.log(`proxyUrl: ${proxyUrl}`)
