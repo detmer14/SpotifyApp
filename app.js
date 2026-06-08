@@ -3651,7 +3651,7 @@ function getWeight(sliderValue, playlist) {
 // Define your sequential execution tracking grid mapping text slugs to Spotify playlist targets
 const stationNetwork = [
     { id: "KBZN",                   playlistId: "5IJKK7NDMB0RauocZUd1jp" }, // 97.9 FM - Now 97.9 KBZN
-    { id: "7346_48k",               playlistId: "3HPDlPwGtZi5bxBYOGLEWd" }, // X96
+    { id: "7346_48k",               playlistId: "3HPDlPwGtZi5bxBYOGLEWd" }, // * X96
     { id: "7164_48k",               playlistId: "7nMQh4vmn567gapArxDiLQ" }, // BOB FM
     //{ id: "7155_48k",             playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
     { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // Hank FM
@@ -3671,12 +3671,12 @@ const stationNetwork = [
     { id: "XM_thebridge",           playlistId: "1gOsdinyLpSjNGCdwqsnvC" }, // * XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
     { id: "XM_theblend",            playlistId: "2yBlKOrxYIkY7UUqTObxI9" }, // * XM The Blend Ch. 16 - Blending nice & easy pop
     { id: "XM_alt2k",               playlistId: "7xF8OvyRYxWu4U0AZc975f" }, // * XM Alt2K Ch. 27 - Alt Rock
-    { id: "XM_1stwave",             playlistId: "5U6gy40PLZaBLoy2IHvlQq" }, // XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
+    { id: "XM_1stwave",             playlistId: "5U6gy40PLZaBLoy2IHvlQq" }, // * XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
     { id: "XM_lithium",             playlistId: "75jLeew4WERen7gpuFe6nn" }, // * XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
     { id: "XM_kidzbopradio",        playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // * XM KIDZ BOP Radio Ch. 135 - kids
-    { id: "XM_altnation",           playlistId: "2815SuqCB3fUK18yiiOhzy" }, // XM Alt Nation Ch. 36 - Modern Alternative
-    { id: "XM_siriusxmturbo",       playlistId: "5m0nEzUNccNny2fBuSNIql" }, // XM Turbo Ch. 41 - 90s and 2000s Hard Rock
-    { id: "XM_thehighway",          playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // XM The Highway Ch. 56 - New Country
+    { id: "XM_altnation",           playlistId: "2815SuqCB3fUK18yiiOhzy" }, // * XM Alt Nation Ch. 36 - Modern Alternative
+    { id: "XM_siriusxmturbo",       playlistId: "5m0nEzUNccNny2fBuSNIql" }, // * XM Turbo Ch. 41 - 90s and 2000s Hard Rock
+    { id: "XM_thehighway",          playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // * XM The Highway Ch. 56 - New Country
     { id: "XM_y2kountry",           playlistId: "258caFaEZgidIIkvWD483x" }, // XM Y2Kountry Ch. 57 - 2000s Country
     { id: "XM_primecountry",        playlistId: "1iOdWIsvlM5eqV5i0M8CoH" }, // XM Prime Country Ch. 58 - 80s 90s Country
     { id: "XM_disneyhits",          playlistId: "2RY27XjagmNRt6prVhYCtp" }, // XM Disney Hits Ch. 133
@@ -3749,7 +3749,7 @@ async function syncAllRadiosToSpotify(){
             const requiredWaitTime = REQ_COOLDOWN_MS
             // console.log(`requiredWaitTime: ${requiredWaitTime}`)
             // console.log(`requiredWaitTime - timeElapsed: ${requiredWaitTime - timeElapsed}`)
-            spotifySyncMinutesRemaining = (requiredWaitTime - timeElapsed) / 6000
+            spotifySyncMinutesRemaining = (requiredWaitTime - timeElapsed) / 60000
             if(timeElapsed < requiredWaitTime) {
                 console.log(`%c ⏳ Spotify Search Gate Locked. Skipping API calls for another ${spotifySyncMinutesRemaining} minutes. Accumulating items in LocalStorage.`, "color: #83621aff;");
                 spotifySyncAllowed = false
@@ -4268,45 +4268,35 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
 
                 let compiledMasterTrackQueue = [];
 
-                // 🔍 STACKED BLOCK SPLITTER REGEXP: Splits the text cleanly at every concatenated boundary line
-                // Captures everything starting from {"count" up to the next structural block indicator or file end
-                const functionalJsonBlocks = rawFileText.match(/\{"count":[\s\S]*?(?=\{"count":|$)/g) || [];
-                console.log(`📦 Identified ${functionalJsonBlocks.length} concatenated history block data snapshots inside your project repository file.`);
+
+                // 🔍 IMPROVED BALANCED EXTRACTOR: 
+                // Matches content between { and } while ensuring it handles nested arrays/objects.
+                // This regex specifically targets the individual track records within your long line.
+                const functionalJsonBlocks = rawFileText.match(/\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g) || [];
+                console.log(`📦 Identified ${functionalJsonBlocks.length} track candidates in the repository stream.`);                
 
                 for (let i = 0; i < functionalJsonBlocks.length; i++) {
-                    let blockStr = functionalJsonBlocks[i].trim();
-                    
-                    // Scrub trailing commas if a manual paste boundary left a raw trailing symbol segment fracture
-                    if (blockStr.endsWith(",")) blockStr = blockStr.slice(0, -1);
-                    
-                    // Auto-repair missing brackets if a truncation cut off a trailing property block node array element
-                    if (!blockStr.endsWith("}")) {
-                        if (blockStr.includes('"results":[')) {
-                            blockStr += "]}"; // Structural balanced node repair inject patch
+                    try {
+                        const parsedTrackRecord = JSON.parse(functionalJsonBlocks[i].trim());
+                        
+                        // ✅ VALIDATION: Ensure it's a real track object with title/artists
+                        if (parsedTrackRecord.track && parsedTrackRecord.track.title) {
+                            compiledMasterTrackQueue.push(parsedTrackRecord);
                         }
                     }
-
-                    try {
-                        const parsedDataBlock = JSON.parse(blockStr);
-                        const recordsList = parsedDataBlock.results || [];
-                        
-                        // Compile the elements sequentially into our unified track storage list
-                        compiledMasterTrackQueue.push(...recordsList);
-                    }
-                    catch (blockErr) {
-                        console.warn(`⚠️ Warning: Bypassed a corrupted or clipped concatenation block fracture layer at index ${i}.`);
+                    catch (singleBlockErr) {
+                        // Silent pass for individual corrupted records (like the Ramones snippet earlier)
                     }
                 }
 
-                console.log(`🎉 Repository stream processing complete. Unified a master list of ${compiledMasterTrackQueue.length} raw historical track entities.`);
+                console.log(`🎉 Unified a master list of ${compiledMasterTrackQueue.length} raw historical tracks.`);
                 
-                // Wrap the data array back inside a standardized mock string container payload
-                // This allows the rest of your function code to digest it natively without any further path editing!
+                // Wrap back into legacy results format so the rest of your app stays unchanged
                 rawContent = JSON.stringify({ results: compiledMasterTrackQueue });
                 fetchSuccessful = true;
 
             } catch (masterRepositoryException) {
-                console.error("❌ Exception thrown during local repository text file collection stream parse loop:", masterRepositoryException);
+                console.error("❌ Exception during repository parse loop:", masterRepositoryException);
                 return;
             }
         }
@@ -10572,7 +10562,7 @@ async function requestWakeLock() {
     try {
         if ('wakeLock' in navigator) {
             wakeLock = await navigator.wakeLock.request('screen');
-            console.warn("Screen Wake Lock is aquired and active");
+            console.warn("🟢 Screen Wake Lock is aquired and active");
             // --- THE FIX: Listen for the system releasing the lock ---
             wakeLock.addEventListener('release', () => {
                 console.log("🟡 Wake Lock was released by the system.");
