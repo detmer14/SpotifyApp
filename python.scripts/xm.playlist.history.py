@@ -7,8 +7,11 @@ from pathlib import Path
 # from curl_cffi import requests
 # pip install curl_cffi
 
-import browser_cookie3
+#import browser_cookie3
 # pip install browser-cookie3
+import tls_client  # No admin required
+# pip install tls-client
+# pip install typing-extensions
 
 import urllib3
 # Suppress the "InsecureRequestWarning" messages from cluttering your console
@@ -84,21 +87,56 @@ def update_global_feed():
         # Use .chrome(), .firefox(), or .edge() depending on what you use
         #cj = browser_cookie3.chrome(domain_name='xmplaylist.com')
         
+        # Create a session that perfectly mirrors a Windows Chrome browser
+        session = tls_client.Session(
+            client_identifier="chrome_120"
+        )
+
         # Standard browser-like headers to keep the payload request looking clean
         headers = {
             # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0",
-            "Cookie": "cf_clearance=uePIyAUK2uf2EH.WbwfeMko7BNDmQqJd9ydB2buj488-1780419301-1.2.1.1-QlySAaWJy6_53j9RNJyGUOzdez9CDwjWaidP6W3FxX4hMNHjz6mbJESFAVf.50M8hn.uoVfEnYxz4289_PZnaf9QBaNmSsPW4b5IzxtWbT_mIZ062GoAQCY1F6NLZmJFQ6vrgqM4DUkPBG3EsAiznSzPeDipeUEio8jQSmxdsE1Q7OtXYpkZWqrGxGoifZtZLcA46gg3dqlZ7G4Ryap8ndVs2m4Ywx06eYTm_uyyDgrejrdx8_x0EMU42Nh9TiuS8A9paWA1rX0aSkQ0Uro54Ljp4Ig5ub.ElZWjpP8o9pXW_enMforUBbgmeLL8YirMEetF5zU.LTBtIuldrw.FB1HqjZRuk.20j4aR7fyTHaGXg4jewP_M1drvqUnsbcK8O2VyGGacdVgoK7g39jEPrtpb8q.S9mJ5FOfVyC3VWh4; _ga=GA1.1.995290611.1780419303; __client_uat=0; __client_uat_KqccziaU=0; __gads=ID=f0fb037226b1161f:T=1780419303:RT=1780419303:S=ALNI_MY7SI_z9l7A14CKVPMpK6yek3c1YA; __gpi=UID=000013af5b2902f1:T=1780419303:RT=1780419303:S=ALNI_MZ4-BAEWuNqOVvEvpXY6BolPOCnNQ; __eoi=ID=46fc9a3fb553965f:T=1780419303:RT=1780419303:S=AA-AfjYQmCr7BhMGIO7tgXqlTGh2; _ga_3CYFENTWD4=GS2.1.s1780419303$o1$g0$t1780419308$j55$l0$h0$djb57pfcF1dc1w7yFCFUqxRjZkcBs1oCbOw; FCCDCF=%5Bnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5B32%2C%22%5B%5C%22bb65687a-e903-48ae-9b6d-fa41c705ce52%5C%22%2C%5B1780419307%2C43000000%5D%5D%22%5D%5D%5D; FCNEC=%5B%5B%22AKsRol87JcYOV_BQ4Tnlm_3-eUTOzHkROAX0kSGwG874u393i_sfsA9FmzKOgKSBSoH8ItevUYDuaZZ5Zy-HYMCwcCGyDyTh482vohXJv_xDSgPNDgmgeKy9EVSaK8npHgBE0Rj3MNjqvAMAZcXkElYiph8Tac6sTg%3D%3D%22%5D%5D",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+            "Cookie": "cf_clearance=sYv_56dGjswh1icPbvi560G1Hq7Cn8GZ_tKCj8PKCgE-1781039907-1.2.1.1-hKib.LrfyBa0TdmFYrumFcMkTX990zMyySar7tDU8FV6bRwJs7OgwWvPZSMeURS9H5wJcOaxu_jxR7EbAoG320SEMFsQQS1tZTsuqcfxHzWXrfq1yj6sjLvZorg3s_Bj7x.SrCIRFN91zgBbNWpHv10n6bH0jC.k6d5Mtmv853PULYV1V9xF33Q0Oq3WBMlq4YIlW4h5a_zefEx1tB4XaPd8oYqwA8_vQCxqgG9OeVl3bAkmsF5WWE5if_Ek0b5ZFLwvJHAp6JmsifddjqclkBlTYJdkpC6tLfBf.BngdrAgplD7qjBvh58NvqJ4Z4pccusgcHEeDadhHsAglzmjr_CTaeQvDqE9WuR5Mo1f6Ta_aSGtGXy01mButp4bmqLufKAw0zeSO3ZomE43AZpZ4M3Uv8Bq4txXm7EhTzpV0Nc",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
             "Referer": "https://xmplaylist.com"
         }
+        # Standard browser-like headers to keep the payload request looking clean
+        # Match this string perfectly to your chrome_120 session engine identifier
+        # headers = {
+        #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+        #     "Accept": "application/json, text/plain, */*",
+        #     "Accept-Language": "en-US,en;q=0.9",
+        #     "Referer": "https://xmplaylist.com/"
+        # }
 
         # impersonate="chrome" sends real browser TLS fingerprints to pass Cloudflare
         # Added verify=False to bypass your local self-signed certificate barrier
         response = requests.get(feed_url, headers=headers, timeout=15, verify=False)
         # Pass the legitimate browser cookies directly into the script execution
         #response = requests.get(feed_url, headers=headers, cookies=cj, timeout=15, verify=False)
+
+        # Make the request
+        #response = session.get(feed_url, headers=headers, timeout_seconds=15)
+
+        # Explicit check if we are hitting a block page
+        if response.status_code == 403:
+            print("\n--- DETECTED 403 FORBIDDEN BLOCK ---")
+            print(f"Status Code: {response.status_code}")
+            
+            # Print important Cloudflare metadata headers
+            print("\nRelevant Headers:")
+            print(f"  Server:       {response.headers.get('Server')}")
+            print(f"  CF-Ray:       {response.headers.get('CF-Ray')}")
+            print(f"  Retry-After:  {response.headers.get('Retry-After', 'No wait timer specified')}")
+            print(f"  Content-Type: {response.headers.get('Content-Type')}")
+            
+            # Look inside the response body (HTML firewall page vs JSON rate limit string)
+            print("\nResponse Body Snippet (First 300 chars):")
+            print(response.text[:300])
+            print("------------------------------------\n")
+
+        # Not needed with tls client / session
         response.raise_for_status()      
 
         # Test if the response actually contains characters before parsing
@@ -121,7 +159,7 @@ def update_global_feed():
             # FIX 2: Identify the target station using the 'channelId' key
             station_id = track_wrapper.get("channelId")
 
-            print(f"track_wrapper - station_id: {station_id}")
+            # print(f"track_wrapper - station_id: {station_id}")
             if station_id in TRACKED_STATIONS:
                 if station_id not in station_batches:
                     station_batches[station_id] = []
@@ -145,7 +183,7 @@ def update_global_feed():
             with open(filename, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             
-            truncated_lines = lines[-500:]
+            truncated_lines = lines[-20:]
             
             with open(filename, "w", encoding="utf-8") as f:
                 f.writelines(truncated_lines)
@@ -258,4 +296,4 @@ if __name__ == "__main__":
             print(f"Loop encountered an unexpected error: {e}")
             
         print("Waiting 5 minutes before the next pull...\n")
-        time.sleep(10 * 60)  # 300 seconds = 5 minutes
+        time.sleep(4 * 60)  # 300 seconds = 5 minutes
