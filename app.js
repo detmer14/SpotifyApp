@@ -3677,11 +3677,11 @@ const stationNetwork = [
     { id: "XM_altnation",           playlistId: "2815SuqCB3fUK18yiiOhzy" }, // * XM Alt Nation Ch. 36 - Modern Alternative
     { id: "XM_siriusxmturbo",       playlistId: "5m0nEzUNccNny2fBuSNIql" }, // * XM Turbo Ch. 41 - 90s and 2000s Hard Rock
     { id: "XM_thehighway",          playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // * XM The Highway Ch. 56 - New Country
-    { id: "XM_y2kountry",           playlistId: "258caFaEZgidIIkvWD483x" }, // XM Y2Kountry Ch. 57 - 2000s Country
-    { id: "XM_primecountry",        playlistId: "1iOdWIsvlM5eqV5i0M8CoH" }, // XM Prime Country Ch. 58 - 80s 90s Country
-    { id: "XM_disneyhits",          playlistId: "2RY27XjagmNRt6prVhYCtp" }, // XM Disney Hits Ch. 133
-    { id: "XM_greendaysidiotnation",playlistId: "0ARuyKZekSZXbGsksxn5sU" }, // XM Green Day's Idiot Nation Ch. 314 - Punk Rock
-    { id: "XM_williesroadhouse",    playlistId: "0tVP4r4DJjQYK2Hqlz3sSr" }, // XM Willie's Roadhouse Ch. 61 - Classic Country
+    { id: "XM_y2kountry",           playlistId: "258caFaEZgidIIkvWD483x" }, // * XM Y2Kountry Ch. 57 - 2000s Country
+    { id: "XM_primecountry",        playlistId: "1iOdWIsvlM5eqV5i0M8CoH" }, // * XM Prime Country Ch. 58 - 80s 90s Country
+    { id: "XM_disneyhits",          playlistId: "2RY27XjagmNRt6prVhYCtp" }, // * XM Disney Hits Ch. 133
+    { id: "XM_greendaysidiotnation",playlistId: "0ARuyKZekSZXbGsksxn5sU" }, // * XM Green Day's Idiot Nation Ch. 314 - Punk Rock
+    { id: "XM_williesroadhouse",    playlistId: "0tVP4r4DJjQYK2Hqlz3sSr" }, // * XM Willie's Roadhouse Ch. 61 - Classic Country
     { id: "XM_classicrewind",       playlistId: "7g1nHljfI6pntWQ1waW6YX" }, // XM Classic Rewind Ch. 25 - Classic Rock
     { id: "XM_ozzysboneyard",       playlistId: "2FWAPY5HEguJPFGFOhrd30" }, // XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
     { id: "XM_hairnation",          playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // XM XM Hair Nation Ch. 39 - Classic Rock
@@ -3712,6 +3712,12 @@ async function beginSyncAllRadiosToSpotify(){
 
     syncRadioSpotifyRateLimit = false
     totalSpotifyRateLimit = false
+
+    //spotifyPlaylistDownloadAllowed = false
+    setInterval(async () => {
+        spotifyPlaylistDownloadAllowed = true //reset by whichever station runs that process
+        console.log(`✅ spotifyPlaylistDownloadAllowed.`);
+    }, 60 * 60 * 1000); //every 60 min
 
     startLiveRadioAccumulator("KBZN", "5IJKK7NDMB0RauocZUd1jp")
 
@@ -4058,6 +4064,7 @@ let globalSongCache = {}
 const pacingKey = `last_spotify_sync_time`;
 let spotifySyncAllowed = true;
 let spotifySyncAllowedStart = true
+let spotifyPlaylistDownloadAllowed = false
 let spotifySyncInProgress = false;
 let spotifySyncMinutesRemaining = 0
 async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNumber = 196158) {
@@ -4521,7 +4528,8 @@ console.dir(uniqueHistory, { depth: null });
 
         let existingTrackUris = new Set();
 
-        if(!totalSpotifyRateLimit && spotifySyncAllowedStart && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+        if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+            spotifyPlaylistDownloadAllowed = false
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -5398,7 +5406,8 @@ if(newStationSearchAllowed){
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
 
-        if(!totalSpotifyRateLimit && spotifySyncAllowedStart && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+        if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+            spotifyPlaylistDownloadAllowed = false
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -6174,7 +6183,8 @@ if(newStationSearchAllowed){
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationCall}. Zero API cost.`);
         }
 
-        if(!totalSpotifyRateLimit && spotifySyncAllowedStart && (stationNetwork[beginningStationNetworkAllowed].id === stationCall)){
+        if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationCall)){
+            spotifyPlaylistDownloadAllowed = false
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
