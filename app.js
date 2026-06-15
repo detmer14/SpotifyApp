@@ -3659,9 +3659,9 @@ const stationNetwork = [
     { id: "KKEX3",                  playlistId: "7cnOzxNR0bwi531jE1SjA4" }, // KKEX3 104.5 The Ranch
     { id: "KGNT",                   playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // KOOL 103.9 KGNT  Your Greatest Hits
     { id: "KLZX",                   playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // 95.0 KLZX Classic Rock
-    { id: "KVFX",                   playlistId: "7iyYX42dtmd82tuMIIetlL" }, // 94.5 KVFX VFX Top 40
-    { id: "KBERFM",                 playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // KBER 101
-    { id: "KUBLFMAAC",              playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // KUBL - KBULL 93 The Bull Country
+    { id: "KVFX",                   playlistId: "7iyYX42dtmd82tuMIIetlL" }, // * 94.5 KVFX VFX Top 40
+    { id: "KBERFM",                 playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // * KBER 101
+    { id: "KUBLFMAAC",              playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // * KUBL - KBULL 93 The Bull Country
     { id: "XM_octane",              playlistId: "0p50gUG6ST0n37PYtEjEq6" }, // * XM Octane Ch. 37 - Hard Rock 
     { id: "XM_bluegrassjunction",   playlistId: "0yDtWHSgoMeqicg3ZDubf3" }, // * XM Bluegrass Junction  Ch. 77
     { id: "XM_thepulse",            playlistId: "3dGDQkqGftK9CrXeMmxtIE" }, // * XM The Pulse Ch. 5 - Today's pop
@@ -3683,8 +3683,9 @@ const stationNetwork = [
     { id: "XM_williesroadhouse",    playlistId: "0tVP4r4DJjQYK2Hqlz3sSr" }, // * XM Willie's Roadhouse Ch. 61 - Classic Country
     { id: "XM_classicrewind",       playlistId: "7g1nHljfI6pntWQ1waW6YX" }, // * XM Classic Rewind Ch. 25 - Classic Rock
     { id: "XM_ozzysboneyard",       playlistId: "2FWAPY5HEguJPFGFOhrd30" }, // * XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
-    { id: "XM_hairnation",          playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // XM XM Hair Nation Ch. 39 - Classic Rock
-    { id: "XM_redwhitebooze",       playlistId: "4JdLLCLUOyj39fUCRwMqdl" }, // XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
+    { id: "XM_hairnation",          playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // * XM XM Hair Nation Ch. 39 - Classic Rock
+    { id: "XM_redwhitebooze",       playlistId: "4JdLLCLUOyj39fUCRwMqdl" }, // * XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
+    { id: "XM_holidaytraditions",   playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // * XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
 ];
 
 //This will round down to the nearest whole integer
@@ -3735,6 +3736,7 @@ async function syncAllRadiosToSpotify(){
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         console.log("⏰ Starting scheduled multi-station playlist sync sequence...");
 
+    currentStationNetworkAllowed = 1 //used for Spotify Search
     //beginningStationNetworkAllowed = currentStationNetworkAllowed
     beginningStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
     if(spotifyPlaylistDownloadAllowed) console.log(`✅ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
@@ -3788,7 +3790,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncRadioToSpotify(whichStationId, "3HPDlPwGtZi5bxBYOGLEWd");
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3801,7 +3804,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncRadioToSpotify(whichStationId, "7nMQh4vmn567gapArxDiLQ");
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3824,7 +3828,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncRadioToSpotify(whichStationId, "5oe5s6xIGEITr0YHzlc0Ey");
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3841,7 +3846,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBLQToSpotify(whichStationId,"757OVZ8V0JdzE8eA05qaLa"); // KBLQ Q92
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3855,7 +3861,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBLQToSpotify(whichStationId,"5MAmtTO9pE9DpOC1YwN45C"); // Kix 96 KKEX Country
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3869,7 +3876,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBLQToSpotify(whichStationId,"7cnOzxNR0bwi531jE1SjA4"); // KKEX3 104.5 The Ranch
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3881,7 +3889,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBLQToSpotify(whichStationId,"2EIK73lP43RH5LbO4XUh4I"); // KOOL 103.9 KGNT  Your Greatest Hits
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3893,7 +3902,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBLQToSpotify(whichStationId,"5qoWmLVvZyMcHXEpkxDWT2"); // 95.0 KLZX Classic Rock
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3905,7 +3915,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBLQToSpotify(whichStationId,"7iyYX42dtmd82tuMIIetlL"); // 94.5 KVFX VFX Top 40
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3917,7 +3928,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBERToSpotify(whichStationId,"0zMyia0KzbLTi0pEse7i0c") // KBER 101
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -3929,7 +3941,8 @@ async function syncAllRadiosToSpotify(){
             whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
             await syncKBERToSpotify(whichStationId,"2nDRY8T9SruY4U0Dy4OkTS") // KUBL - KBULL 93 The Bull Country
             console.log("⏸️ Sleeping for 1 minute...");
-            if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            if(!spotifySearchPeformed){
                 spotifyRadioSleepTime = 0
             }
             else{
@@ -4044,6 +4057,9 @@ async function syncXMstationsToSpotify(){
 
             // XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
             await syncRadioToSpotify("XM_redwhitebooze", "4JdLLCLUOyj39fUCRwMqdl") // XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
+
+            // XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+            await syncRadioToSpotify("XM_holidaytraditions", "6QdbwKDkjBaqHTAWWAp6cc") // XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
 }
 
 /**
@@ -4066,6 +4082,7 @@ let globalSongCache = {}
 const pacingKey = `last_spotify_sync_time`;
 let spotifySyncAllowed = true;
 let spotifySyncAllowedStart = true
+let spotifySearchPeformed = false
 let spotifyPlaylistDownloadAllowed = false
 let spotifySyncInProgress = false;
 let spotifySyncMinutesRemaining = 0
@@ -4732,6 +4749,8 @@ console.dir(playlistData.items, { depth: null });
         // 🚨 VOLUMETRIC GOVERNOR: Cap search requests to protect your account's daily quota
         const MAX_SEARCHES_PER_RUN = 150; // Per station limit, or set a global counter up top
         let searchesPerformedThisRun = 0;
+        if(stationID !== "KBZN") spotifySearchPeformed = false
+
 
         // 2. Loop through tracks and find their Spotify URIs
         for (const item of uniqueHistory) {
@@ -4759,8 +4778,13 @@ console.dir(playlistData.items, { depth: null });
             // 🅰️ CHECK 1: Strict Direct Key Match Check
             if (globalSongCache[cacheKey]) {
                 const cachedTrack = globalSongCache[cacheKey];
-                const foundUri = cachedTrack.uri;
+                let foundUri = cachedTrack.uri;
                 const alternates = cachedTrack.alternate_uris || []
+
+                if(foundUri && !foundUri.includes("spotify:track:")){
+                    foundUri = `spotify:track:${foundUri}`
+                    cachedTrack.uri = foundUri
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -4809,8 +4833,13 @@ console.dir(playlistData.items, { depth: null });
 
             if (fuzzyMatchKey) {
                 const cachedTrack = globalSongCache[fuzzyMatchKey];
-                const foundUri = cachedTrack.uri;
+                let foundUri = cachedTrack.uri;
                 const alternates = cachedTrack.alternate_uris || []
+
+                if(foundUri && !foundUri.includes("spotify:track:")){
+                    foundUri = `spotify:track:${foundUri}`
+                    cachedTrack.uri = foundUri
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -4871,7 +4900,9 @@ console.dir(playlistData.items, { depth: null });
             await delay(800);
 
             // Increment the shared global counter right before hitting the network
-            globalSearchesPerformed++; 
+            globalSearchesPerformed++;
+            spotifySearchPeformed = true
+
             console.log(`[Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
 
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
@@ -5633,6 +5664,8 @@ console.dir(uniqueHistory, { depth: null });
                 //localStorage.setItem(pacingKey, Date.now().toString());
             }
 
+        spotifySearchPeformed = false
+
         // 2. Loop through tracks and find their Spotify URIs
         for (const item of uniqueHistory) {
 //console.dir(item, { depth: null });
@@ -5657,8 +5690,13 @@ console.dir(uniqueHistory, { depth: null });
             // 🅰️ CHECK 1: Strict Direct Key Match Check
             if (globalSongCache[cacheKey]) {
                 const cachedTrack = globalSongCache[cacheKey];
-                const foundUri = cachedTrack.uri;
+                let foundUri = cachedTrack.uri;
                 const alternates = cachedTrack.alternate_uris || []
+
+                if(foundUri && !foundUri.includes("spotify:track:")){
+                    foundUri = `spotify:track:${foundUri}`
+                    cachedTrack.uri = foundUri
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -5705,8 +5743,13 @@ console.dir(uniqueHistory, { depth: null });
 
             if (fuzzyMatchKey) {
                 const cachedTrack = globalSongCache[fuzzyMatchKey];
-                const foundUri = cachedTrack.uri;
+                let foundUri = cachedTrack.uri;
                 const alternates = cachedTrack.alternate_uris || []
+
+                if(foundUri && !foundUri.includes("spotify:track:")){
+                    foundUri = `spotify:track:${foundUri}`
+                    cachedTrack.uri = foundUri
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -5767,6 +5810,8 @@ console.dir(uniqueHistory, { depth: null });
             
             // Increment the shared global counter right before hitting the network
             globalSearchesPerformed++; 
+            spotifySearchPeformed = true
+
             console.log(`[Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
 
             // Search Spotify
@@ -6444,6 +6489,8 @@ console.dir(playlistData.items, { depth: null });
                 //localStorage.setItem(pacingKey, Date.now().toString());
             }
 
+        spotifySearchPeformed = false
+
         for (const item of uniqueHistory) {
             // 🧼 RUN PRE-PROCESSOR: Clean and normalize raw station inputs instantly
             // ✅ Use the ID3 metadata tags (TIT2 and TPE1)
@@ -6462,8 +6509,13 @@ console.dir(playlistData.items, { depth: null });
             // 🅰️ CHECK 1: Strict Direct Key Match Check
             if (globalSongCache[cacheKey]) {
                 const cachedTrack = globalSongCache[cacheKey];
-                const foundUri = cachedTrack.uri;
+                let foundUri = cachedTrack.uri;
                 const alternates = cachedTrack.alternate_uris || []
+
+                if(foundUri && !foundUri.includes("spotify:track:")){
+                    foundUri = `spotify:track:${foundUri}`
+                    cachedTrack.uri = foundUri
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -6510,8 +6562,13 @@ console.dir(playlistData.items, { depth: null });
 
             if (fuzzyMatchKey) {
                 const cachedTrack = globalSongCache[fuzzyMatchKey];
-                const foundUri = cachedTrack.uri;
+                let foundUri = cachedTrack.uri;
                 const alternates = cachedTrack.alternate_uris || []
+
+                if(foundUri && !foundUri.includes("spotify:track:")){
+                    foundUri = `spotify:track:${foundUri}`
+                    cachedTrack.uri = foundUri
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -6571,7 +6628,9 @@ console.dir(playlistData.items, { depth: null });
             await delay(800);
 
             // Increment the shared global counter right before hitting the network
-            globalSearchesPerformed++; 
+            globalSearchesPerformed++;
+            spotifySearchPeformed = true
+
             console.log(`[Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
 
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
@@ -7466,7 +7525,7 @@ function printUnfoundTracksReport() {
         groupedByStation[stationID].forEach((item, index) => {
             //console.log(`  ${index + 1}. [CacheKey]: "${item.cacheKey}"`);
             //console.log(`     [Identity]: ${item.artist} - "${item.title}"`);
-            console.log(`${item.artist},${item.title},"XXXX",${stationID}`)
+            console.log(`${item.artist},${item.title},XXXXXX,${stationID}`)
         });
     }
 }
