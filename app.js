@@ -3654,11 +3654,15 @@ const stationNetwork = [
     { id: "7164_48k",               playlistId: "7nMQh4vmn567gapArxDiLQ" }, // BOB FM
     //{ id: "7155_48k",             playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
     { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // Hank FM
-    { id: "KBLQ",                   playlistId: "757OVZ8V0JdzE8eA05qaLa" }, // KBLQ Q92
-    { id: "KKEX",                   playlistId: "5MAmtTO9pE9DpOC1YwN45C" }, // Kix 96 KKEX Country
-    { id: "KKEX3",                  playlistId: "7cnOzxNR0bwi531jE1SjA4" }, // KKEX3 104.5 The Ranch
-    { id: "KGNT",                   playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // KOOL 103.9 KGNT  Your Greatest Hits
-    { id: "KLZX",                   playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // 95.0 KLZX Classic Rock
+    { id: "7923_96k",               playlistId: "6fGCdcJZDyahG2OTSUJrvo" }, // KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
+    { id: "a24346",                 playlistId: "3JxHp5IPpxLqSV1fuGuuji" }, // KCUT 102.9 Moab Rocks
+    { id: "KBLQ",                   playlistId: "757OVZ8V0JdzE8eA05qaLa" }, // * KBLQ Q92
+    { id: "KLGN",                   playlistId: "40rg8M41WvZ4OD3SIqxvTz" }, // KLGN 103.3 Lite FM - Yesterday's Lite Hits
+    { id: "KCLS",                   playlistId: "4sIUUZpT7DjhZolusj5dom" }, // KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
+    { id: "KKEX",                   playlistId: "5MAmtTO9pE9DpOC1YwN45C" }, // * Kix 96 KKEX Country
+    { id: "KKEX3",                  playlistId: "7cnOzxNR0bwi531jE1SjA4" }, // * KKEX3 104.5 The Ranch
+    { id: "KGNT",                   playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // * KOOL 103.9 KGNT  Your Greatest Hits
+    { id: "KLZX",                   playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // * 95.0 KLZX Classic Rock
     { id: "KVFX",                   playlistId: "7iyYX42dtmd82tuMIIetlL" }, // * 94.5 KVFX VFX Top 40
     { id: "KBERFM",                 playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // * KBER 101
     { id: "KUBLFMAAC",              playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // * KUBL - KBULL 93 The Bull Country
@@ -3685,7 +3689,7 @@ const stationNetwork = [
     { id: "XM_ozzysboneyard",       playlistId: "2FWAPY5HEguJPFGFOhrd30" }, // * XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
     { id: "XM_hairnation",          playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // * XM XM Hair Nation Ch. 39 - Classic Rock
     { id: "XM_redwhitebooze",       playlistId: "4JdLLCLUOyj39fUCRwMqdl" }, // * XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
-    { id: "XM_holidaytraditions",   playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // * XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+    { id: "XM_holidaytraditions",   playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
 ];
 
 //This will round down to the nearest whole integer
@@ -3696,6 +3700,9 @@ currentStationNetworkAllowed = 1 //used for Spotify Search
 let beginningStationNetworkAllowed = 0 // used for pushing URIs to playlist
 let currentRadioPlaylistUpdateAllowed = 0; //Used for downloading actual playlist history
     currentRadioPlaylistUpdateAllowed = currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
+
+let lastSyncTime = 0
+let lastPollTime = 0
 
 let spotifyRadioSleepTime = 2 //min
 // --- MASTER TRACKING CONFIGURATION ---
@@ -3742,251 +3749,305 @@ async function syncAllRadiosToSpotify(){
     if(spotifyPlaylistDownloadAllowed) console.log(`✅ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
     //currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
     currentRadioPlaylistUpdateAllowed = (currentRadioPlaylistUpdateAllowed + 5) % stationNetwork.length;
-        try {
 
-            //globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
-            // ✅ Ensure runtime cache has data before starting lookups
-            //if (!globalSongCache || Object.keys(globalSongCache).length === 0) {
-                globalSongCache = await loadIndexedDbToRuntimeCache();
-            //}
+    try {
 
-
-            const lastSyncTime = parseInt(localStorage.getItem(pacingKey)) || 0;
-            // console.log(`lastSyncTime: ${lastSyncTime}`)
-            const timeElapsed = Date.now() - lastSyncTime;
-            // console.log(`timeElapsed: ${timeElapsed}`)
-            // Change 60 to whatever minute interval you want to allow (e.g., 30, 60, 120)
-            const requiredWaitTime = REQ_COOLDOWN_MS
-            // console.log(`requiredWaitTime: ${requiredWaitTime}`)
-            // console.log(`requiredWaitTime - timeElapsed: ${requiredWaitTime - timeElapsed}`)
-            spotifySyncMinutesRemaining = (requiredWaitTime - timeElapsed) / 60000
-            if(timeElapsed < requiredWaitTime) {
-                console.log(`%c ⏳ Spotify Search Gate Locked. Skipping API calls for another ${spotifySyncMinutesRemaining} minutes. Accumulating items in LocalStorage.`, "color: #83621aff;");
-                spotifySyncAllowed = false
-                spotifySyncAllowedStart = false
-            }
-            else {
-                console.log(`%c 🔓 Spotify Search Gate Open! Proceeding with live track queries...`, "color: #d9ff00ff; background: #005f00;");
-                spotifySyncAllowed = true
-                spotifySyncAllowedStart = true
-                globalSearchesPerformed = 0
-                // Update the timestamp only when a full search run is allowed to start
-                localStorage.setItem(pacingKey, Date.now().toString());
-            }
-            if(syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
+        //globalSongCache = JSON.parse(localStorage.getItem('spotify_global_song_cache')) || {};
+        // ✅ Ensure runtime cache has data before starting lookups
+        //if (!globalSongCache || Object.keys(globalSongCache).length === 0) {
+            globalSongCache = await loadIndexedDbToRuntimeCache();
+        //}
 
 
-            await refreshAccessToken()
-
-            let whichStationId = "NONE"
-            let whichStationIdIndex = 0 //will increment to 1 - bypassing kbzn
-
-            // 1. X96 Sync
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncRadioToSpotify(whichStationId, "3HPDlPwGtZi5bxBYOGLEWd");
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // 2. BOB FM Sync
-            // 100.7 / 105.5 BOB FM (KYMV): Playing Adult Hits across the Wasatch Front.
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncRadioToSpotify(whichStationId, "7nMQh4vmn567gapArxDiLQ");
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // // 3. The Mix Sync - Actually this is spiritual/worship
-            // await syncRadioToSpotify("7155_48k", "3ZrUs8aPnGwj0XohRQpcvh");
-            // console.log("⏸️ Sleeping for 1 minute...");
-            // await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // //KUDDMix 105.1
-            // await syncRadioToSpotify("7168_48k","3ZrUs8aPnGwj0XohRQpcvh"); //KUDDMix 105.1
-            // console.log("⏸️ Sleeping for 1 minute...");
-            // await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // 4. Hank FM Sync
-            // 101.5 Hank FM (KNAH) Classic & Modern Country music.
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncRadioToSpotify(whichStationId, "5oe5s6xIGEITr0YHzlc0Ey");
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            //// // 104.3 KSOP Country
-            //// await syncRadioToSpotify("KSOP","40rg8M41WvZ4OD3SIqxvTz"); //104.3 KSOP Country
-            //// console.log("⏸️ Sleeping for 1 minute...");
-            //// await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // ✅ NEW SEED TRACKING: Sync Q92 cleanly from their Cirrus streaming host
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBLQToSpotify(whichStationId,"757OVZ8V0JdzE8eA05qaLa"); // KBLQ Q92
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // ✅ Kix 96 KKEX Country
-            // streamdb7web + "KKEX": Connects to 94.5 K-EX (KKEX) in Oregon. 
-            // They play mainstream Modern Country (Luke Combs, Morgan Wallen, Lainey Wilson).
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBLQToSpotify(whichStationId,"5MAmtTO9pE9DpOC1YwN45C"); // Kix 96 KKEX Country
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // streamdb5web + "KKEX3": Connects to 101.9 HD3 The Ranch (KKEX-HD3) in Utah. 
-            // They play Texas/Red Dirt & Classic Country (Cody Jinks, Aaron Watson, George Strait).
-            // ✅ KKEX3 104.5 The Ranch - S cleanly from their Cirrus streaming host
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBLQToSpotify(whichStationId,"7cnOzxNR0bwi531jE1SjA4"); // KKEX3 104.5 The Ranch
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // KOOL 103.9 KGNT  Your Greatest Hits
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBLQToSpotify(whichStationId,"2EIK73lP43RH5LbO4XUh4I"); // KOOL 103.9 KGNT  Your Greatest Hits
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // 95.0 KLZX Classic Rock
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBLQToSpotify(whichStationId,"5qoWmLVvZyMcHXEpkxDWT2"); // 95.0 KLZX Classic Rock
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // 94.5 KVFX VFX Top 40
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBLQToSpotify(whichStationId,"7iyYX42dtmd82tuMIIetlL"); // 94.5 KVFX VFX Top 40
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            //KBER 101
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBERToSpotify(whichStationId,"0zMyia0KzbLTi0pEse7i0c") // KBER 101
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            //KBUL 93
-            whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
-            await syncKBERToSpotify(whichStationId,"2nDRY8T9SruY4U0Dy4OkTS") // KUBL - KBULL 93 The Bull Country
-            console.log("⏸️ Sleeping for 1 minute...");
-            //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            if(!spotifySearchPeformed){
-                spotifyRadioSleepTime = 0
-            }
-            else{
-                spotifyRadioSleepTime = 2
-            }
-            await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            // // 97.9 FM - Now 97.9 KBZN
-            // await syncKBERToSpotify("2283_96", "5IJKK7NDMB0RauocZUd1jp");
-            // console.log("⏸️ Sleeping for 1 minute...");
-            // if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
-            //     spotifyRadioSleepTime = 0
-            // }
-            // else{
-            //     spotifyRadioSleepTime = 2
-            // }
-            // await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-            await syncXMstationsToSpotify()
-
-            // // ✅ NEW IHEART LIVE TRACKER ACCUMULATOR
-            // await gatherIHeartStationTrack("KAAZ-FM", "Rock1067"); 
-
-            // // await syncRadioToSpotify("7170_48k","2nDRY8T9SruY4U0Dy4OkTS"); //KUUU U92 Hip Hop
-            // //         console.log("⏸️ Sleeping for 1 minute...");
-            // //         //await sleep(2 * 60 * 1000);
-            // nope
-
-            if(spotifySyncAllowedStart){
-                localStorage.setItem(pacingKey, Date.now().toString());
-            }
-
-            // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
-            // Save the updated object map right after this station finishes its loop logic pass
-            // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
-            // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
-            // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
-            await flushRuntimeCacheToIndexedDb(globalSongCache);
-
-            console.log("✅ All stations synced successfully. Next master cycle in 10 minutes.");
-        } catch (error) {
-            console.error("⚠️ Scheduled loop encountered an error:", error);
+        lastSyncTime = parseInt(localStorage.getItem(pacingKey)) || 0;
+        // console.log(`lastSyncTime: ${lastSyncTime}`)
+        const timeElapsed = Date.now() - lastSyncTime;
+        // console.log(`timeElapsed: ${timeElapsed}`)
+        // Change 60 to whatever minute interval you want to allow (e.g., 30, 60, 120)
+        const requiredWaitTime = REQ_COOLDOWN_MS
+        // console.log(`requiredWaitTime: ${requiredWaitTime}`)
+        // console.log(`requiredWaitTime - timeElapsed: ${requiredWaitTime - timeElapsed}`)
+        spotifySyncMinutesRemaining = (requiredWaitTime - timeElapsed) / 60000
+        if(timeElapsed < requiredWaitTime) {
+            console.log(`%c ⏳ Spotify Search Gate Locked. Skipping API calls for another ${spotifySyncMinutesRemaining} minutes. Accumulating items in LocalStorage.`, "color: #83621aff;");
+            spotifySyncAllowed = false
+            spotifySyncAllowedStart = false
+        }
+        else {
+            console.log(`%c 🔓 Spotify Search Gate Open! Proceeding with live track queries...`, "color: #d9ff00ff; background: #005f00;");
+            spotifySyncAllowed = true
+            spotifySyncAllowedStart = true
+            globalSearchesPerformed = 0
+            // Update the timestamp only when a full search run is allowed to start
+            localStorage.setItem(pacingKey, Date.now().toString());
+        }
+        if(syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
         }
 
+
+        await refreshAccessToken()
+
+        let whichStationId = "NONE"
+        let whichStationIdIndex = 0 //will increment to 1 - bypassing kbzn
+
+        // 1. X96 Sync
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "3HPDlPwGtZi5bxBYOGLEWd");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // 2. BOB FM Sync
+        // 100.7 / 105.5 BOB FM (KYMV): Playing Adult Hits across the Wasatch Front.
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "7nMQh4vmn567gapArxDiLQ");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // // 3. The Mix Sync - Actually this is spiritual/worship
+        // await syncRadioToSpotify("7155_48k", "3ZrUs8aPnGwj0XohRQpcvh");
+        // console.log("⏸️ Sleeping for 1 minute...");
+        // await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // //KUDDMix 105.1
+        // await syncRadioToSpotify("7168_48k","3ZrUs8aPnGwj0XohRQpcvh"); //KUDDMix 105.1
+        // console.log("⏸️ Sleeping for 1 minute...");
+        // await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // 4. Hank FM Sync
+        // 101.5 Hank FM (KNAH) Classic & Modern Country music.
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "5oe5s6xIGEITr0YHzlc0Ey");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "6fGCdcJZDyahG2OTSUJrvo");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KCUT 102.9 Moab Rocks
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "3JxHp5IPpxLqSV1fuGuuji");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        //// // 104.3 KSOP Country
+        //// await syncRadioToSpotify("KSOP","40rg8M41WvZ4OD3SIqxvTz"); //104.3 KSOP Country
+        //// console.log("⏸️ Sleeping for 1 minute...");
+        //// await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // ✅ NEW SEED TRACKING: Sync Q92 cleanly from their Cirrus streaming host
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"757OVZ8V0JdzE8eA05qaLa"); // KBLQ Q92
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // ✅ KLGN 103.3 Lite FM - Yesterday's Lite Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"40rg8M41WvZ4OD3SIqxvTz"); // KLGN 103.3 Lite FM - Yesterday's Lite Hits
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // ✅ KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"4sIUUZpT7DjhZolusj5dom"); // KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // ✅ Kix 96 KKEX Country
+        // streamdb7web + "KKEX": Connects to 94.5 K-EX (KKEX) in Oregon. 
+        // They play mainstream Modern Country (Luke Combs, Morgan Wallen, Lainey Wilson).
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"5MAmtTO9pE9DpOC1YwN45C"); // Kix 96 KKEX Country
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // streamdb5web + "KKEX3": Connects to 101.9 HD3 The Ranch (KKEX-HD3) in Utah. 
+        // They play Texas/Red Dirt & Classic Country (Cody Jinks, Aaron Watson, George Strait).
+        // ✅ KKEX3 104.5 The Ranch - S cleanly from their Cirrus streaming host
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"7cnOzxNR0bwi531jE1SjA4"); // KKEX3 104.5 The Ranch
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KOOL 103.9 KGNT  Your Greatest Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"2EIK73lP43RH5LbO4XUh4I"); // KOOL 103.9 KGNT  Your Greatest Hits
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // 95.0 KLZX Classic Rock
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"5qoWmLVvZyMcHXEpkxDWT2"); // 95.0 KLZX Classic Rock
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // 94.5 KVFX VFX Top 40
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"7iyYX42dtmd82tuMIIetlL"); // 94.5 KVFX VFX Top 40
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        //KBER 101
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBERToSpotify(whichStationId,"0zMyia0KzbLTi0pEse7i0c") // KBER 101
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        //KBUL 93
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBERToSpotify(whichStationId,"2nDRY8T9SruY4U0Dy4OkTS") // KUBL - KBULL 93 The Bull Country
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // // 97.9 FM - Now 97.9 KBZN
+        // await syncKBERToSpotify("2283_96", "5IJKK7NDMB0RauocZUd1jp");
+        // console.log("⏸️ Sleeping for 1 minute...");
+        // if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        //     spotifyRadioSleepTime = 0
+        // }
+        // else{
+        //     spotifyRadioSleepTime = 2
+        // }
+        // await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        await syncXMstationsToSpotify()
+
+        // // ✅ NEW IHEART LIVE TRACKER ACCUMULATOR
+        // await gatherIHeartStationTrack("KAAZ-FM", "Rock1067"); 
+
+        // // await syncRadioToSpotify("7170_48k","2nDRY8T9SruY4U0Dy4OkTS"); //KUUU U92 Hip Hop
+        // //         console.log("⏸️ Sleeping for 1 minute...");
+        // //         //await sleep(2 * 60 * 1000);
+        // nope
+
+        if(spotifySyncAllowedStart){
+            localStorage.setItem(pacingKey, Date.now().toString());
+            lastSyncTime = Date.now()
+        }
+
+        // 💾 MASTER PERSISTENT LOCALSTORAGE WRITEBACK
+        // Save the updated object map right after this station finishes its loop logic pass
+        // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
+        // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+        // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+        await flushRuntimeCacheToIndexedDb(globalSongCache);
+
+        console.log("✅ All stations synced successfully. Next master cycle in 10 minutes.");
+    } catch (error) {
+        console.error("⚠️ Scheduled loop encountered an error:", error);
+    }
+    lastPollTime = Date.now()
 }
 async function syncXMstationsToSpotify(){
             // XM Octane Ch. 37 - Hard Rock 
@@ -4182,6 +4243,13 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
         //targetUrl = "https://" + "streamdb6web" + ".securenetsystems.net" + "/player_status_update/" + "KBZNFM" + "_history.xml";
         //targetUrl = `https://live.mystreamplayer.com/config/2283_96.json`;
     }
+    else if (stationID === "a24346") {
+        targetUrl = "https://" + "api.live365.com" + "/station/" + stationID;
+    }
+    else if(stationID === "KCINFM"){
+        //targetUrl = "https://" + "v7.player" + ".townsquaremedia.com" + "/api/v1/nowplaying/" + stationID.toLowerCase();
+        // Points directly to Townsquare's dedicated, unblocked player API domain
+        targetUrl = "https://" + "tsm-player-api" + ".com" + "/api/v1/nowplaying/" + stationID.toLowerCase();    }
     else {
         // Default StreamOn format rule
         targetUrl = `https://yp.cdnstream1.com/metadata/${stationID}/range/${startTimestamp}-${endTimestamp}.json`;
@@ -4331,7 +4399,8 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
         // 🌍 STANDARD NETWORK SECTOR (FOR YOUR REGULAR LIVE LOCAL RADIO STATIONS)
         // =========================================================================
         else{
-        for (const proxyUrl of proxyList) {
+        let proxyUrl
+        for (proxyUrl of proxyList) {
             try {
                 // Safe URL parsing for clean logging strings
                 // const domainLabel = proxyUrl.includes("allorigins") ? "api.allorigins.win" : 
@@ -4341,6 +4410,9 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
                 //     proxyUrl = proxyList[Math.floor(Math.random() * proxyList.length) - 1]
                 // }
 
+                if(stationID === "KCINFM"){
+                    proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+                }
 
                 console.log(`%c ${stationID}  Attempting connection via: ${proxyUrl.split('/')[2]}...`, "color: #00c020;");
                 console.log(`proxyUrl: ${proxyUrl}`)
@@ -4384,9 +4456,9 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
                 else{
                     console.log(`${stationID} unable to parse rawContent`)
                 }
-            } 
+            }
             catch (e) {
-                console.warn(`⚠️ Proxy gateway ${proxyUrl.split('/')[2]} failed or timed out.`);
+                console.warn(`⚠️ Proxy gateway ${proxyUrl.split('/')[2]} failed or timed out: ${e}`);
             }
         }
         }
@@ -4512,6 +4584,68 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
                     TXXX_category: 'music' 
                 });
             }
+        }
+        // 🅳 EXTRACT LIVE365 HISTORICAL TRACK ARRAYS (a24346)
+        if (targetUrl.includes("api.live365.com")) {
+            const jsonPayload = JSON.parse(rawContent.trim());
+            
+            // Extract the list of recently completed songs
+            const live365Tracks = jsonPayload["last-played"] || [];
+            
+            for (const t of live365Tracks) {
+                const title = t.title || "";
+                const artist = t.artist || "";
+                
+                // Keep corporate station imaging files out of the sync loop
+                if (title && artist && title.toLowerCase() !== "advertisement") {
+                    freshHistory.push({ 
+                        TIT2: title.trim(), 
+                        TPE1: artist.trim(), 
+                        TXXX_category: 'music' 
+                    });
+                }
+            }
+            
+            // Optional: Grab the active live track as well so you don't miss it!
+            if (jsonPayload["current-track"]) {
+                const liveTitle = jsonPayload["current-track"].title || "";
+                const liveArtist = jsonPayload["current-track"].artist || "";
+                
+                if (liveTitle && liveArtist) {
+                    freshHistory.push({ 
+                        TIT2: liveTitle.trim(), 
+                        TPE1: liveArtist.trim(), 
+                        TXXX_category: 'music' 
+                    });
+                }
+            }
+
+            console.log(`📡 [Live365 API]: Processed tracks for station: ${stationID}`);
+        }
+
+        // 🅲 EXTRACT TOWNSQUARE MEDIA TRACK HISTORY (KCIN / Cat Country)
+        if (targetUrl.includes("townsquaremedia.com")) {
+            const jsonPayload = JSON.parse(rawContent.trim());
+            
+            // Access the history array safely out of the data wrapper
+            const townsquareTracks = jsonPayload.data && jsonPayload.data.history ? jsonPayload.data.history : [];
+            
+            for (const t of townsquareTracks) {
+                const title = t.title || "";
+                const artist = t.artist || "";
+                
+                // Avoid empty properties or common radio ads/promos disguised as tracks
+                if (title && artist && title.toLowerCase() !== "advertisement" && artist.toLowerCase() !== "station id") {
+                    
+                    freshHistory.push({ 
+                        TIT2: title.trim(), 
+                        TPE1: artist.trim(), 
+                        TXXX_category: 'music' 
+                    });
+                }
+            }
+            
+            console.log(`📡 [Townsquare API]: Extracted ${townsquareTracks.length} historical tracks.`);
         }
         // 🅱️ IF PROCESSING STANDARD STREAMON STATIONS
         else {
@@ -4858,7 +4992,7 @@ console.dir(playlistData.items, { depth: null });
                 if(alreadySyncedOnThisStation) {
                     // Case 1: Already searched AND already added to this specific playlist. 
                     // Completely drop from this execution loop fraction! No network action needed.
-                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Station.`);
                 }
                 else{
                     // Add your station ID to this track's historical syncing records matrix
@@ -5107,7 +5241,7 @@ console.dir(playlistData.items, { depth: null });
         // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
         // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
         // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
-        await flushRuntimeCacheToIndexedDb(globalSongCache);
+        //await flushRuntimeCacheToIndexedDb(globalSongCache);
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
@@ -5243,7 +5377,13 @@ function startLiveRadioAccumulator(stationID, targetPlaylistId) {
             // Execute your standard sync function block natively
             // Your internal IndexedDB cache layer will automatically discard duplicates!
             await syncRadioToSpotify(stationID, targetPlaylistId);
-            
+
+            // 💾 MASTER LOCALSTORAGE WRITEBACK: Save everything safely back to the browser vault
+            // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache_backfill));
+            // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
+            // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
+            await flushRuntimeCacheToIndexedDb(globalSongCache);
+
         } catch (err) {
             console.error(`❌ [Accumulator] Monitor pass missed for ${stationID}:`, err);
         }
@@ -5715,7 +5855,7 @@ console.dir(uniqueHistory, { depth: null });
                 if(alreadySyncedOnThisStation) {
                     // Case 1: Already searched AND already added to this specific playlist. 
                     // Completely drop from this execution loop fraction! No network action needed.
-                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Station.`);
                 }
                 else {
                     // Mark this station ID inside the global cache array matrix immediately
@@ -5768,7 +5908,7 @@ console.dir(uniqueHistory, { depth: null });
                 if(alreadySyncedOnThisStation) {
                     // Case 1: Already searched AND already added to this specific playlist. 
                     // Completely drop from this execution loop fraction! No network action needed.
-                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Station.`);
                 }
                 else{
                     // Add your station ID to this track's historical syncing records matrix
@@ -5959,7 +6099,7 @@ console.dir(uniqueHistory, { depth: null });
         // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
         // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
         // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
-        await flushRuntimeCacheToIndexedDb(globalSongCache);
+        //await flushRuntimeCacheToIndexedDb(globalSongCache);
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
@@ -6140,7 +6280,7 @@ if(newStationSearchAllowed){
     // streamdb5web + "KKEX3": Connects to 101.9 HD3 The Ranch (KKEX-HD3) in Utah. 
     // They play Texas/Red Dirt & Classic Country (Cody Jinks, Aaron Watson, George Strait).
     //const serverSubdomain = (stationID === "KKEX" || stationID === "KKEX3") ? "streamdb5web" : "streamdb7web";
-    const serverSubdomain = (stationID === "KKEX3") ? "streamdb5web" : "streamdb7web";
+    const serverSubdomain = ((stationID === "KKEX3") || (stationID === "KCLS"))? "streamdb5web" : "streamdb7web";
     
     const targetUrl = `https://${serverSubdomain}.securenetsystems.net/player_status_update/${stationID}_history.xml`;
 
@@ -6534,7 +6674,7 @@ console.dir(playlistData.items, { depth: null });
                 if(alreadySyncedOnThisStation) {
                     // Case 1: Already searched AND already added to this specific playlist. 
                     // Completely drop from this execution loop fraction! No network action needed.
-                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Station.`);
                 }
                 else {
                     // Mark this station ID inside the global cache array matrix immediately
@@ -6587,7 +6727,7 @@ console.dir(playlistData.items, { depth: null });
                 if(alreadySyncedOnThisStation) {
                     // Case 1: Already searched AND already added to this specific playlist. 
                     // Completely drop from this execution loop fraction! No network action needed.
-                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Staion.`);
+                    console.log(`⏭️ [Cache Bypass] "${title} - ${artist}" already processed on this Station.`);
                 }
                 else{
                     // Add your station ID to this track's historical syncing records matrix
@@ -6778,7 +6918,7 @@ console.dir(playlistData.items, { depth: null });
         // localStorage.setItem('spotify_global_song_cache', JSON.stringify(globalSongCache));
         // ✅ Fix: Flush the synchronous globalSongCache object straight to IndexedDB.
         // Completely bypasses the 5MB browser sandbox limit with zero data layout changes!
-        await flushRuntimeCacheToIndexedDb(globalSongCache);
+        //await flushRuntimeCacheToIndexedDb(globalSongCache);
 
         if((globalSearchesPerformed >= GLOBAL_SEARCH_CAP) && (stationNetwork[currentStationNetworkAllowed].id === stationID)){
             globalSearchesPerformed = 0
@@ -7520,7 +7660,7 @@ function printUnfoundTracksReport() {
 
     // Output the formatted diagnostic list grouped by station context
     for (const stationID in groupedByStation) {
-        console.log(`\n📡 [Station Context: ${stationID}] ─── (${groupedByStation[stationID].length} Unfound)`);
+        //console.log(`\n📡 [Station Context: ${stationID}] ─── (${groupedByStation[stationID].length} Unfound)`);
         
         groupedByStation[stationID].forEach((item, index) => {
             //console.log(`  ${index + 1}. [CacheKey]: "${item.cacheKey}"`);
@@ -13310,7 +13450,7 @@ window.addEventListener('online', async () => {
     if (wentOfflineAt) {
         durationSeconds = Math.floor((Date.now() - wentOfflineAt) / 1000);
     }
-    console.log("🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}");
+    console.log(`🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}`);
     visualLog(`%c 🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}`, "color: #00ccff; background: #ffffff;")
                 // SEND THE LOG
                 logEvent("WARN", `online_listener - 🌐 Internet connection restored. Reconnecting... | offlineDurationSeconds: ${durationSeconds}`, {
