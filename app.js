@@ -1201,7 +1201,7 @@ async function prepareNextQueueItem(attempt = 0) {
                 activeMix: activeMixId
             });
         
-    refreshPlaylistCount(chosenplaylist.id, playlistIndex);
+    await refreshPlaylistCount(chosenplaylist.id, playlistIndex);
     const nextTrack = await getTrackAtIndex(token, chosenplaylist.id, randomIndex);
 
 
@@ -3653,9 +3653,34 @@ const stationNetwork = [
     { id: "7346_48k",               playlistId: "3HPDlPwGtZi5bxBYOGLEWd" }, // * X96
     { id: "7164_48k",               playlistId: "7nMQh4vmn567gapArxDiLQ" }, // BOB FM
     //{ id: "7155_48k",             playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
-    { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // Hank FM
+    { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // * Hank FM
     { id: "7923_96k",               playlistId: "6fGCdcJZDyahG2OTSUJrvo" }, // KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
     { id: "a24346",                 playlistId: "3JxHp5IPpxLqSV1fuGuuji" }, // KCUT 102.9 Moab Rocks
+    { id: "KJMY",                   playlistId: "3TgPFiTu70rAKTpO9Ve0ie" }, // KJMY My 99.5 - Utah's Variety From The 90s To Today
+    { id: "KSOP",                   playlistId: "7srykcAmGSnU35lJ3LMyVQ" }, // KSOP 104.3 Country
+    { id: "KODJ",                   playlistId: "1Ly0OjovU7Eqo9zTKpeBXg" }, // KODJ 94.1 Classic Hits & Classic Rock
+    { id: "WDJO",                   playlistId: "3DfAWT6iCcTBYUDu0ai5qq" }, // WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
+    { id: "BUZZ",                   playlistId: "16bDFbNspDZfzAJ0nRGC9a" }, // The Buzz 94.9 - Rock
+    { id: "KZHT",                   playlistId: "2oSr3X6I2yDpgP01GCWDvI" }, // 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
+    { id: "KAAZ",                   playlistId: "5Jfll0b1dD9f2gkawiQiHA" }, // Rock 106.7 KAAZ - Anything That Rocks!
+    { id: "KBEE",                   playlistId: "4ibUu6VybTigEEnrVwp8aD" }, // B98.7 KBEE - Today's Hits and Yesterday's Favorites
+    { id: "KENZ",                   playlistId: "7tqPljSsVmh2q3SQM6PoKW" }, // KENZ 94.9 Provo - Utah's New Hit Music - Top 40
+    { id: "IHEARTCOUNTRY",          playlistId: "1Wu9NMHonCDjCPg8rnZubn" }, // iHeartCountry IHEARTCOUNTRY - New Country
+    { id: "IHEARTCOUNTRYFAVORITES", playlistId: "49rXaAf8N3X5sZPDjUMEcq" }, // iHeart Country Favorites IHEARTCOUNTRYFAVORITES - 90s to Now Country
+    { id: "IHEARTCOUNTRYCLASSICS",  playlistId: "4ElxODcIOgtRMnkCUxL86z" }, // iHeart Country Classics IHEARTCOUNTRYCLASSICS - Classic Country - but not old country it seems
+    { id: "IHEARTCOUNTRY70S",       playlistId: "0ard1KtZpdSV17hJhJWAJU" }, // iHeart Country 70s IHEARTCOUNTRY70S - 70s Country Hits
+    { id: "IHEARTBLUEGRASS",        playlistId: "6BpQD1kaOaHx4UjPndIZ2E" }, // iHeartBluegrass IHEARTBLUEGRASS - Bluegrass Hits
+    { id: "IHEARTALTRADIO",         playlistId: "3zvKhEkgsC3LtpbmFbUFsk" }, // iHeart Alt Radio IHEARTALTRADIO - Alternative Hits
+    { id: "IHEARTSMELLS90S",        playlistId: "6FTYdIosZcWlc8GvyZdBkc" }, // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
+    { id: "IHEARTALTX",             playlistId: "25WaK2bS1PA7EGKHMChym8" }, // iHeart AltX IHEARTALTX - 90s/00s ALT Hits
+    { id: "IHEARTALT2K",            playlistId: "4gtzLuP3O7jZEut5wZ20Aw" }, // iHeart Alt2K IHEARTALT2K - 2000s ALT Hits
+    { id: "IHEARTROCKNATION",       playlistId: "1HaAXTc4L50VwKhl5Dbij7" }, // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
+    { id: "IHEARTPOPHITS",          playlistId: "43BM0F3ZuyOCVyKih5yu4e" }, // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
+    { id: "IHEARTSTAR1013",         playlistId: "7lKNq4Cq0Gf0tItuME3mhr" }, // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
+    { id: "IHEARTCHRISTMAS",        playlistId: "7rQyR8AupwZyuDXOxjbZnz" }, // iHeart Christmas IHEARTCHRISTMAS - Christmas Hits
+    { id: "IHEARTHOLIDAYSAEASON",   playlistId: "7aNbpTzV6zFptJefnkwZIi" }, // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
+    { id: "IHEARTCOUNTRYCHRISTMAS", playlistId: "1cy95KhxhmTu5rpQDHX3A8" }, // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
+    { id: "IHEARTCHRISTMASROCK",    playlistId: "22Zr2jSdug6B8QDQmSYnZz" }, // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
     { id: "KBLQ",                   playlistId: "757OVZ8V0JdzE8eA05qaLa" }, // * KBLQ Q92
     { id: "KLGN",                   playlistId: "40rg8M41WvZ4OD3SIqxvTz" }, // KLGN 103.3 Lite FM - Yesterday's Lite Hits
     { id: "KCLS",                   playlistId: "4sIUUZpT7DjhZolusj5dom" }, // KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
@@ -3664,6 +3689,7 @@ const stationNetwork = [
     { id: "KGNT",                   playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // * KOOL 103.9 KGNT  Your Greatest Hits
     { id: "KLZX",                   playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // * 95.0 KLZX Classic Rock
     { id: "KVFX",                   playlistId: "7iyYX42dtmd82tuMIIetlL" }, // * 94.5 KVFX VFX Top 40
+    { id: "KRQX",                   playlistId: "2qOxntF5tFR5UlXIk79FRp" }, // KRQX KOOL 98.9 Classic Hits
     { id: "KBERFM",                 playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // * KBER 101
     { id: "KUBLFMAAC",              playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // * KUBL - KBULL 93 The Bull Country
     { id: "XM_octane",              playlistId: "0p50gUG6ST0n37PYtEjEq6" }, // * XM Octane Ch. 37 - Hard Rock 
@@ -3679,6 +3705,7 @@ const stationNetwork = [
     { id: "XM_kidzbopradio",        playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // * XM KIDZ BOP Radio Ch. 135 - kids
     { id: "XM_altnation",           playlistId: "2815SuqCB3fUK18yiiOhzy" }, // * XM Alt Nation Ch. 36 - Modern Alternative
     { id: "XM_siriusxmturbo",       playlistId: "5m0nEzUNccNny2fBuSNIql" }, // * XM Turbo Ch. 41 - 90s and 2000s Hard Rock
+    { id: "XM_thespectrum",         playlistId: "4zSWjbhuXi0ftS3UfOS8q4" }, // XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
     { id: "XM_thehighway",          playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // * XM The Highway Ch. 56 - New Country
     { id: "XM_y2kountry",           playlistId: "258caFaEZgidIIkvWD483x" }, // * XM Y2Kountry Ch. 57 - 2000s Country
     { id: "XM_primecountry",        playlistId: "1iOdWIsvlM5eqV5i0M8CoH" }, // * XM Prime Country Ch. 58 - 80s 90s Country
@@ -3694,11 +3721,11 @@ const stationNetwork = [
 
 //This will round down to the nearest whole integer
 let currentStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
-currentStationNetworkAllowed = 1 //used for Spotify Search
-// used for pushing URIs to playlist - used to be tied to currentStationNetworkAllowed for 
+currentStationNetworkAllowed = 2 //used for Spotify Search
+// Used for downloading actual playlist history - used to be tied to currentStationNetworkAllowed for 
 // spotify search, it is no longer
-let beginningStationNetworkAllowed = 0 // used for pushing URIs to playlist
-let currentRadioPlaylistUpdateAllowed = 0; //Used for downloading actual playlist history
+let beginningStationNetworkAllowed = 0 //Used for downloading actual playlist history
+let currentRadioPlaylistUpdateAllowed = 0; // used for pushing URIs to playlist
     currentRadioPlaylistUpdateAllowed = currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
 
 let lastSyncTime = 0
@@ -3726,9 +3753,12 @@ async function beginSyncAllRadiosToSpotify(){
     setInterval(async () => {
         spotifyPlaylistDownloadAllowed = true //reset by whichever station runs that process
         console.log(`✅ spotifyPlaylistDownloadAllowed.`);
-    }, 60 * 60 * 1000); //every 60 min
+    }, 30 * 60 * 1000); //every 30 min
 
     startLiveRadioAccumulator("KBZN", "5IJKK7NDMB0RauocZUd1jp")
+    await sleep(1 * 60 * 1000)
+    // startLiveRadioAccumulator("KENZ", "7tqPljSsVmh2q3SQM6PoKW")
+    // await sleep(1 * 60 * 1000)
 
     let spotifyRadioInterval = 15 //min
     while(1){
@@ -3743,7 +3773,7 @@ async function syncAllRadiosToSpotify(){
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         console.log("⏰ Starting scheduled multi-station playlist sync sequence...");
 
-    currentStationNetworkAllowed = 1 //used for Spotify Search
+    currentStationNetworkAllowed = 2 //used for Spotify Search
     //beginningStationNetworkAllowed = currentStationNetworkAllowed
     beginningStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
     if(spotifyPlaylistDownloadAllowed) console.log(`✅ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
@@ -3871,6 +3901,331 @@ async function syncAllRadiosToSpotify(){
         }
         await sleep(spotifyRadioSleepTime * 60 * 1000);
 
+        // KJMY My 99.5 - Utah's Variety From The 90s To Today
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "3TgPFiTu70rAKTpO9Ve0ie");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KSOP 104.3 Country
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "7srykcAmGSnU35lJ3LMyVQ");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KODJ 94.1 Classic Hits & Classic Rock
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "1Ly0OjovU7Eqo9zTKpeBXg");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "3DfAWT6iCcTBYUDu0ai5qq");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // The Buzz 94.9 - Rock
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "16bDFbNspDZfzAJ0nRGC9a");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "2oSr3X6I2yDpgP01GCWDvI");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // Rock 106.7 KAAZ - Anything That Rocks!
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "5Jfll0b1dD9f2gkawiQiHA");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // B98.7 KBEE - Today's Hits and Yesterday's Favorites
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "4ibUu6VybTigEEnrVwp8aD");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KENZ 94.9 Provo - Utah's New Hit Music - Top 40
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "7tqPljSsVmh2q3SQM6PoKW");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeartCountry IHEARTCOUNTRY - New Country
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "1Wu9NMHonCDjCPg8rnZubn");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Country Favorites IHEARTCOUNTRYFAVORITES - 90s to Now Country
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "49rXaAf8N3X5sZPDjUMEcq");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Country Classics IHEARTCOUNTRYCLASSICS - Classic Country - but not old country it seems
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "4ElxODcIOgtRMnkCUxL86z");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Country 70s IHEARTCOUNTRY70S - 70s Country Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "0ard1KtZpdSV17hJhJWAJU");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeartBluegrass IHEARTBLUEGRASS - Bluegrass Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "6BpQD1kaOaHx4UjPndIZ2E");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Alt Radio IHEARTALTRADIO - Alternative Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "3zvKhEkgsC3LtpbmFbUFsk");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "6FTYdIosZcWlc8GvyZdBkc");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart AltX IHEARTALTX - 90s/00s ALT Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "25WaK2bS1PA7EGKHMChym8");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Alt2K IHEARTALT2K - 2000s ALT Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "4gtzLuP3O7jZEut5wZ20Aw");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "1HaAXTc4L50VwKhl5Dbij7");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "43BM0F3ZuyOCVyKih5yu4e");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "7lKNq4Cq0Gf0tItuME3mhr");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Christmas IHEARTCHRISTMAS - Christmas Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "7rQyR8AupwZyuDXOxjbZnz");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "7aNbpTzV6zFptJefnkwZIi");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "1cy95KhxhmTu5rpQDHX3A8");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "22Zr2jSdug6B8QDQmSYnZz");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
         //// // 104.3 KSOP Country
         //// await syncRadioToSpotify("KSOP","40rg8M41WvZ4OD3SIqxvTz"); //104.3 KSOP Country
         //// console.log("⏸️ Sleeping for 1 minute...");
@@ -3974,6 +4329,19 @@ async function syncAllRadiosToSpotify(){
         // 94.5 KVFX VFX Top 40
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
         await syncKBLQToSpotify(whichStationId,"7iyYX42dtmd82tuMIIetlL"); // 94.5 KVFX VFX Top 40
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // KRQX KOOL 98.9 Classic Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncKBLQToSpotify(whichStationId,"2qOxntF5tFR5UlXIk79FRp"); // 94.5 KVFX VFX Top 40
         console.log("⏸️ Sleeping for 1 minute...");
         //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
         if(!spotifySearchPeformed){
@@ -4088,6 +4456,9 @@ async function syncXMstationsToSpotify(){
 
             // XM Turbo Ch. 41 - 90s and 2000s Hard Rock
             await syncRadioToSpotify("XM_siriusxmturbo", "5m0nEzUNccNny2fBuSNIql") // XM Turbo Ch. 41 - 90s and 2000s Hard Rock
+
+            // XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
+            await syncRadioToSpotify("XM_thespectrum", "4zSWjbhuXi0ftS3UfOS8q4") // XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
 
             // XM The Highway Ch. 56 - New Country
             await syncRadioToSpotify("XM_thehighway", "5WqhR1StD0Vgem8C5irJBP") // XM The Highway Ch. 56 - New Country
@@ -4207,7 +4578,7 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     let targetUrl = "";
 
     // ✅ NEW SECTOR ROUTER: Dynamically maps the Aiir Network for KSOP
-    if (stationID === "wjfesic70c6uv" || stationID === "KSOP") {
+    if (stationID === "wjfesic70c6uv" || stationID === "KSOPBAD") {
         const cleanID = "ksop"; 
         //targetUrl = `https://metadata.aiir.com/${cleanID}/history.json`;
         //targetUrl = "https://" + "public.aiir.net" + "/playlist/" + "ksop" + "?cb=" + Date.now();
@@ -4250,6 +4621,94 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
         //targetUrl = "https://" + "v7.player" + ".townsquaremedia.com" + "/api/v1/nowplaying/" + stationID.toLowerCase();
         // Points directly to Townsquare's dedicated, unblocked player API domain
         targetUrl = "https://" + "tsm-player-api" + ".com" + "/api/v1/nowplaying/" + stationID.toLowerCase();    }
+    // else if (stationID === "KENZ") {
+    //     // Direct, unblocked JSON tracker payload from OnlineRadioBox cache
+    //     targetUrl = "https://" + "scraper2" + ".onlineradiobox.com" + "/us." + stationID.toLowerCase();
+    // }
+    // else if (stationID === "KAAZ") {
+    //     // Direct, unblocked JSON tracker payload from OnlineRadioBox cache
+    //     targetUrl = "https://" + "scraper2" + ".onlineradiobox.com" + "/us." + stationID.toLowerCase();
+    // }
+    else if(stationID === "KJMY"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 2385 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "KODJ"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 2393 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "WDJO"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 9733 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "BUZZ"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 2281 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "KZHT"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 2405 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "KAAZ"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 2397 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "KBEE"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 5337 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "KENZ"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 5395 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCOUNTRY"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4418 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCOUNTRYFAVORITES"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 8625 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCOUNTRYCLASSICS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4435 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCOUNTRY70S"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 10764 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTBLUEGRASS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 6892 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTALTRADIO"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4447 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTSMELLS90S"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 6437 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTALTX"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 10098 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTALT2K"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 7727 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTROCKNATION"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4443 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTPOPHITS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 8830 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTSTAR1013"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 281 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCHRISTMAS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4596 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTHOLIDAYSAEASON"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 9608 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCOUNTRYCHRISTMAS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4601 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCHRISTMASROCK"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 6410 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "KSOP"){
+        targetUrl = "https://" + "api.ldrhub.com" + "/2/?key=KSOP&method=Station.Engage.NowPlaying";
+    }
+    else if (stationID === "CFMP") {
+        // Direct, unblocked HTTPS aggregator endpoint tracking Oldies 107.7
+        //targetUrl = "https://" + "api.radio.de" + "/stations/now-playing?stationIds=" + "cfmp-oldies-1077";
+        targetUrl = "https://" + "publicapi" + ".streamb.live" + "/nowplaying/" + "SB00307";
+    }
     else {
         // Default StreamOn format rule
         targetUrl = `https://yp.cdnstream1.com/metadata/${stationID}/range/${startTimestamp}-${endTimestamp}.json`;
@@ -4646,6 +5105,92 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
             }
             
             console.log(`📡 [Townsquare API]: Extracted ${townsquareTracks.length} historical tracks.`);
+        }
+        // 🅴 EXTRACT ONLINERADIOBOX CACHE PAYLOADS (KENZ)
+        if (targetUrl.includes("onlineradiobox.com")) {
+            const jsonPayload = JSON.parse(rawContent.trim());
+            
+            // Extract the pre-split track fields explicitly
+            let title = jsonPayload.iName || "";
+            let artist = jsonPayload.iArtist || "";
+
+            if(!title) title = jsonPayload.title || ""
+            if(!artist) artist = jsonPayload.title || ""
+            if(title && artist && title === artist) title = "song"
+
+            // Prevent empty tags or standard station imaging from breaking the sync layout
+            if (title && artist && title.toLowerCase() !== "advertisement") {
+                console.log(`📡 [OnlineRadioBox Hit]: "${title}" by "${artist}"`);
+                
+                freshHistory.push({ 
+                    TIT2: title.trim(), 
+                    TPE1: artist.trim(), 
+                    TXXX_category: 'music' 
+                });
+            }
+        }
+        // 🅵 EXTRACT IHEART MEDIA STATION HISTORY ARRAYS (KJMY / 2385)
+        if (targetUrl.includes("api.iheart.com") && targetUrl.includes("trackHistory")) {
+            const jsonPayload = JSON.parse(rawContent.trim());
+            
+            // Extract the history array out of the top-level "data" property block
+            const iHeartTracks = jsonPayload.data || [];
+            
+            for (const t of iHeartTracks) {
+                const title = t.title || "";
+                const artist = t.artist || ""; // Uses the plain 'artist' key from your log
+                
+                // Avoid logging commercial breaks or tracking artifacts
+                if (title && artist && title.toLowerCase() !== "advertisement" && artist.toLowerCase() !== "iheartradio") {
+                    freshHistory.push({ 
+                        TIT2: title.trim(), 
+                        TPE1: artist.trim(), 
+                        TXXX_category: 'music' 
+                    });
+                }
+            }
+            
+            console.log(`📡 [iHeart API]: Successfully parsed ${freshHistory.length} songs out of the rolling history window.`);
+        }
+        // 🅶 EXTRACT LDRHUB DATA PAIRS (KSOP / Z104 Country)
+        if (targetUrl.includes("api.ldrhub.com")) {
+            const jsonPayload = JSON.parse(rawContent.trim());
+            
+            // Navigate past the top-level method wrapper object key safely
+            const mainNode = jsonPayload["Station.Engage.NowPlaying"] || {};
+            
+            // 1. Process the active "Now Playing" live track hit
+            if (mainNode.now_playing) {
+                const liveTitle = mainNode.now_playing.title || "";
+                const liveArtist = mainNode.now_playing.artist || "";
+                
+                if (liveTitle && liveArtist && liveTitle.toLowerCase() !== "advertisement") {
+                    console.log(`🤠 [KSOP Live Hit]: "${liveTitle}" by "${liveArtist}"`);
+                    
+                    freshHistory.push({ 
+                        TIT2: liveTitle.trim(), 
+                        TPE1: liveArtist.trim(), 
+                        TXXX_category: 'music' 
+                    });
+                }
+            }
+            
+            // 2. Optional: Process the "Future Songs" array if you want to preload upcoming matches
+            const futureTracks = mainNode.future_songs || [];
+            for (const t of futureTracks) {
+                const futTitle = t.title || "";
+                const futArtist = t.artist || "";
+                
+                if (futTitle && futArtist && futTitle.toLowerCase() !== "advertisement") {
+                    freshHistory.push({ 
+                        TIT2: futTitle.trim(), 
+                        TPE1: futArtist.trim(), 
+                        TXXX_category: 'music' 
+                    });
+                }
+            }
+            
+            console.log(`📡 [LDRHub Parser]: Checked active layout tracks for KSOP.`);
         }
         // 🅱️ IF PROCESSING STANDARD STREAMON STATIONS
         else {
@@ -5350,7 +5895,7 @@ console.dir(playlistData.items, { depth: null });
             localStorage.removeItem(pendingUrisKey);
         }
 
-        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #a7a7a7;")
+        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #585757;")
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : `🎉 ${stationID} Station sync complete!`);
     }
@@ -6206,7 +6751,7 @@ console.dir(uniqueHistory, { depth: null });
             localStorage.removeItem(pendingUrisKey);
         }
 
-        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #a7a7a7;")
+        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #585757;")
 
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : `🎉 ${stationID} Station sync complete!`);
@@ -6280,7 +6825,10 @@ if(newStationSearchAllowed){
     // streamdb5web + "KKEX3": Connects to 101.9 HD3 The Ranch (KKEX-HD3) in Utah. 
     // They play Texas/Red Dirt & Classic Country (Cody Jinks, Aaron Watson, George Strait).
     //const serverSubdomain = (stationID === "KKEX" || stationID === "KKEX3") ? "streamdb5web" : "streamdb7web";
-    const serverSubdomain = ((stationID === "KKEX3") || (stationID === "KCLS"))? "streamdb5web" : "streamdb7web";
+    let serverSubdomain = ((stationID === "KKEX3") || (stationID === "KCLS"))? "streamdb5web" : "streamdb7web";
+    if(stationID === "KRQX"){
+        serverSubdomain = "streamdb8web"
+    }
     
     const targetUrl = `https://${serverSubdomain}.securenetsystems.net/player_status_update/${stationID}_history.xml`;
 
@@ -7016,7 +7564,7 @@ console.dir(playlistData.items, { depth: null });
             localStorage.removeItem(pendingUrisKey);
         }
 
-        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${metadataToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUrisLength}`, "color: #00fff2; background: #a7a7a7;")
+        console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${metadataToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUrisLength}`, "color: #00fff2; background: #585757;")
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partial." : `🎉 ${stationID} Station sync complete!`);
 
@@ -7633,7 +8181,7 @@ function printUnfoundTracksReport() {
     cacheKeys.forEach(key => {
         const record = globalSongCache[key];
         
-        if (record.found === false) {
+        if (record.found === false && record.bypassSearch !== true) {
             unfoundCount++;
             
             // Fallback to generic tag if station_searched is missing
@@ -7710,6 +8258,7 @@ async function resolveMissingTracksFromClipboard() {
             const rawTitle = parts[1].trim();
             const spotifyUri = parts[2].trim();
             const stationID = parts[3] ? parts[3].trim() : "MANUAL_ENTRY";
+            const bypassSearch = parts[3] ? parts[3].trim() : "false"
 
             const cleanArtist = cleanMetadataString(rawArtist);
             const cleanTitle = cleanMetadataString(rawTitle);
@@ -7727,6 +8276,7 @@ async function resolveMissingTracksFromClipboard() {
                 console.log(`✅ [Resolved Cache Entry]: ${rawTitle} - ${rawArtist} -> ${cleanSpotifyId}`);
 
                 record.found = true
+                record.bypasSearch = bypassSearch
 
                 //if(!record.uri) record.uri = cleanSpotifyId
                 record.uri = cleanSpotifyId //fix bad uris
@@ -7752,6 +8302,7 @@ async function resolveMissingTracksFromClipboard() {
                 // Initialize a brand new persistent cache schematic entry object mapping
                 globalSongCache[cacheKey] = {
                     found: true,
+                    bypasSearch: bypassSearch,
                     uri: cleanSpotifyId,
                     alternate_uris: [],
                     resolved_title: rawTitle,
@@ -8531,8 +9082,9 @@ async function pushCachesToCloud2(spotifyUserId) {
         console.error("❌ Exception thrown during database push:", e);
     }
 }
-async function pushCachesToCloud(spotifyUserId) {
+async function pushCachesToCloud(spotifyUserId, attempt = 1) {
     if (!spotifyUserId) return;
+    if (attempt > 3) return;
 
     console.log("☁️ [Sync] Packing runtime memory matrix models for cloud upload backup...");
 
@@ -8552,7 +9104,7 @@ async function pushCachesToCloud(spotifyUserId) {
 
         if (error) {
             console.error("❌ [Sync] Cloud upload missed:", error.message);
-            setTimeout(async () => { pushCachesToCloud(spotifyUserId); }, 3000); //try again
+            setTimeout(async () => { pushCachesToCloud(spotifyUserId, attempt + 1); }, 3000); //try again
         } else {
             console.log("%c☁️ [Sync] Cloud sync complete! Cache database safely secured.", "color: #00c020;");
         }
@@ -9102,7 +9654,7 @@ async function pickRandomSong(attempt = 0) {
 
     // real Spotify playback...
     const token = localStorage.getItem('access_token');
-    refreshPlaylistCount(chosenplaylist.id, playlistIndex);
+    await refreshPlaylistCount(chosenplaylist.id, playlistIndex);
     const track = await getTrackAtIndex(token, chosenplaylist.id, index)
     
     if (track === "NETWORK_ERROR"){
@@ -11345,6 +11897,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem('app_device_id', APP_DEVICE_ID);
     }
 
+    // You are using https://api.ipify.org?format=json in your application to verify and bypass geographic location streaming blocks.
+    // Why You Have It in Your Code
+    // You ran into an issue where your application or an online radio stream blocked you because
+    // it couldn't verify your location, or it mistakenly thought you were in a restricted area 
+    // due to an active VPN session.
+    // You integrated this endpoint into your script execution logic to:
+    // Log the active IP address to determine exactly where your outbound connection is routing 
+    // from before hitting the radio APIs.
+    // Bypass region filters by checking if you need to prompt a manual location reset or adjust 
+    // your proxy routing parameters to verify that you are currently in Utah.
     fetch("https://api.ipify.org?format=json")
         .then(response => response.json())
         .then(data => {
