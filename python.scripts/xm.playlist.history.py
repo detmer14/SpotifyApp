@@ -32,6 +32,7 @@ STATIONS = {
     "kidzbopradio":         "https://xmplaylist.com/api/station/kidzbopradio",          # XM KIDZ BOP Radio Ch. 135 - kids
     "altnation":            "https://xmplaylist.com/api/station/altnation",             # XM Alt Nation Ch. 36 - Modern Alternative
     "siriusxmturbo":        "https://xmplaylist.com/api/station/siriusxmturbo",         # XM Turbo Ch. 41 - 90s and 2000s Hard Rock
+    "thespectrum":          "https://xmplaylist.com/api/station/thespectrum",           # XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
     "thehighway":           "https://xmplaylist.com/api/station/thehighway",            # XM The Highway Ch. 56 - New Country
     "y2kountry":            "https://xmplaylist.com/api/station/y2kountry",             # XM Y2Kountry Ch. 57 - 2000s Country
     "primecountry":         "https://xmplaylist.com/api/station/primecountry",          # XM Prime Country Ch. 58 - 80s 90s Country
@@ -42,6 +43,7 @@ STATIONS = {
     "ozzysboneyard":        "https://xmplaylist.com/api/station/ozzysboneyard",         # XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
     "hairnation":           "https://xmplaylist.com/api/station/hairnation",            # XM Hair Nation Ch. 39 - Classic Rock
     "redwhitebooze":        "https://xmplaylist.com/api/station/redwhitebooze",         # XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
+    "holidaytraditions":    "https://xmplaylist.com/api/station/holidaytraditions",     # XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
 }
 # Map of stations you actually care about tracking
 TRACKED_STATIONS = {
@@ -58,6 +60,7 @@ TRACKED_STATIONS = {
     "kidzbopradio", 
     "altnation", 
     "siriusxmturbo", 
+    "thespectrum",
     "thehighway", 
     "y2kountry", 
     "primecountry", 
@@ -68,6 +71,7 @@ TRACKED_STATIONS = {
     "ozzysboneyard", 
     "hairnation", 
     "redwhitebooze",
+    "holidaytraditions",
 }
 
 # Get the directory where your script is currently living
@@ -96,7 +100,7 @@ def update_global_feed():
         headers = {
             # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-            "Cookie": "cf_clearance=sYv_56dGjswh1icPbvi560G1Hq7Cn8GZ_tKCj8PKCgE-1781039907-1.2.1.1-hKib.LrfyBa0TdmFYrumFcMkTX990zMyySar7tDU8FV6bRwJs7OgwWvPZSMeURS9H5wJcOaxu_jxR7EbAoG320SEMFsQQS1tZTsuqcfxHzWXrfq1yj6sjLvZorg3s_Bj7x.SrCIRFN91zgBbNWpHv10n6bH0jC.k6d5Mtmv853PULYV1V9xF33Q0Oq3WBMlq4YIlW4h5a_zefEx1tB4XaPd8oYqwA8_vQCxqgG9OeVl3bAkmsF5WWE5if_Ek0b5ZFLwvJHAp6JmsifddjqclkBlTYJdkpC6tLfBf.BngdrAgplD7qjBvh58NvqJ4Z4pccusgcHEeDadhHsAglzmjr_CTaeQvDqE9WuR5Mo1f6Ta_aSGtGXy01mButp4bmqLufKAw0zeSO3ZomE43AZpZ4M3Uv8Bq4txXm7EhTzpV0Nc",
+            "Cookie": "_ga=GA1.1.995290611.1780419303; __client_uat=0; __client_uat_KqccziaU=0; __gads=ID=f0fb037226b1161f:T=1780419303:RT=1780960240:S=ALNI_MY7SI_z9l7A14CKVPMpK6yek3c1YA; __gpi=UID=000013af5b2902f1:T=1780419303:RT=1780960240:S=ALNI_MZ4-BAEWuNqOVvEvpXY6BolPOCnNQ; __eoi=ID=46fc9a3fb553965f:T=1780419303:RT=1780960240:S=AA-AfjYQmCr7BhMGIO7tgXqlTGh2; FCCDCF=%5Bnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5B32%2C%22%5B%5C%22bb65687a-e903-48ae-9b6d-fa41c705ce52%5C%22%2C%5B1780419307%2C43000000%5D%5D%22%5D%5D%5D; FCNEC=%5B%5B%22AKsRol_lo2irGntWCOfTflkh8hawAx__vKVr0q9F6VNlDzc8NfBC7I-fnCdPUuP_7iSRq8BJ8p-zSssek7K9rjnBO2FhburtHM9U4rXbVFNu8JwBtRZYjkNS4_EGOYGJaZQbGCibQic_wrh6F561AcNAaWm_sql-Fg%3D%3D%22%5D%5D; _ga_3CYFENTWD4=GS2.1.s1781045970$o4$g0$t1781045970$j60$l0$h0$djb57pfcF1dc1w7yFCFUqxRjZkcBs1oCbOw; cf_clearance=IhNTzyknnlJx.F.nkkD.NLqOp1xg1UJ6rfIQ934mZSQ-1781565271-1.2.1.1-a9pCG4fXnDc0cXX21qLNN.4Keb6UhIHHLnGYDTW.ZM0qFYqPTj6LGSWXRFj9MikZVmd4Zizx5EptwRfWJkjX0OF5N4p2KXQKFpI7UMKlNax4wWVo_w.M1ucP.ZPlCDt3cmJFBBgMmRySZXG2t8Z0zlXAjGKjqDR81tZQLvioc52Z_WrlT00tbHkqvDQSMYKy7tWU_vUl1ytJKoHlWswn6dLkLG.3uIQQUpdL0c4wB6VOTeRaA2q4D5CEuayTxkEUw2tmpcU_.9ENA7HdwuUnz_GI.S8aj7hGnuQaCr6z1EniHRSdg6tnSigfpAgCTpmAfqL5UXjvgJ5E5kB_ggUokEyCCoZLHyQE4OLTr3R0F1PMyzi5BubifxjbQywWvRTqrKSEopUWTN3dW6SZCYOvlYawNP9wRZaJoSu8TXq5x4Y",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
             "Referer": "https://xmplaylist.com"
