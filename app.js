@@ -3649,9 +3649,9 @@ function getWeight(sliderValue, playlist) {
 
 // Define your sequential execution tracking grid mapping text slugs to Spotify playlist targets
 const stationNetwork = [
-    { id: "KBZN",                   playlistId: "5IJKK7NDMB0RauocZUd1jp" }, // 97.9 FM - Now 97.9 KBZN
+    { id: "KBZN",                   playlistId: "5IJKK7NDMB0RauocZUd1jp" }, // * 97.9 FM - Now 97.9 KBZN
     { id: "7346_48k",               playlistId: "3HPDlPwGtZi5bxBYOGLEWd" }, // * X96
-    { id: "7164_48k",               playlistId: "7nMQh4vmn567gapArxDiLQ" }, // BOB FM
+    { id: "7164_48k",               playlistId: "7nMQh4vmn567gapArxDiLQ" }, // * BOB FM
     //{ id: "7155_48k",             playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
     { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // * Hank FM
     { id: "7923_96k",               playlistId: "6fGCdcJZDyahG2OTSUJrvo" }, // KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
@@ -3677,6 +3677,10 @@ const stationNetwork = [
     { id: "IHEARTROCKNATION",       playlistId: "1HaAXTc4L50VwKhl5Dbij7" }, // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
     { id: "IHEARTPOPHITS",          playlistId: "43BM0F3ZuyOCVyKih5yu4e" }, // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
     { id: "IHEARTSTAR1013",         playlistId: "7lKNq4Cq0Gf0tItuME3mhr" }, // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
+    { id: "IHEARTSTAR1057",         playlistId: "52Mo8OnP4TH09kdpyGnt6m" }, // iHeart Star 105.7 Grand Rapids' 80s to Now IHEARTSTAR1057
+    { id: "IHEARTSTARMIX1007",      playlistId: "3bAjfNMfzDjmbc92kmGHO9" }, // iHeart Star Mix 100.7 Tampa IHEARTSTARMIX1007
+    { id: "IHEARTSTARMIX945",       playlistId: "5cdRpz8szVx8wzCziYXMuP" }, // iHeart Star Mix 94.5 Lexington's 80s, 90s & Today IHEARTSTARMIX945
+    { id: "IHEARTCOALTERNATIVE",    playlistId: "5gbWKQNTq7W7X9FihHU2Q2" }, // iHeart Colorado Adult Alternative 93.3 IHEARTCOALTERNATIVE
     { id: "IHEARTCHRISTMAS",        playlistId: "7rQyR8AupwZyuDXOxjbZnz" }, // iHeart Christmas IHEARTCHRISTMAS - Christmas Hits
     { id: "IHEARTHOLIDAYSAEASON",   playlistId: "7aNbpTzV6zFptJefnkwZIi" }, // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
     { id: "IHEARTCOUNTRYCHRISTMAS", playlistId: "1cy95KhxhmTu5rpQDHX3A8" }, // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
@@ -3716,7 +3720,7 @@ const stationNetwork = [
     { id: "XM_ozzysboneyard",       playlistId: "2FWAPY5HEguJPFGFOhrd30" }, // * XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
     { id: "XM_hairnation",          playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // * XM XM Hair Nation Ch. 39 - Classic Rock
     { id: "XM_redwhitebooze",       playlistId: "4JdLLCLUOyj39fUCRwMqdl" }, // * XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
-    { id: "XM_holidaytraditions",   playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+    { id: "XM_holidaytraditions",   playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // * XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
 ];
 
 //This will round down to the nearest whole integer
@@ -4164,6 +4168,58 @@ async function syncAllRadiosToSpotify(){
         // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
         await syncRadioToSpotify(whichStationId, "7lKNq4Cq0Gf0tItuME3mhr");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Star 105.7 Grand Rapids' 80s to Now IHEARTSTAR1057
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "52Mo8OnP4TH09kdpyGnt6m");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Star Mix 100.7 Tampa IHEARTSTARMIX1007
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "3bAjfNMfzDjmbc92kmGHO9");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Star Mix 94.5 Lexington's 80s, 90s & Today IHEARTSTARMIX945
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "5cdRpz8szVx8wzCziYXMuP");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Colorado Adult Alternative 93.3 IHEARTCOALTERNATIVE
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "5gbWKQNTq7W7X9FihHU2Q2");
         console.log("⏸️ Sleeping for 1 minute...");
         //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
         if(!spotifySearchPeformed){
@@ -4688,6 +4744,18 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     }
     else if(stationID === "IHEARTSTAR1013"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 281 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTSTAR1057"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 1169 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTSTARMIX1007"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 689 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTSTARMIX945"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 3552 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCOALTERNATIVE"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 397 + "/trackHistory?limit=100";
     }
     else if(stationID === "IHEARTCHRISTMAS"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4596 + "/trackHistory?limit=100";
