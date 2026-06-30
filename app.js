@@ -3655,15 +3655,15 @@ const stationNetwork = [
     //{ id: "7155_48k",             playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
     { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // * Hank FM
     { id: "7923_96k",               playlistId: "6fGCdcJZDyahG2OTSUJrvo" }, // * KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
-    { id: "a24346",                 playlistId: "3JxHp5IPpxLqSV1fuGuuji" }, // KCUT 102.9 Moab Rocks
-    { id: "KJMY",                   playlistId: "3TgPFiTu70rAKTpO9Ve0ie" }, // KJMY My 99.5 - Utah's Variety From The 90s To Today
+    { id: "a24346",                 playlistId: "3JxHp5IPpxLqSV1fuGuuji" }, // * KCUT 102.9 Moab Rocks
+    { id: "KJMY",                   playlistId: "3TgPFiTu70rAKTpO9Ve0ie" }, // * KJMY My 99.5 - Utah's Variety From The 90s To Today
     { id: "KSOP",                   playlistId: "7srykcAmGSnU35lJ3LMyVQ" }, // * KSOP 104.3 Country
-    { id: "KODJ",                   playlistId: "1Ly0OjovU7Eqo9zTKpeBXg" }, // KODJ 94.1 Classic Hits & Classic Rock
-    { id: "WDJO",                   playlistId: "3DfAWT6iCcTBYUDu0ai5qq" }, // WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
-    { id: "BUZZ",                   playlistId: "16bDFbNspDZfzAJ0nRGC9a" }, // The Buzz 94.9 - Rock
-    { id: "KZHT",                   playlistId: "2oSr3X6I2yDpgP01GCWDvI" }, // 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
-    { id: "KAAZ",                   playlistId: "5Jfll0b1dD9f2gkawiQiHA" }, // Rock 106.7 KAAZ - Anything That Rocks!
-    { id: "KBEE",                   playlistId: "4ibUu6VybTigEEnrVwp8aD" }, // B98.7 KBEE - Today's Hits and Yesterday's Favorites
+    { id: "KODJ",                   playlistId: "1Ly0OjovU7Eqo9zTKpeBXg" }, // * KODJ 94.1 Classic Hits & Classic Rock
+    { id: "WDJO",                   playlistId: "3DfAWT6iCcTBYUDu0ai5qq" }, // * WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
+    { id: "BUZZ",                   playlistId: "16bDFbNspDZfzAJ0nRGC9a" }, // * The Buzz 94.9 - Rock
+    { id: "KZHT",                   playlistId: "2oSr3X6I2yDpgP01GCWDvI" }, // * 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
+    { id: "KAAZ",                   playlistId: "5Jfll0b1dD9f2gkawiQiHA" }, // * Rock 106.7 KAAZ - Anything That Rocks!
+    { id: "KBEE",                   playlistId: "4ibUu6VybTigEEnrVwp8aD" }, // * B98.7 KBEE - Today's Hits and Yesterday's Favorites
     { id: "KENZ",                   playlistId: "7tqPljSsVmh2q3SQM6PoKW" }, // * KENZ 94.9 Provo - Utah's New Hit Music - Top 40
     { id: "IHEARTCOUNTRY",          playlistId: "1Wu9NMHonCDjCPg8rnZubn" }, // iHeartCountry IHEARTCOUNTRY - New Country
     { id: "IHEARTCOUNTRYFAVORITES", playlistId: "49rXaAf8N3X5sZPDjUMEcq" }, // iHeart Country Favorites IHEARTCOUNTRYFAVORITES - 90s to Now Country
@@ -3734,6 +3734,7 @@ let currentRadioPlaylistUpdateAllowed = 0; // used for pushing URIs to playlist
 
 let lastSyncTime = 0
 let lastPollTime = 0
+let lastPollStartTime = 0
 
 let spotifyRadioSleepTime = 2 //min
 // --- MASTER TRACKING CONFIGURATION ---
@@ -3766,9 +3767,13 @@ async function beginSyncAllRadiosToSpotify(){
 
     let spotifyRadioInterval = 15 //min
     while(1){
+        lastPollStartTime = Date.now()
         await syncAllRadiosToSpotify()
-        console.log(`✅ All stations synced successfully. Next master cycle in ${spotifyRadioInterval} minutes.`);
-        await sleep(spotifyRadioInterval * 60 * 1000);
+        console.log(`✅ Session Changes All stations synced successfully. Next master cycle in ${spotifyRadioInterval} minutes.`);
+        let pollSleepTime = (lastPollStartTime + (spotifyRadioInterval * 60 * 1000)) - Date.now()
+        //await sleep(spotifyRadioInterval * 60 * 1000);
+        console.log(`lastPollStartTime: ${lastPollStartTime} pollSleepTime: ${(pollSleepTime / 60000).toFixed(1)}`)
+        await sleep(pollSleepTime);
     }
 }
 
@@ -3777,7 +3782,7 @@ async function syncAllRadiosToSpotify(){
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         console.log("⏰ Starting scheduled multi-station playlist sync sequence...");
 
-    currentStationNetworkAllowed = 2 //used for Spotify Search
+    currentStationNetworkAllowed = 1 //used for Spotify Search
     //beginningStationNetworkAllowed = currentStationNetworkAllowed
     beginningStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
     if(spotifyPlaylistDownloadAllowed) console.log(`✅ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
@@ -5313,7 +5318,7 @@ console.dir(uniqueHistory, { depth: null });
 
         if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
             spotifyPlaylistDownloadAllowed = false
-            console.log(`❌ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
 
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
@@ -5450,6 +5455,7 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
+        console.log(`🎯 Session Changes Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
         }
         // else{
 
@@ -5471,8 +5477,6 @@ console.dir(playlistData.items, { depth: null });
         //         console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         //     }
         // }
-
-        console.log(`🎯 Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
 
         //concatenate cached uris with any ones from actual playlist that weren't already captured
         existingTrackUris = existingTrackUris.union(existingCachedTrackUris);
@@ -5672,7 +5676,7 @@ console.dir(playlistData.items, { depth: null });
             globalSearchesPerformed++;
             spotifySearchPeformed = true
 
-            console.log(`[Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
+            console.log(`[Session Changes Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
 
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
             const searchUrl = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`;
@@ -5988,7 +5992,7 @@ console.dir(playlistData.items, { depth: null });
         }
 
         console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #585757;")
-        if(changesMade) console.log(`%c Only Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #ffffff; background: #00aa00;")
+        if(changesMade) console.log(`%c Session Only Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #ffffff; background: #00aa00;")
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : `🎉 ${stationID} Station sync complete!`);
     }
@@ -6270,7 +6274,7 @@ if(newStationSearchAllowed){
 
         if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
             spotifyPlaylistDownloadAllowed = false
-            console.log(`❌ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
 
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
@@ -6402,6 +6406,7 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
+        console.log(`🎯 Session Changes Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
         }
         // else{
         //     const mirrorKey = `playlist_mirror_${stationID}`;
@@ -6421,10 +6426,6 @@ console.dir(playlistData.items, { depth: null });
         //         console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         //     }
         // }
-
-
-
-        console.log(`🎯 Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
 
         //concatenate cached uris with any ones from actual playlist that weren't already captured
         existingTrackUris = existingTrackUris.union(existingCachedTrackUris);
@@ -6603,10 +6604,10 @@ console.dir(uniqueHistory, { depth: null });
             await delay(800); 
             
             // Increment the shared global counter right before hitting the network
-            globalSearchesPerformed++; 
+            globalSearchesPerformed++;
             spotifySearchPeformed = true
 
-            console.log(`[Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
+            console.log(`[Session Changes Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
 
             // Search Spotify
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
@@ -6863,7 +6864,7 @@ console.dir(uniqueHistory, { depth: null });
         }
 
         console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #585757;")
-        if(changesMade) console.log(`%c Only Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #ffffff; background: #00aa00;")
+        if(changesMade) console.log(`%c Session Only Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${tracksToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #ffffff; background: #00aa00;")
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partially finished." : `🎉 ${stationID} Station sync complete!`);
 
@@ -7115,7 +7116,7 @@ if(newStationSearchAllowed){
 
         if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
             spotifyPlaylistDownloadAllowed = false
-            console.log(`❌ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -7147,7 +7148,7 @@ console.dir(playlistData.items, { depth: null });
                     const track = i.track || i.item;
 
                     // Extract official resolved text fields natively from Spotify's schema layout keys
-                    const spotifyTitle = track.name;
+                    const spotifyTitle = track.name || "Unknown Title";
                     const spotifyArtist = track.artists?.[0]?.name || "Unknown Artist";
                     const trackUri = track.uri;
 
@@ -7246,6 +7247,7 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
+        console.log(`🎯 Session Changes Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
         }
         // else{
         //     const mirrorKey = `playlist_mirror_${stationID}`;
@@ -7265,9 +7267,6 @@ console.dir(playlistData.items, { depth: null });
         //         console.log(`🎯 Mirror hit! Instantly loaded ${existingTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         //     }
         // }
-
-
-        console.log(`🎯 Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
 
         //concatenate cached uris with any ones from actual playlist that weren't already captured
         existingTrackUris = existingTrackUris.union(existingCachedTrackUris);
@@ -7443,7 +7442,7 @@ console.dir(playlistData.items, { depth: null });
             globalSearchesPerformed++;
             spotifySearchPeformed = true
 
-            console.log(`[Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
+            console.log(`[Session Changes Global Search ${globalSearchesPerformed}/${GLOBAL_SEARCH_CAP}] Querying: ${title} - ${artist}`);
 
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
             const searchUrl = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`;
@@ -7691,7 +7690,7 @@ console.dir(playlistData.items, { depth: null });
         }
 
         console.log(`%c Session Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${metadataToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #00fff2; background: #585757;")
-        if(changesMade) console.log(`%c Only Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${metadataToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #ffffff; background: #00aa00;")
+        if(changesMade) console.log(`%c Session Only Changes ${stationID}: Playing: ${uniqueHistory.length - savedPendingLength} Pending Search: ${metadataToSaveForLater.length - savedPendingLength} Pending URIs: ${failedUris.length - savedPendingUris.length}`, "color: #ffffff; background: #00aa00;")
 
         console.log(syncRadioSpotifyRateLimit ? "Sync partial." : `🎉 ${stationID} Station sync complete!`);
 
@@ -9333,7 +9332,7 @@ function initializeAutomaticCloudBackupLoop(currentSpotifyUser) {
     pushCachesToCloud(currentSpotifyUser);
     setInterval(async () => {
         // 2. ✅ Run the startup pull-and-merge sequence instantly!
-        await pullAndMergeCaches(currentSpotifyUser);
+        //await pullAndMergeCaches(currentSpotifyUser);
         await pushCachesToCloud(currentSpotifyUser);
     }, 15 * 60 * 1000);
 }
