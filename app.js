@@ -3671,10 +3671,13 @@ const stationNetwork = [
     { id: "IHEARTCOUNTRY70S",       playlistId: "0ard1KtZpdSV17hJhJWAJU" }, // iHeart Country 70s IHEARTCOUNTRY70S - 70s Country Hits
     { id: "IHEARTBLUEGRASS",        playlistId: "6BpQD1kaOaHx4UjPndIZ2E" }, // iHeartBluegrass IHEARTBLUEGRASS - Bluegrass Hits
     { id: "IHEARTALTRADIO",         playlistId: "3zvKhEkgsC3LtpbmFbUFsk" }, // iHeart Alt Radio IHEARTALTRADIO - Alternative Hits
+    { id: "IHEARTALTTOP20",         playlistId: "5ofb8Je1Dq2QOrujQAbbR5" }, // iHeart Alt Top 20 IHEARTALTTOP20 - This Week's Top 20
     { id: "IHEARTSMELLS90S",        playlistId: "6FTYdIosZcWlc8GvyZdBkc" }, // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
     { id: "IHEARTALTX",             playlistId: "25WaK2bS1PA7EGKHMChym8" }, // iHeart AltX IHEARTALTX - 90s/00s ALT Hits
     { id: "IHEARTALT2K",            playlistId: "4gtzLuP3O7jZEut5wZ20Aw" }, // iHeart Alt2K IHEARTALT2K - 2000s ALT Hits
+    { id: "IHEARTFREEFORM",         playlistId: "6p88rMY6c6ZPA4pji9Amiw" }, // iHeart Freeform Radio IHEARTFREEFORM - ALT Mix for Music Fans
     { id: "IHEARTROCKNATION",       playlistId: "1HaAXTc4L50VwKhl5Dbij7" }, // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
+    { id: "IHEARTROCKTOP20",        playlistId: "57KRM39ijC6P04O5LmVrLO" }, // iHeart Rock Top 20 IHEARTROCKTOP20 - This Week's Top 20
     { id: "IHEARTPOPHITS",          playlistId: "43BM0F3ZuyOCVyKih5yu4e" }, // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
     { id: "IHEARTSTAR1013",         playlistId: "7lKNq4Cq0Gf0tItuME3mhr" }, // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
     { id: "IHEARTSTAR1057",         playlistId: "52Mo8OnP4TH09kdpyGnt6m" }, // iHeart Star 105.7 Grand Rapids' 80s to Now IHEARTSTAR1057
@@ -3685,6 +3688,9 @@ const stationNetwork = [
     { id: "IHEARTHOLIDAYSAEASON",   playlistId: "7aNbpTzV6zFptJefnkwZIi" }, // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
     { id: "IHEARTCOUNTRYCHRISTMAS", playlistId: "1cy95KhxhmTu5rpQDHX3A8" }, // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
     { id: "IHEARTCHRISTMASROCK",    playlistId: "22Zr2jSdug6B8QDQmSYnZz" }, // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
+    { id: "IHEARTSACREDCHRISTMAS",  playlistId: "56P0hPs9s2XiFvkGWY6YkH" }, // iHeart Sacred Christmas IHEARTSACREDCHRISTMAS - Traditional Carols
+    { id: "IHEARTKLOVECHRISTMAS",   playlistId: "28I3JtaHVe6Ibrkm149dJR" }, // iHeart K-Love Christmas IHEARTKLOVECHRISTMAS - Positive, Encouraging Christmas
+    { id: "IHEARTCHRISTMASPOP",     playlistId: "0MR5NLDKA1XTR3MCqG7n8l" }, // iHeart Christmas Pop IHEARTCHRISTMASPOP - Holiday Pop Hits
     { id: "KBLQ",                   playlistId: "757OVZ8V0JdzE8eA05qaLa" }, // * KBLQ Q92
     { id: "KLGN",                   playlistId: "40rg8M41WvZ4OD3SIqxvTz" }, // KLGN 103.3 Lite FM - Yesterday's Lite Hits
     { id: "KCLS",                   playlistId: "4sIUUZpT7DjhZolusj5dom" }, // KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
@@ -4105,6 +4111,19 @@ async function syncAllRadiosToSpotify(){
         }
         await sleep(spotifyRadioSleepTime * 60 * 1000);
 
+        // iHeart Alt Top 20 IHEARTALTTOP20 - This Week's Top 20
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "5ofb8Je1Dq2QOrujQAbbR5");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
         // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
         await syncRadioToSpotify(whichStationId, "6FTYdIosZcWlc8GvyZdBkc");
@@ -4144,9 +4163,35 @@ async function syncAllRadiosToSpotify(){
         }
         await sleep(spotifyRadioSleepTime * 60 * 1000);
 
+        // iHeart Freeform Radio IHEARTFREEFORM - ALT Mix for Music Fans
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "6p88rMY6c6ZPA4pji9Amiw");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
         // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
         await syncRadioToSpotify(whichStationId, "1HaAXTc4L50VwKhl5Dbij7");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Rock Top 20 IHEARTROCKTOP20 - This Week's Top 20
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "57KRM39ijC6P04O5LmVrLO");
         console.log("⏸️ Sleeping for 1 minute...");
         //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
         if(!spotifySearchPeformed){
@@ -4277,6 +4322,45 @@ async function syncAllRadiosToSpotify(){
         // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
         await syncRadioToSpotify(whichStationId, "22Zr2jSdug6B8QDQmSYnZz");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Sacred Christmas IHEARTSACREDCHRISTMAS - Traditional Carols
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "56P0hPs9s2XiFvkGWY6YkH");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart K-Love Christmas IHEARTKLOVECHRISTMAS - Positive, Encouraging Christmas
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "28I3JtaHVe6Ibrkm149dJR");
+        console.log("⏸️ Sleeping for 1 minute...");
+        //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
+        if(!spotifySearchPeformed){
+            spotifyRadioSleepTime = 0
+        }
+        else{
+            spotifyRadioSleepTime = 2
+        }
+        await sleep(spotifyRadioSleepTime * 60 * 1000);
+
+        // iHeart Christmas Pop IHEARTCHRISTMASPOP - Holiday Pop Hits
+        whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
+        await syncRadioToSpotify(whichStationId, "0MR5NLDKA1XTR3MCqG7n8l");
         console.log("⏸️ Sleeping for 1 minute...");
         //if((stationNetwork[currentStationNetworkAllowed].id !== whichStationId && stationNetwork[(currentStationNetworkAllowed -1 + stationNetwork.length) % stationNetwork.length].id !== whichStationId) || syncRadioSpotifyRateLimit || !spotifySyncAllowed){
         if(!spotifySearchPeformed){
@@ -4732,6 +4816,9 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     else if(stationID === "IHEARTALTRADIO"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4447 + "/trackHistory?limit=100";
     }
+    else if(stationID === "IHEARTALTTOP20"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 9759 + "/trackHistory?limit=100";
+    }
     else if(stationID === "IHEARTSMELLS90S"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 6437 + "/trackHistory?limit=100";
     }
@@ -4741,8 +4828,14 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     else if(stationID === "IHEARTALT2K"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 7727 + "/trackHistory?limit=100";
     }
+    else if(stationID === "IHEARTFREEFORM"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 9719 + "/trackHistory?limit=100";
+    }
     else if(stationID === "IHEARTROCKNATION"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4443 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTROCKTOP20"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 4932 + "/trackHistory?limit=100";
     }
     else if(stationID === "IHEARTPOPHITS"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 8830 + "/trackHistory?limit=100";
@@ -4773,6 +4866,15 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     }
     else if(stationID === "IHEARTCHRISTMASROCK"){
         targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 6410 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTSACREDCHRISTMAS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 6410 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTKLOVECHRISTMAS"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 8551 + "/trackHistory?limit=100";
+    }
+    else if(stationID === "IHEARTCHRISTMASPOP"){
+        targetUrl = "https://" + "api.iheart.com" + "/api/v3/live-meta/stream/" + 10050 + "/trackHistory?limit=100";
     }
     else if(stationID === "KSOP"){
         targetUrl = "https://" + "api.ldrhub.com" + "/2/?key=KSOP&method=Station.Engage.NowPlaying";
@@ -5330,6 +5432,7 @@ console.dir(uniqueHistory, { depth: null });
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
             try {
+                console.log(`nextPageUrl: ${nextPageUrl}`)
                 const playlistResponse = await fetch(nextPageUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -5958,6 +6061,7 @@ console.dir(playlistData.items, { depth: null });
                 catch (err) {
                     failedUris = [...failedUris, ...batch];
                 }
+                    await delay(5 * 1000); 
             }
         }
         else{
@@ -6830,6 +6934,7 @@ console.dir(uniqueHistory, { depth: null });
                 catch (err) {
                     failedUris = [...failedUris, ...batch];
                 }
+                    await delay(5 * 1000); 
             }
         }
         else{
@@ -7656,6 +7761,7 @@ console.dir(playlistData.items, { depth: null });
                 } catch (err) {
                     failedUris = [...failedUris, ...batch];
                 }
+                    await delay(5 * 1000); 
             }
         }
         else{
