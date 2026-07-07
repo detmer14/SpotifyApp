@@ -3850,7 +3850,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // 2. BOB FM Sync
         // 100.7 / 105.5 BOB FM (KYMV): Playing Adult Hits across the Wasatch Front.
@@ -3864,7 +3864,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // // 3. The Mix Sync - Actually this is spiritual/worship
         // await syncRadioToSpotify("7155_48k", "3ZrUs8aPnGwj0XohRQpcvh");
@@ -3888,7 +3888,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3901,7 +3901,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KCUT 102.9 Moab Rocks
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3914,7 +3914,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KJMY My 99.5 - Utah's Variety From The 90s To Today
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3927,7 +3927,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KSOP 104.3 Country
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3940,7 +3940,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KODJ 94.1 Classic Hits & Classic Rock
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3953,7 +3953,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3966,7 +3966,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // The Buzz 94.9 - Rock
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3979,7 +3979,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -3992,7 +3992,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // Rock 106.7 KAAZ - Anything That Rocks!
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4005,7 +4005,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // B98.7 KBEE - Today's Hits and Yesterday's Favorites
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4018,7 +4018,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KENZ 94.9 Provo - Utah's New Hit Music - Top 40
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4031,7 +4031,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeartCountry IHEARTCOUNTRY - New Country
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4044,7 +4044,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Country Favorites IHEARTCOUNTRYFAVORITES - 90s to Now Country
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4057,7 +4057,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Country Classics IHEARTCOUNTRYCLASSICS - Classic Country - but not old country it seems
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4070,7 +4070,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Country 70s IHEARTCOUNTRY70S - 70s Country Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4083,7 +4083,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeartBluegrass IHEARTBLUEGRASS - Bluegrass Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4096,7 +4096,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Alt Radio IHEARTALTRADIO - Alternative Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4109,7 +4109,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Alt Top 20 IHEARTALTTOP20 - This Week's Top 20
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4122,7 +4122,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4135,7 +4135,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart AltX IHEARTALTX - 90s/00s ALT Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4148,7 +4148,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Alt2K IHEARTALT2K - 2000s ALT Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4161,7 +4161,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Freeform Radio IHEARTFREEFORM - ALT Mix for Music Fans
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4174,7 +4174,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4187,7 +4187,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Rock Top 20 IHEARTROCKTOP20 - This Week's Top 20
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4200,7 +4200,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4213,7 +4213,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4226,7 +4226,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Star 105.7 Grand Rapids' 80s to Now IHEARTSTAR1057
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4239,7 +4239,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Star Mix 100.7 Tampa IHEARTSTARMIX1007
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4252,7 +4252,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Star Mix 94.5 Lexington's 80s, 90s & Today IHEARTSTARMIX945
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4265,7 +4265,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Colorado Adult Alternative 93.3 IHEARTCOALTERNATIVE
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4278,7 +4278,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Christmas IHEARTCHRISTMAS - Christmas Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4291,7 +4291,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4304,7 +4304,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4317,7 +4317,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4330,7 +4330,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Sacred Christmas IHEARTSACREDCHRISTMAS - Traditional Carols
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4343,7 +4343,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart K-Love Christmas IHEARTKLOVECHRISTMAS - Positive, Encouraging Christmas
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4356,7 +4356,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // iHeart Christmas Pop IHEARTCHRISTMASPOP - Holiday Pop Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4369,12 +4369,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
-
-        //// // 104.3 KSOP Country
-        //// await syncRadioToSpotify("KSOP","40rg8M41WvZ4OD3SIqxvTz"); //104.3 KSOP Country
-        //// console.log("⏸️ Sleeping for 1 minute...");
-        //// await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // ✅ NEW SEED TRACKING: Sync Q92 cleanly from their Cirrus streaming host
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4387,7 +4382,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // ✅ KLGN 103.3 Lite FM - Yesterday's Lite Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4400,7 +4395,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // ✅ KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4413,7 +4408,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // ✅ Kix 96 KKEX Country
         // streamdb7web + "KKEX": Connects to 94.5 K-EX (KKEX) in Oregon. 
@@ -4428,7 +4423,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // streamdb5web + "KKEX3": Connects to 101.9 HD3 The Ranch (KKEX-HD3) in Utah. 
         // They play Texas/Red Dirt & Classic Country (Cody Jinks, Aaron Watson, George Strait).
@@ -4443,7 +4438,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KOOL 103.9 KGNT  Your Greatest Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4456,7 +4451,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // 95.0 KLZX Classic Rock
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4469,7 +4464,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // 94.5 KVFX VFX Top 40
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4482,7 +4477,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // KRQX KOOL 98.9 Classic Hits
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4495,7 +4490,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         //KBER 101
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4508,7 +4503,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         //KBUL 93
         whichStationId = stationNetwork[(++whichStationIdIndex) % stationNetwork.length].id
@@ -4521,7 +4516,7 @@ async function syncAllRadiosToSpotify(){
         else{
             spotifyRadioSleepTime = 2
         }
-        await sleep(spotifyRadioSleepTime * 60 * 1000);
+        //await sleep(spotifyRadioSleepTime * 60 * 1000);
 
         // // 97.9 FM - Now 97.9 KBZN
         // await syncKBERToSpotify("2283_96", "5IJKK7NDMB0RauocZUd1jp");
@@ -4942,8 +4937,11 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
         const mirrorKey = `playlist_mirror_${stationID}`;
 
         // ✅ 100% Network-free startup pull!
-        let existingCachedTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+        //let existingCachedTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+        // 🚀 New IndexedDB layout (Make sure the enclosing function is marked as 'async'):
+        let existingCachedTrackUris = new Set(await getPlaylistMirrorIndexedDB(mirrorKey) || []);
 
+        
         if (existingCachedTrackUris.size === 0) {
             console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
             
@@ -4951,7 +4949,8 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
             // ... (Your existing code to populate existingTrackUris from Spotify) ...
             
             // Save it to localStorage so you never have to make this API fetch again!
-            localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+            //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+            await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
         } else {
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
@@ -5439,8 +5438,14 @@ console.dir(uniqueHistory, { depth: null });
 
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
-                    totalSpotifyRateLimit = true
-                    break;
+                    if(playlistResponse.status === 401){
+                        await delay(30 * 1000); 
+                        continue;
+                    }
+                    else{
+                        totalSpotifyRateLimit = true
+                        break;
+                    }
                 }
 
                 const playlistData = await playlistResponse.json();
@@ -5585,7 +5590,8 @@ console.dir(playlistData.items, { depth: null });
         existingTrackUris = existingTrackUris.union(existingCachedTrackUris);
 
         // Save it to localStorage so you never have to make this API fetch again!
-        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+        //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
 
         console.log(`Playlist currently contains ${existingTrackUris.size} tracks. Searching for new additions...`);
 
@@ -6049,7 +6055,8 @@ console.dir(playlistData.items, { depth: null });
                         for (const uri of batch) {
                             existingTrackUris.add(uri);
                         }
-                        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+                        //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
                     } 
                     else {
                         const errData = await appendResponse.json();
@@ -6362,7 +6369,9 @@ if(newStationSearchAllowed){
         const mirrorKey = `playlist_mirror_${stationID}`;
 
         // ✅ 100% Network-free startup pull!
-        let existingCachedTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+        //let existingCachedTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+        // 🚀 New IndexedDB layout (Make sure the enclosing function is marked as 'async'):
+        let existingCachedTrackUris = new Set(await getPlaylistMirrorIndexedDB(mirrorKey) || []);
 
         if (existingCachedTrackUris.size === 0) {
             console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
@@ -6371,7 +6380,8 @@ if(newStationSearchAllowed){
             // ... (Your existing code to populate existingTrackUris from Spotify) ...
 
             // Save it to localStorage so you never have to make this API fetch again!
-            localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+            //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+            await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
         } else {
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
@@ -6396,8 +6406,14 @@ if(newStationSearchAllowed){
 
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
-                    totalSpotifyRateLimit = true
-                    break;
+                    if(playlistResponse.status === 401){
+                        await delay(30 * 1000); 
+                        continue;
+                    }
+                    else{
+                        totalSpotifyRateLimit = true
+                        break;
+                    }
                 }
 
                 const playlistData = await playlistResponse.json();
@@ -6535,7 +6551,8 @@ console.dir(playlistData.items, { depth: null });
         existingTrackUris = existingTrackUris.union(existingCachedTrackUris);
 
         // Save it to localStorage so you never have to make this API fetch again!
-        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+        //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
 
         console.log(`Found ${uniqueHistory.length} items in ${stationID} feed. Processing tracks...`);
 console.dir(uniqueHistory, { depth: null });
@@ -6922,7 +6939,8 @@ console.dir(uniqueHistory, { depth: null });
                         for (const uri of batch) {
                             existingTrackUris.add(uri);
                         }
-                        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+                        //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
                     } 
                     else {
                         const errData = await appendResponse.json();
@@ -7205,7 +7223,9 @@ if(newStationSearchAllowed){
         const mirrorKey = `playlist_mirror_${stationID}`;
 
         // ✅ 100% Network-free startup pull!
-        let existingCachedTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+        //let existingCachedTrackUris = new Set(JSON.parse(localStorage.getItem(mirrorKey)) || []);
+        // 🚀 New IndexedDB layout (Make sure the enclosing function is marked as 'async'):
+        let existingCachedTrackUris = new Set(await getPlaylistMirrorIndexedDB(mirrorKey) || []);
 
         if (existingCachedTrackUris.size === 0) {
             console.log(`📡 Mirror miss! Fetching playlist catalog from Spotify servers for ${stationID}...`);
@@ -7214,7 +7234,8 @@ if(newStationSearchAllowed){
             // ... (Your existing code to populate existingTrackUris from Spotify) ...
 
             // Save it to localStorage so you never have to make this API fetch again!
-            localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+            //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+            await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
         } else {
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
@@ -7238,8 +7259,14 @@ if(newStationSearchAllowed){
 
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
-                    totalSpotifyRateLimit = true
-                    break;
+                    if(playlistResponse.status === 401){
+                        await delay(30 * 1000); 
+                        continue;
+                    }
+                    else{
+                        totalSpotifyRateLimit = true
+                        break;
+                    }
                 }
 
                 const playlistData = await playlistResponse.json();
@@ -7377,7 +7404,8 @@ console.dir(playlistData.items, { depth: null });
         existingTrackUris = existingTrackUris.union(existingCachedTrackUris);
 
         // Save it to localStorage so you never have to make this API fetch again!
-        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+        //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
 
         console.log(`Playlist currently contains ${existingTrackUris.size} tracks. Searching for new additions...`);
 
@@ -7751,7 +7779,8 @@ console.dir(playlistData.items, { depth: null });
                         for (const uri of batch) {
                             existingTrackUris.add(uri);
                         }
-                        localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingTrackUris)));
+                        //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
+                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
                     } 
                     else {
                         const errData = await appendResponse.json();
@@ -8979,8 +9008,57 @@ function cleanMetadataString(inputString) {
 // 🗄️ INDEXEDDB PERSISTENT STORAGE CONTROLLER
 // =========================================================================
 const DB_NAME = "SpotifyRadioSyncDB";
-const DB_VERSION = 1;
+// const DB_VERSION = 1;
 const STORE_NAME = "song_cache";
+
+const DB_VERSION = 2; // Bump version to 2 to trigger upgrade if you had a previous version
+
+function getDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            // Retain your old song cache table if it existed
+            if (!db.objectStoreNames.contains("global_song_cache")) {
+                db.createObjectStore("global_song_cache");
+            }
+            // 🆕 Add the new dedicated object store container for your playlist mirrors
+            if (!db.objectStoreNames.contains("playlist_mirrors")) {
+                db.createObjectStore("playlist_mirrors");
+            }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// 💾 Save a playlist mirror to IndexedDB
+async function setPlaylistMirrorIndexedDB(key, data) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction("playlist_mirrors", "readwrite");
+        const store = transaction.objectStore("playlist_mirrors");
+        const request = store.put(data, key);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// 📖 Read a playlist mirror from IndexedDB
+async function getPlaylistMirrorIndexedDB(key) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction("playlist_mirrors", "readonly");
+        const store = transaction.objectStore("playlist_mirrors");
+        const request = store.get(key);
+
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
 
 /**
  * Initializes the local database browser disk space.
@@ -9136,6 +9214,40 @@ async function migrateLocalStorageToIndexedDb() {
     }
 }
 //await migrateLocalStorageToIndexedDb();
+
+async function migrateMirrorsToIndexedDB() {
+    console.log("🚚 [Migration] Initializing localStorage to IndexedDB Mirror Shift...");
+    let migrationCount = 0;
+
+    // Loop backward through localStorage keys so deleting items doesn't mess up our index loop
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        
+        if (key && key.startsWith("playlist_mirror_")) {
+            try {
+                const rawData = localStorage.getItem(key);
+                if (rawData) {
+                    const parsedData = JSON.parse(rawData);
+                    
+                    // 1. Write the payload cleanly into the database engine
+                    await setPlaylistMirrorIndexedDB(key, parsedData);
+                    
+                    // 2. Erase the item from localStorage to instantly clear your 5MB quota block
+                    localStorage.removeItem(key);
+                    migrationCount++;
+                    console.log(`✅ Ported and cleared: ${key}`);
+                }
+            } catch (err) {
+                console.error(`❌ Migration hit a snag on item key ${key}:`, err);
+            }
+        }
+    }
+
+    console.log(`%c🎉 Migration Complete! Successfully shifted ${migrationCount} playlist mirrors to IndexedDB. Storage quota freed!`, "color: #00c020; font-weight: bold;");
+}
+
+// Execute migration instantly in your test session pass
+//await migrateMirrorsToIndexedDB();
 
 
 // =========================================================================
