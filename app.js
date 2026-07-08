@@ -3765,7 +3765,7 @@ async function beginSyncAllRadiosToSpotify(){
     setInterval(async () => {
         spotifyPlaylistDownloadAllowed = true //reset by whichever station runs that process
         console.log(`✅ spotifyPlaylistDownloadAllowed.`);
-    }, 30 * 60 * 1000); //every 30 min
+    }, 60 * 60 * 1000); //every 60 min
     
     setInterval(async () => {
         spotifyPlaylistDeDuplicateAllowed = true //reset by whichever station runs that process
