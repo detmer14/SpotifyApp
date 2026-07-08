@@ -650,8 +650,8 @@ async function playTrack(trackUri, isRetry = false) {
                 }, 1000);
             } else {
                 console.warn("playTrack - 404 persisted after retry. Stopping loop.");
-                showResult(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
-                visualLog(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
+                showResult(`%c Play Track attempt - Connection lost. Please Power Off and On again.`, "color: #ff0000;")
+                visualLog(`%c Play Track attempt - 404 persisted - Connection lost. Please Power Off and On again.`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("WARN", `playTrack - safeSpotifyFetch - 404 persisted after retry. Stopping loop.`, {
                 step: "playTrack",
@@ -1477,8 +1477,8 @@ async function addToQueue(trackUri, isRetry = false) {
                 }, 1000);
             } else {
                 console.warn("returnAddToQueue - 404 persisted after retry. Stopping loop.");
-                showResult(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
-                visualLog(`%c Connection lost. Please Power Off and On again.`, "color: #ff0000;")
+                showResult(`%c Queue attempt - Connection lost. Please Power Off and On again.`, "color: #ff0000;")
+                visualLog(`%c Queue attempt - 404 persisted - Connection lost. Please Power Off and On again.`, "color: #ff0000;")
             // SEND THE LOG
             logEvent("WARN", `returnAddToQueue - safeSpotifyFetch - 404 persisted after retry. Stopping loop.`, {
                 step: "returnAddToQueue",
@@ -3734,7 +3734,8 @@ let currentStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.len
 currentStationNetworkAllowed = 1 //used for Spotify Search
 // Used for downloading actual playlist history - used to be tied to currentStationNetworkAllowed for 
 // spotify search, it is no longer
-let beginningStationNetworkAllowed = 0 //Used for downloading actual playlist history
+let beginningStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length); //Used for downloading actual playlist history
+let deDuplicateStationAllowed = Math.floor(Math.random() * stationNetwork.length); //used for playlist deduplication
 let currentRadioPlaylistUpdateAllowed = 0; // used for pushing URIs to playlist
     currentRadioPlaylistUpdateAllowed = currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
 
@@ -3765,6 +3766,11 @@ async function beginSyncAllRadiosToSpotify(){
         spotifyPlaylistDownloadAllowed = true //reset by whichever station runs that process
         console.log(`✅ spotifyPlaylistDownloadAllowed.`);
     }, 30 * 60 * 1000); //every 30 min
+    
+    setInterval(async () => {
+        spotifyPlaylistDeDuplicateAllowed = true //reset by whichever station runs that process
+        console.log(`✅ Duplicate spotifyPlaylistDeDuplicateAllowed.`);
+    }, 40 * 60 * 1000); //every 40 min
 
     startLiveRadioAccumulator("KBZN", "5IJKK7NDMB0RauocZUd1jp")
     await sleep(1 * 60 * 1000)
@@ -3774,6 +3780,7 @@ async function beginSyncAllRadiosToSpotify(){
     let spotifyRadioInterval = 15 //min
     while(1){
         lastPollStartTime = Date.now()
+        console.log("⏰ Session Changes Starting scheduled multi-station playlist sync sequence...");
         await syncAllRadiosToSpotify()
         console.log(`✅ Session Changes All stations synced successfully. Next master cycle in ${spotifyRadioInterval} minutes.`);
         let pollSleepTime = (lastPollStartTime + (spotifyRadioInterval * 60 * 1000)) - Date.now()
@@ -3791,7 +3798,9 @@ async function syncAllRadiosToSpotify(){
     currentStationNetworkAllowed = 1 //used for Spotify Search
     //beginningStationNetworkAllowed = currentStationNetworkAllowed
     beginningStationNetworkAllowed = Math.floor(Math.random() * stationNetwork.length);
+    deDuplicateStationAllowed = ((beginningStationNetworkAllowed + 30) % stationNetwork.length)
     if(spotifyPlaylistDownloadAllowed) console.log(`✅ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+    if(spotifyPlaylistDeDuplicateAllowed) console.log(`✅ spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
     //currentRadioPlaylistUpdateAllowed = Math.floor(Math.random() * stationNetwork.length);
     currentRadioPlaylistUpdateAllowed = (currentRadioPlaylistUpdateAllowed + 5) % stationNetwork.length;
 
@@ -4656,6 +4665,7 @@ let spotifySyncAllowed = true;
 let spotifySyncAllowedStart = true
 let spotifySearchPeformed = false
 let spotifyPlaylistDownloadAllowed = false
+let spotifyPlaylistDeDuplicateAllowed = true
 let spotifySyncInProgress = false;
 let spotifySyncMinutesRemaining = 0
 async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNumber = 196158) {
@@ -4951,7 +4961,8 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
             // Save it to localStorage so you never have to make this API fetch again!
             //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
             await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
-        } else {
+        }
+        else {
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
 
@@ -5417,16 +5428,27 @@ console.dir(uniqueHistory, { depth: null });
 
         let existingTrackUris = new Set();
 
-        if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
-            spotifyPlaylistDownloadAllowed = false
-            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+        let startingOffset = 0
+        let nextPageUrl = ""
+
+        if(!totalSpotifyRateLimit && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+            if(spotifyPlaylistDownloadAllowed || existingCachedTrackUris.size <= 300){
+                spotifyPlaylistDownloadAllowed = false
+                // Start with the initial 100-item page endpoint
+                nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
+            }
+            else{
+                startingOffset = (Math.floor(existingCachedTrackUris.size / 100) * 100) - 200
+                            //https://api.spotify.com/v1/playlists/2yBlKOrxYIkY7UUqTObxI9/items?offset=500&limit=100&locale=en-US,en
+                nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${startingOffset}&?limit=100&locale=en-US,en`;
+
+            }
+            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
 
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
         
-        // Start with the initial 100-item page endpoint
-        let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
 
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
@@ -5439,7 +5461,7 @@ console.dir(uniqueHistory, { depth: null });
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
                     if(playlistResponse.status === 401){
-                        await delay(30 * 1000); 
+                        await delay(30 * 1000); //retry after 30sec
                         continue;
                     }
                     else{
@@ -5653,6 +5675,9 @@ console.dir(playlistData.items, { depth: null });
                     foundUri = `spotify:track:${foundUri}`
                     cachedTrack.uri = foundUri
                 }
+                if(foundUri && foundUri.includes("XXXX")){
+                    foundUri = ""
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -5666,6 +5691,9 @@ console.dir(playlistData.items, { depth: null });
                 if(alternates.some(altUri => existingTrackUris.has(altUri))){
                     console.log(`Original track not in playlist, but alternate track is.`)
                     isAnyVariantOnPlaylist = true
+                    if(!foundUri){
+                        foundUri = altUri
+                    }
                 }
 
                 if(alreadySyncedOnThisStation) {
@@ -5687,7 +5715,7 @@ console.dir(playlistData.items, { depth: null });
 
                     changesMade = changesMade || !savedPendingUris.includes(foundUri)
                 }
-                continue; //It's in cache, no need to search for it
+                if(foundUri) continue; //It's in cache, no need to search for it
             }
 
             // 🅱️ CHECK 2: Fuzzy Cache Scanner Intercept
@@ -5710,6 +5738,9 @@ console.dir(playlistData.items, { depth: null });
                     foundUri = `spotify:track:${foundUri}`
                     cachedTrack.uri = foundUri
                 }
+                if(foundUri && foundUri.includes("XXXX")){
+                    foundUri = ""
+                }
 
                 cachedTrack.stations_synced = cachedTrack.stations_synced || []
 
@@ -5723,6 +5754,9 @@ console.dir(playlistData.items, { depth: null });
                 if(alternates.some(altUri => existingTrackUris.has(altUri))){
                     console.log(`Original track not in playlist, but alternate track is.`)
                     isAnyVariantOnPlaylist = true
+                    if(!foundUri){
+                        foundUri = altUri
+                    }
                 }
 
                 if(alreadySyncedOnThisStation) {
@@ -5740,7 +5774,7 @@ console.dir(playlistData.items, { depth: null });
 
                     changesMade = changesMade || !savedPendingUris.includes(foundUri)
                 }
-                continue;
+                if(foundUri) continue;
             }
 
             globalCacheFound = false
@@ -6024,6 +6058,15 @@ console.dir(playlistData.items, { depth: null });
         // 3. Add found tracks to your Spotify playlist
         if (trackUrisToAdd.length > 0) {
         if(!totalSpotifyRateLimit && stationWithin5){
+            // 🛑 NEW: Filter out any malformed URIs containing 'XXXX' BEFORE processing batches
+            const validTrackUris = trackUrisToAdd.filter(uri => {
+                if (!uri || uri.includes("XXXX")) {
+                    console.warn(`🗑️ [Purge] Removing malformed Spotify URI placeholder: "${uri}"`);
+                    return false; // Drops it from the array completely
+                }
+                return true; // Keeps valid tracks
+            });
+            trackUrisToAdd = validTrackUris
             // Optional: Reverse array to keep oldest-to-newest timeline matching the radio order
             trackUrisToAdd.reverse(); 
 
@@ -6075,9 +6118,16 @@ console.dir(playlistData.items, { depth: null });
             failedUris = [...failedUris, ...trackUrisToAdd];
             console.log(`Spotify rate limited. Pushing trackUrisToAdd to failedUris`)
         }
-        } 
+        }
         else {
             console.log("No matching tracks were found on Spotify during this run.");
+        }
+
+        if(!totalSpotifyRateLimit && spotifyPlaylistDeDuplicateAllowed && (stationNetwork[deDuplicateStationAllowed].id === stationID)){
+            spotifyPlaylistDeDuplicateAllowed = false
+            console.log(`❌ Session Changes DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            deduplicateSpotifyPlaylist(stationNetwork[deDuplicateStationAllowed].playlistId)
+            console.log(`🎯 Session Changes DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
         }
 
         // --- 4. FINALIZE: Save Unprocessed History for next run ---
@@ -6365,6 +6415,7 @@ if(newStationSearchAllowed){
         console.log(`%c Minimized Now Playing Size: ${uniqueHistory.length}`, "color: #ea00ff")
 
         let existingTrackUris = new Set();
+        let nextPageUrl = ""
 
         const mirrorKey = `playlist_mirror_${stationID}`;
 
@@ -6386,17 +6437,24 @@ if(newStationSearchAllowed){
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
 
-        if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
-            spotifyPlaylistDownloadAllowed = false
-            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+        if(!totalSpotifyRateLimit && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+            if(spotifyPlaylistDownloadAllowed || existingCachedTrackUris.size <= 300){
+                spotifyPlaylistDownloadAllowed = false
+                // Start with the initial 100-item page endpoint
+                nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
+            }
+            else{
+                startingOffset = (Math.floor(existingCachedTrackUris.size / 100) * 100) - 200
+                            //https://api.spotify.com/v1/playlists/2yBlKOrxYIkY7UUqTObxI9/items?offset=500&limit=100&locale=en-US,en
+                nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${startingOffset}&?limit=100&locale=en-US,en`;
+
+            }
+            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
 
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
         
-        // Start with the initial 100-item page endpoint
-        let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
-
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
             try {
@@ -6964,6 +7022,13 @@ console.dir(uniqueHistory, { depth: null });
             console.log("No matching tracks were found on Spotify during this run.");
         }
 
+        if(!totalSpotifyRateLimit && spotifyPlaylistDeDuplicateAllowed && (stationNetwork[deDuplicateStationAllowed].id === stationID)){
+            spotifyPlaylistDeDuplicateAllowed = false
+            console.log(`❌ Session Changes DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            deduplicateSpotifyPlaylist(stationNetwork[deDuplicateStationAllowed].playlistId)
+            console.log(`🎯 Session Changes DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+        }
+
         // --- 4. FINALIZE: Save Unprocessed History for next run ---
         if (tracksToSaveForLater.length > 0) {
             localStorage.setItem(pendingStorageKey, JSON.stringify(tracksToSaveForLater));
@@ -7218,7 +7283,7 @@ if(newStationSearchAllowed){
         console.log(`%c Minimized Now Playing Size: ${uniqueHistory.length}`, "color: #ea00ff")
 
         let existingTrackUris = new Set();
-
+        let nextPageUrl = ""
 	
         const mirrorKey = `playlist_mirror_${stationID}`;
 
@@ -7240,16 +7305,23 @@ if(newStationSearchAllowed){
             console.log(`🎯 Mirror hit! Instantly loaded ${existingCachedTrackUris.size} tracks locally for ${stationID}. Zero API cost.`);
         }
 
-        if(!totalSpotifyRateLimit && spotifyPlaylistDownloadAllowed && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
-            spotifyPlaylistDownloadAllowed = false
-            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}.`);
+        if(!totalSpotifyRateLimit && (stationNetwork[beginningStationNetworkAllowed].id === stationID)){
+            if(spotifyPlaylistDownloadAllowed || existingCachedTrackUris.size <= 300){
+                spotifyPlaylistDownloadAllowed = false
+                // Start with the initial 100-item page endpoint
+                nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
+            }
+            else{
+                startingOffset = (Math.floor(existingCachedTrackUris.size / 100) * 100) - 200
+                            //https://api.spotify.com/v1/playlists/2yBlKOrxYIkY7UUqTObxI9/items?offset=500&limit=100&locale=en-US,en
+                nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${startingOffset}&?limit=100&locale=en-US,en`;
+
+            }
+            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
         
-        // Start with the initial 100-item page endpoint
-        let nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=100`;
-
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
             try {
@@ -7800,6 +7872,13 @@ console.dir(playlistData.items, { depth: null });
         }
         else {
             console.log("No matching tracks were found on Spotify during this run.");
+        }
+
+        if(!totalSpotifyRateLimit && spotifyPlaylistDeDuplicateAllowed && (stationNetwork[deDuplicateStationAllowed].id === stationID)){
+            spotifyPlaylistDeDuplicateAllowed = false
+            console.log(`❌ Session Changes DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            deduplicateSpotifyPlaylist(stationNetwork[deDuplicateStationAllowed].playlistId)
+            console.log(`🎯 Session Changes DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
         }
 
         // --- STEP 5: FINAL LOCAL STORAGE WRITEBACK ---
@@ -8753,7 +8832,7 @@ async function deduplicateSpotifyPlaylist(playlistId) {
         }
     }
 
-    console.log(`%c🎯 Playlist optimized! Cleared ${duplicatesToPurge.length} duplicates.`, "color: #1DB954; font-weight: bold;");
+    console.log(`%c🎯 Session Changes Playlist optimized! Cleared ${duplicatesToPurge.length} duplicates.`, "color: #1DB954; font-weight: bold;");
 }
 
 /**
@@ -9115,6 +9194,7 @@ async function getLocalTrackItem(key) {
  * can package it up for Supabase in a single operation.
  */
 async function getFullLocalTrackCacheMap() {
+    console.log("📂 [IndexedDB] Opening and traversing Indexed DB for -song_cache-");
     const db = await openLocalCacheDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readonly");
@@ -9128,6 +9208,7 @@ async function getFullLocalTrackCacheMap() {
                 fullMap[cursor.key] = cursor.value;
                 cursor.continue();
             } else {
+                console.log("✅ [IndexedDB] Success - Finished Opening and traversing Indexed DB for -song_cache-");
                 resolve(fullMap); // Finished traversing the whole disk space
             }
         };
@@ -9165,7 +9246,7 @@ async function loadIndexedDbToRuntimeCache() {
     try {
         console.log("📂 [IndexedDB] Extracting master track cache map from disk...");
         const fullDiskMap = await getFullLocalTrackCacheMap();
-        
+        console.log(`✅ [IndexedDB] Success Extracting master track cache map from disk`)
         // Return the clean data structure directly
         return fullDiskMap || {};
         
@@ -9499,7 +9580,7 @@ async function pushCachesToCloud(spotifyUserId) {
 
     try {
         const localEntries = Object.entries(currentLocalSongCache);
-        const BATCH_SIZE = 10000;
+        const BATCH_SIZE = 5000;
 
         console.log(`🔄 [Sync] Sending ${localEntries.length} tracks to server merge pipeline...`);
 
