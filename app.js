@@ -2950,18 +2950,52 @@ async function safeSpotifyFetch(url, options) {
                 // Soft Lock Logic
                 isSoftLocked = true;
 
+                // The Issue: In JavaScript, once a request body stream is read and sent by the first fetch(url, 
+                // options), the browser marks that stream data as consumed/used.
+                // The Fix: If you try to pass that same options object into a second fetch immediately after, 
+                // the browser will throw a native TypeError: Failed to execute 'fetch' on 'Window': 
+                // Cannot dupe/re-use a consumed stream body. To bypass this, you must clone or reconstruct the options if a body is present:
+                let retryAfterOptions = { ...options}
+                    if (options.body) {
+                        retryOptions.body = options.body.toString();
+                    }
+
+                // Paste this directly into your F12 browser console to force the loop into action:
+                const mockRes = { status: 9429 };
+
+                // Simulate what happens when a standard fetch hits a 429
+                if (mockRes.status === 429) {
+                    console.log("🚀 Starting Rate Limit Simulation...");
+                    
+                    // This executes your exact client-side if-block logic
+                    // Replace 'https://spotify.com' with whatever valid URL your function accepts
+                    safeSpotifyFetch("https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent("https://spotify.com") + "&test429=true", { method: 'GET' });
+                }
+                //const response_retryAfter = await fetch("https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(url) + "&test429=true", options)
+
+                let response_retryAfter
+                if(url.includes("test429=true")){
+                    response_retryAfter = await fetch("https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(url) + "&test429=true", options)
+                }
+                else{
+                    response_retryAfter = await fetch("https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(url), options)
+                }
                 // The primary reason response.headers.get("Retry-After") fails in a browser context is that Spotify's API does not currently include Access-Control-Expose-Headers: Retry-After in its response. 
-                let retryAfter = res.headers.get("Retry-After") || 5;
-                
+                let retryAfter = response_retryAfter.headers.get("Retry-After") || 5;
+
+                const hours = Math.floor(retryAfter /  3600000);
+                const minutes = Math.floor((retryAfter % 3600000) / 60000);
+                const seconds = Math.floor((retryAfter % 60000) / 1000);
+
                 // Calculate delay: 2^attempt * 1000ms (1s, 2s, 4s, 8s...)
                 // Add 'jitter' (randomness) to prevent synchronized retries
-                retryAfter = (Math.pow(2, (rateLimitStrikes-1)) + Math.random()) * 10; // 10s, 20s, 40s, 80s
+                //retryAfter = (Math.pow(2, (rateLimitStrikes-1)) + Math.random()) * 10; // 10s, 20s, 40s, 80s
 
-                showResult(`%c Rate limited. Waiting ${retryAfter}s...`, "color: #ff0000;")
-                visualLog(`%c Rate limited. Waiting ${retryAfter}s...`, "color: #ff0000;")
-                console.warn(`Rate limited. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
+                showResult(`%c Rate limited. Waiting ${retryAfter}s... Hours:${hours}:${minutes}:${seconds}`, "color: #ff0000;")
+                visualLog(`%c Rate limited. Waiting ${retryAfter}s... Hours:${hours}:${minutes}:${seconds}`, "color: #ff0000;")
+                console.warn(`Rate limited. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s... Hours:${hours}:${minutes}:${seconds}`);
                 //showResult(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
-                console.warn(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`);
+                console.warn(`Rate limit hit (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s... Hours:${hours}:${minutes}:${seconds}`);
                 // You MUST wait this long before trying again
                 
                 if (rateLimitStrikes >= MAX_STRIKES) {
@@ -2974,7 +3008,7 @@ async function safeSpotifyFetch(url, options) {
                     console.log("Soft Lock lifted.");
 
                     // SEND THE LOG
-                    logEvent("ERROR", `safeSpotifyFetch - CRITICAL: Repeated rate limits. Hard-resetting mixer. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s...`, {
+                    logEvent("ERROR", `safeSpotifyFetch - CRITICAL: Repeated rate limits. Hard-resetting mixer. (Strike ${rateLimitStrikes}). Pausing ${retryAfter}s... Hours:${hours}:${minutes}:${seconds}`, {
                         step: "safeSpotifyFetch",
                         error: "429_MAX_STRIKES",
                         stack_trace: new Error().stack, // Auto-trace errors
@@ -2996,7 +3030,8 @@ async function safeSpotifyFetch(url, options) {
                     console.log(`Soft Lock ${rateLimitStrikes} lifted.`);
                     // If we go 2 minutes without another 429, clear a strike
                     setTimeout(() => { if(rateLimitStrikes > 0) rateLimitStrikes--; }, 120000);
-                }, retryAfter * 1000);
+                //}, retryAfter * 1000);
+                }, retryAfter);
         //        if(!res.ok){
                     console.error("Error: safeSpotifyFetch - safeSpotifyFetch blocked")
                         if (res && typeof res.text === 'function') {
@@ -3009,7 +3044,7 @@ async function safeSpotifyFetch(url, options) {
         //        }
 
                     // SEND THE LOG
-                    logEvent("ERROR", `safeSpotifyFetch - Rate limit hit (Strike ${rateLimitStrikesISRC}). Pausing ${retryAfter}s...`, {
+                    logEvent("ERROR", `safeSpotifyFetch - Rate limit hit (Strike ${rateLimitStrikesISRC}). Pausing ${retryAfter}s... Hours:${hours}:${minutes}:${seconds}`, {
                         step: "safeSpotifyFetch",
                         error: "429_STRIKE",
                         stack_trace: new Error().stack, // Auto-trace errors
@@ -3105,7 +3140,7 @@ async function safeSpotifyFetch(url, options) {
     // Wait for this specific task in the queue to finish
     return spotifyFetchLock;
 }
-async function safeSpotifyFetchRaw(url, options) {
+async function safeSpotifyFetchRaw(url, options) { // THIS IS USED ONLY FOR REFRESHING ACCESS TOKENS - TO ALLOW A RETRY
 
             // Check for network connectivity (window.navigator.onLine)
             if (!window.navigator.onLine) {
@@ -8769,7 +8804,7 @@ async function deduplicateSpotifyPlaylist(playlistId) {
         }
     }
 
-    console.log(`📋 Compiled ${allItems.length} total playlist tracking slots. Analyzing fingerprints...`);
+    console.log(`📋 [Deduplicator] Compiled ${allItems.length} total playlist tracking slots. Analyzing fingerprints...`);
 
     // Sets to hold the "first seen" unique instances
     const seenUris = new Set();
@@ -8817,11 +8852,11 @@ async function deduplicateSpotifyPlaylist(playlistId) {
     }
 
     if (duplicatesToPurge.length === 0) {
-        console.log("%c🎉 Optimization pass complete. Your playlist has zero duplicate tracks!", "color: #1DB954; font-weight: bold;");
+        console.log("%c🎉 [Deduplicator] Session Changes Optimization pass complete. Your playlist has zero duplicate tracks!", "color: #1DB954; font-weight: bold;");
         return;
     }
 
-    console.log(`\n🚨 Found ${duplicatesToPurge.length} duplicate entries. Preparing reverse deletion pipeline...`);
+    console.log(`\n🚨 [Deduplicator] Found ${duplicatesToPurge.length} duplicate entries. Preparing reverse deletion pipeline...`);
 
     // =========================================================================
     // 🅲 STEP 3: THE SEPARATED-ARRAY POSITIONAL PURGE
