@@ -8651,7 +8651,7 @@ async function resolveMissingTracksFromClipboard() {
     
     try {
             // 2. ✅ Run the startup pull-and-merge sequence instantly!
-            await pullAndMergeCaches(currentSpotifyUser);
+            //await pullAndMergeCaches(currentSpotifyUser);
 
         const clipboardText = await navigator.clipboard.readText();
         
@@ -9748,18 +9748,20 @@ function initializeAutomaticCloudBackupLoop(currentSpotifyUser) {
     console.log("⏰ [Sync] Automated 15-minute background cloud interval scheduler armed.");
     
     // 15 minutes * 60 seconds * 1000 milliseconds
-    //pushCachesToCloud(currentSpotifyUser);
+    pushCachesToCloud(currentSpotifyUser);
     setInterval(async () => {
         // 2. ✅ Run the startup pull-and-merge sequence instantly!
         //await pullAndMergeCaches(currentSpotifyUser);
         
-        cloudSyncCycleCount++; // Advance the cycle tracker flag
-        if(cloudSyncCycleCount % 8 === 0){
-            await pushCachesToCloud(currentSpotifyUser);
-        }
-        else{
-            await pushCachesPendingUpdatesToCloud(currentSpotifyUser);
-        }
+        // cloudSyncCycleCount++; // Advance the cycle tracker flag
+        // if(cloudSyncCycleCount % 8 === 0){
+        //     await pushCachesToCloud(currentSpotifyUser);
+        // }
+        // else{
+        //     await pushCachesPendingUpdatesToCloud(currentSpotifyUser);
+        // }
+
+        await pushCachesPendingUpdatesToCloud(currentSpotifyUser);
 
     }, 15 * 60 * 1000);
 }
