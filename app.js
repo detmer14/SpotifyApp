@@ -3800,16 +3800,16 @@ async function beginSyncAllRadiosToSpotify(){
     setInterval(async () => {
         spotifyPlaylistDownloadAllowed = true //reset by whichever station runs that process
         console.log(`✅ spotifyPlaylistDownloadAllowed.`);
-    }, 120 * 60 * 1000); //every 120 min
+    }, 200 * 60 * 1000); //every 120 min
     setInterval(async () => {
         spotifyPlaylistDownloadSmallAllowed = true //reset by whichever station runs that process
         console.log(`✅ spotifyPlaylistDownloadSmallAllowed.`);
-    }, 30 * 60 * 1000); //every 30 min
+    }, 45 * 60 * 1000); //every 30 min
     
     setInterval(async () => {
         spotifyPlaylistDeDuplicateAllowed = true //reset by whichever station runs that process
         console.log(`✅ Duplicate spotifyPlaylistDeDuplicateAllowed.`);
-    }, 40 * 60 * 1000); //every 40 min
+    }, 120 * 60 * 1000); //every 40 min
 
     startLiveRadioAccumulator("KBZN", "5IJKK7NDMB0RauocZUd1jp")
     await sleep(1 * 60 * 1000)
