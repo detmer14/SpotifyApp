@@ -299,9 +299,14 @@ async function fetchUserProfile() {
 
         const token = localStorage.getItem('access_token');
         //const res = await fetch('https://api.spotify.com/v1/me', {
+        console.log("Active Auth Token:", token)
         const res = await safeSpotifyFetch('https://api.spotify.com/v1/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if(!res){
+            console.log(`No response res`)
+            return
+        }
         if(!res.ok){
             return
         }
@@ -867,7 +872,7 @@ async function playPreviousTrack() {
         });
 }
 
-async function playNextTrack() {
+async function playNextTrack(lastState) {
 
             // Log user gesture to keep tab active
             // This "primes" the browser to trust the SDK for the rest of the session
@@ -898,7 +903,7 @@ async function playNextTrack() {
         }
 
         updateHistoryHighlight();
-            logEvent('INFO', 'now_playing_next_button | Skipped to the next track!', { 
+            logEvent('INFO', `now_playing_next_button | Skipped to the next track! duration:${lastState.duration}`, { 
                 step: 'now_playing_next_button', 
                 error: 'NOW_PLAYING_NEXT_BUTTON', 
                 next: 'NEXT', 
@@ -909,10 +914,11 @@ async function playNextTrack() {
                 strikeCount: rateLimitStrikes, 
                 activeMix: activeMixId 
             });
-    } else {
+    }
+    else {
         // If we are at index 0, we are "Live," so pick a NEW random song
         player.nextTrack(); 
-            logEvent('INFO', 'now_playing_skip_button | Skipped to the next track!', { 
+            logEvent('INFO', `now_playing_skip_button | Skipped to the next track! duration:${lastState.duration}`, { 
                 step: 'now_playing_skip_button', 
                 error: 'NOW_PLAYING_SKIP_BUTTON', 
                 skip: 'SKIP', 
@@ -3794,7 +3800,7 @@ async function beginSyncAllRadiosToSpotify(){
             initializeAutomaticCloudBackupLoop(currentSpotifyUser);
 
     syncRadioSpotifyRateLimit = false
-    totalSpotifyRateLimit = true
+    totalSpotifyRateLimit = false
 
     //spotifyPlaylistDownloadAllowed = false
     setInterval(async () => {
@@ -8917,7 +8923,7 @@ async function deduplicateSpotifyPlaylist(playlistId) {
         }
     }
 
-    console.log(`%c🎯 Session Changes Playlist optimized! Cleared ${duplicatesToPurge.length} duplicates.`, "color: #1DB954; font-weight: bold;");
+    console.log(`%c🎯 Session Changes [DeDuplicator] Playlist optimized! Cleared ${duplicatesToPurge.length} duplicates.`, "color: #1DB954; font-weight: bold;");
 }
 
 /**
@@ -9725,8 +9731,9 @@ async function pushCachesPendingUpdatesToCloud(spotifyUserId) {
 
         if (error) {
             console.error("❌ [Sync] Session Changes Server merge failed:", error.message);
-        } else {
-            console.log("%c☁️ [Sync] Session Changes Delta successfully combined! Flushing local queue.", "color: #00c020;");
+        }
+        else {
+            console.log(`%c☁️ [Sync] Session Changes ${uploadCount} Delta successfully combined! Flushing local queue.`, "color: #00c020;");
             
             // 🎯 Clear out the tracking object so the next run starts with a clean slate
             pendingCloudCacheUploads = {}; 
@@ -13848,7 +13855,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         });
                     //pickRandomSong(); 
                     //player.nextTrack();
-                    playNextTrack();
+                    playNextTrack(lastState);
                 });
 
                 // When the user hits "Pause"
@@ -14067,7 +14074,7 @@ if(returnRefreshAccessToken && 0){
             player.nextTrack().then(() => {
                 console.log('Skipped to the next track!');
                         // SEND THE LOG
-                        logEvent("INFO", `internal_skip_button | Skipped to the next track!`, {
+                        logEvent("INFO", `internal_skip_button | Skipped to the next track!  duration:${lastState.duration}`, {
                             step: "internal_skip_button",
                             error: "INTERNAL_SKIP_BUTTON",
                             skip: "SKIP",
