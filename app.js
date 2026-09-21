@@ -872,8 +872,9 @@ async function playPreviousTrack() {
         });
 }
 
-async function playNextTrack(lastState) {
+async function playNextTrack(thelastState = lastState) {
 
+    console.log(`now_playing_next_button | Skipped to the next track! duration:${formatTime(thelastState.position)}`)
             // Log user gesture to keep tab active
             // This "primes" the browser to trust the SDK for the rest of the session
             // Call player.activateElement() on EVERY user interaction
@@ -903,7 +904,7 @@ async function playNextTrack(lastState) {
         }
 
         updateHistoryHighlight();
-            logEvent('INFO', `now_playing_next_button | Skipped to the next track! duration:${lastState.duration}`, { 
+            logEvent('INFO', `now_playing_next_button | Skipped to the next track! duration:${formatTime(thelastState.position)}`, { 
                 step: 'now_playing_next_button', 
                 error: 'NOW_PLAYING_NEXT_BUTTON', 
                 next: 'NEXT', 
@@ -918,7 +919,7 @@ async function playNextTrack(lastState) {
     else {
         // If we are at index 0, we are "Live," so pick a NEW random song
         player.nextTrack(); 
-            logEvent('INFO', `now_playing_skip_button | Skipped to the next track! duration:${lastState.duration}`, { 
+            logEvent('INFO', `now_playing_skip_button | Skipped to the next track! duration:${formatTime(thelastState.position)}`, { 
                 step: 'now_playing_skip_button', 
                 error: 'NOW_PLAYING_SKIP_BUTTON', 
                 skip: 'SKIP', 
@@ -992,6 +993,19 @@ async function playFromSpecificPlaylist(chosenplaylist) {
             logEvent("ERROR", `playFromSpecificPlaylist - RATE_LIMIT_HIT, stopping loop`, {
                 step: "playFromSpecificPlaylist",
                 error: `RATE_LIMIT_HIT`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        return;
+    }
+
+    if (track === "403_SPOTIFY_DOWN") {
+        console.log("playFromSpecificPlaylist: 403_SPOTIFY_DOWN, stopping loop");
+            // SEND THE LOG
+            logEvent("ERROR", `playFromSpecificPlaylist - 403_SPOTIFY_DOWN, stopping loop`, {
+                step: "playFromSpecificPlaylist",
+                error: `403_SPOTIFY_DOWN`,
                 stack_trace: new Error().stack, // Auto-trace errors
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
@@ -1238,6 +1252,19 @@ async function prepareNextQueueItem(attempt = 0) {
         return;
     }
 
+    if (nextTrack === "403_SPOTIFY_DOWN") {
+        console.log("prepareNextQueueItem: 403_SPOTIFY_DOWN, stopping loop");
+            // SEND THE LOG
+            logEvent("ERROR", `prepareNextQueueItem - 403_SPOTIFY_DOWN, stopping loop`, {
+                step: "prepareNextQueueItem",
+                error: `403_SPOTIFY_DOWN`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        return;
+    }
+
     if (nextTrack === null) {
         if (isSoftLocked) {
             console.warn("prepareNextQueueItem - getTrackAtIndex: Mixer is soft-locked. Waiting for recovery...");
@@ -1306,7 +1333,7 @@ async function prepareNextQueueItem(attempt = 0) {
         });
 
         renderQueue();            
-    } 
+    }
     else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
@@ -2989,9 +3016,9 @@ async function safeSpotifyFetch(url, options) {
                 // The primary reason response.headers.get("Retry-After") fails in a browser context is that Spotify's API does not currently include Access-Control-Expose-Headers: Retry-After in its response. 
                 let retryAfter = response_retryAfter.headers.get("Retry-After") || 5;
 
-                const hours = Math.floor(retryAfter /  3600000);
-                const minutes = Math.floor((retryAfter % 3600000) / 60000);
-                const seconds = Math.floor((retryAfter % 60000) / 1000);
+                const hours = Math.floor(retryAfter / 3600);
+                const minutes = Math.floor((retryAfter % 3600) / 60);
+                const seconds = Math.floor((retryAfter % 60));
 
                 // Calculate delay: 2^attempt * 1000ms (1s, 2s, 4s, 8s...)
                 // Add 'jitter' (randomness) to prevent synchronized retries
@@ -5514,6 +5541,12 @@ console.dir(uniqueHistory, { depth: null });
                 if (!playlistResponse.ok) {
                     console.error(`⚠️ Playlist fetch interrupted! Status: ${playlistResponse.status}`);
                     if(playlistResponse.status === 401){
+                        console.error(`⚠️ 401: ${playlistResponse.status}`);
+                        await delay(30 * 1000); //retry after 30sec
+                        continue;
+                    }
+                    else if(playlistResponse.status === 503){
+                        console.error(`⚠️ 503 Service Unavailable! Status: ${playlistResponse.status}`);
                         await delay(30 * 1000); //retry after 30sec
                         continue;
                     }
@@ -5672,7 +5705,7 @@ console.dir(playlistData.items, { depth: null });
 
         // Save it to localStorage so you never have to make this API fetch again!
         //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
-        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
+        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingTrackUris)); // Much cleaner, no stringify needed!
 
         console.log(`Playlist currently contains ${existingTrackUris.size} tracks. Searching for new additions...`);
 
@@ -5888,7 +5921,7 @@ console.dir(playlistData.items, { depth: null });
             });
             // If we hit a 429, capture the header instruction or wait a full 5 seconds before retrying
             if (searchResponse.status === 429) {
-                console.warn(`🛑 Spotify Rate Limit`);
+                console.warn(`🛑 Session Changes Spotify Rate Limit`);
                 syncRadioSpotifyRateLimit = true
                 globalSearchesPerformed = 0
                 tracksToSaveForLater.push(item);
@@ -5910,7 +5943,7 @@ console.dir(playlistData.items, { depth: null });
                     const retryAfter = proxyResponse.headers.get("retry-after");
                     console.log(`⏱️ Both local and proxy IPs rate limited. Retry after: ${retryAfter}s`);
                     tracksToSaveForLater.push(item);
-                    continue; 
+                    continue;
                 } 
                 
                 if (proxyResponse.status === 200) {
@@ -5945,7 +5978,17 @@ console.dir(playlistData.items, { depth: null });
                 }
                 continue;
             }
-            if (!searchResponse.ok) throw new Error(`StreamOn HTTP error! Status: ${searchResponse.status}`);
+
+            if (searchResponse.status === 503) {
+                console.error(`❌ Session Changes 503 service unavailable status: ${searchResponse.status}`);
+                tracksToSaveForLater.push(item);
+                continue;
+            }
+
+            if (!searchResponse.ok){
+                tracksToSaveForLater.push(item);
+                throw new Error(`StreamOn HTTP error! Status: ${searchResponse.status}`);
+            }
 
             if (searchResponse.ok) {
                 const searchData = await searchResponse.json();
@@ -6082,6 +6125,7 @@ console.dir(playlistData.items, { depth: null });
                 }
             }
             else {
+                tracksToSaveForLater.push(item);
                 console.log(`⚠️ Search failed for: ${title} - ${artist} (Status: ${searchResponse.status})`);
             }
         }
@@ -6136,7 +6180,7 @@ console.dir(playlistData.items, { depth: null });
             // Optional: Reverse array to keep oldest-to-newest timeline matching the radio order
             trackUrisToAdd.reverse(); 
 
-            console.log(`%c Session Changes ${stationID}: Adding ${trackUrisToAdd.length} tracks to playlist...`, "color: #ff0000; background: #03db0e;");
+            console.log(`%c Session Changes Only ${stationID}: Adding ${trackUrisToAdd.length} tracks to playlist...`, "color: #ff0000; background: #03db0e;");
 
             const batchSize = 100;
 
@@ -6153,7 +6197,17 @@ console.dir(playlistData.items, { depth: null });
                     
                     if (appendResponse.status === 429) {
                         totalSpotifyRateLimit = true
-                        console.error("Rate limit hit during batch addition.");
+                        console.error(`🛑 Rate limit hit during ${stationID} batch update execution.`);
+                        failedUris = [...failedUris, ...batch];
+                        break;
+                    }
+                    if (appendResponse.status === 503) {
+                        console.error("503 Service Unavailable during batch addition.");
+                        failedUris = [...failedUris, ...batch];
+                        break;
+                    }
+                    if (appendResponse.status === 403) {
+                        console.error("403 Something wasn't accessible, maybe the playlist temporarily.");
                         failedUris = [...failedUris, ...batch];
                         break;
                     }
@@ -6165,11 +6219,11 @@ console.dir(playlistData.items, { depth: null });
                             existingTrackUris.add(uri);
                         }
                         //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
-                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
+                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingTrackUris)); // Much cleaner, no stringify needed!
                     } 
                     else {
                         const errData = await appendResponse.json();
-                        console.error("Failed to add tracks to playlist:", errData);
+                        console.error("Session Changes Only Failed to add tracks to playlist:", errData);
                         failedUris = [...failedUris, ...batch];
                     }
                     
@@ -6534,6 +6588,11 @@ if(newStationSearchAllowed){
                         await delay(30 * 1000); 
                         continue;
                     }
+                    else if(playlistResponse.status === 503){
+                        console.error(`⚠️ 503 Service Unavailable! Status: ${playlistResponse.status}`);
+                        await delay(30 * 1000); //retry after 30sec
+                        continue;
+                    }
                     else{
                         totalSpotifyRateLimit = true
                         break;
@@ -6680,7 +6739,7 @@ console.dir(playlistData.items, { depth: null });
 
         // Save it to localStorage so you never have to make this API fetch again!
         //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
-        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
+        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingTrackUris)); // Much cleaner, no stringify needed!
 
         console.log(`Found ${uniqueHistory.length} items in ${stationID} feed. Processing tracks...`);
 console.dir(uniqueHistory, { depth: null });
@@ -6861,18 +6920,80 @@ console.dir(uniqueHistory, { depth: null });
             // Search Spotify
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
             const searchUrl = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`;
-            const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${token}` } });
 
-                // If we hit a 429, capture the header instruction or wait a full 5 seconds before retrying
-                if (searchResponse.status === 429) {
-                    console.warn(`🛑 Spotify Rate Limit`);
-                    syncRadioSpotifyRateLimit = true
-                    globalSearchesPerformed = 0
+            const searchResponse = await fetch(searchUrl, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            // If we hit a 429, capture the header instruction or wait a full 5 seconds before retrying
+            if (searchResponse.status === 429) {
+                console.warn(`🛑 Session Changes Spotify Rate Limit`);
+                syncRadioSpotifyRateLimit = true
+                globalSearchesPerformed = 0
+                tracksToSaveForLater.push(item);
+
+                // Using a public demo proxy (Note: public proxies often have their own limits)
+                const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+                const targetUrl = searchUrl;
+
+                const proxyResponse = await fetch(proxyUrl + targetUrl, {
+                    method: "GET", // Or GET, matching your original searchUrl requirements
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "X-Requested-With": "XMLHttpRequest" // Required by cors-anywhere
+                    }
+                });
+
+                if (proxyResponse.status === 429) {
+                    // This will only run if the proxy server ALSO gets rate limited by Spotify
+                    const retryAfter = proxyResponse.headers.get("retry-after");
+                    console.log(`⏱️ Both local and proxy IPs rate limited. Retry after: ${retryAfter}s`);
                     tracksToSaveForLater.push(item);
                     continue;
+                } 
+                
+                if (proxyResponse.status === 200) {
+                    console.log(`✅ Proxy successfully bypassed the 429 limit.`);
+                    
+                    // CRITICAL: Extract and process the data so you don't lose the track!
+                    const data = await proxyResponse.json();
+                    
+                    // Add your normal track processing logic here, for example:
+                    // const track = data.tracks.items[0];
+                    // saveSpotifyTrack(track); 
+                    
+                    //continue; // Successfully recovered, move to the next item
                 }
-            
-            if (!searchResponse.ok) throw new Error(`StreamOn HTTP error! Status: ${searchResponse.status}`);
+                
+                // Catch-all for other proxy errors (403, 500, etc.)
+                console.error(`❌ Proxy failed with status: ${proxyResponse.status}`);
+
+                if (proxyResponse.status === 429) {
+                    // The public proxy exposes ALL headers to the browser by default
+                    const retryAfter = proxyResponse.headers.get("retry-after");
+                    console.log(`retryAfter: ${retryAfter}`);
+                }
+                if(proxyResponse.status === 429){
+                    const retryAfter = response.headers.get("Retry-AFter")
+
+                    console.log(`retryAfter: ${retryAfter}`)
+                }
+                else{
+                    console.log(`429 Proxy retry did not encounter 429`)
+                    console.log(`proxyResponse.status: ${proxyResponse.status}`)
+                }
+                continue;
+            }
+
+            if (searchResponse.status === 503) {
+                console.error(`❌ Session Changes 503 service unavailable status: ${searchResponse.status}`);
+                tracksToSaveForLater.push(item);
+                continue;
+            }
+
+            if (!searchResponse.ok){
+                tracksToSaveForLater.push(item);
+                throw new Error(`StreamOn HTTP error! Status: ${searchResponse.status}`);
+            }
 
             const searchData = await searchResponse.json();
             const tracks = searchData.tracks?.items || [];
@@ -7046,7 +7167,7 @@ console.dir(uniqueHistory, { depth: null });
             // Optional: Reverse array to keep oldest-to-newest timeline matching the radio order
             trackUrisToAdd.reverse(); 
 
-            console.log(`%c Session Changes ${stationID}: Adding ${trackUrisToAdd.length} tracks to playlist...`, "color: #ff0000; background: #03db0e;");
+            console.log(`%c Session Changes Only ${stationID}: Adding ${trackUrisToAdd.length} tracks to playlist...`, "color: #ff0000; background: #03db0e;");
 
             const batchSize = 100;
 
@@ -7063,7 +7184,17 @@ console.dir(uniqueHistory, { depth: null });
                     
                     if (appendResponse.status === 429) {
                         totalSpotifyRateLimit = true
-                        console.error("Rate limit hit during batch addition.");
+                        console.error(`🛑 Rate limit hit during ${stationID} batch update execution.`);
+                        failedUris = [...failedUris, ...batch];
+                        break;
+                    }
+                    if (appendResponse.status === 503) {
+                        console.error("503 Service Unavailable during batch addition.");
+                        failedUris = [...failedUris, ...batch];
+                        break;
+                    }
+                    if (appendResponse.status === 403) {
+                        console.error("403 Something wasn't accessible, maybe the playlist temporarily.");
                         failedUris = [...failedUris, ...batch];
                         break;
                     }
@@ -7075,11 +7206,11 @@ console.dir(uniqueHistory, { depth: null });
                             existingTrackUris.add(uri);
                         }
                         //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
-                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
+                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingTrackUris)); // Much cleaner, no stringify needed!
                     } 
                     else {
                         const errData = await appendResponse.json();
-                        console.error("Failed to add tracks to playlist:", errData);
+                        console.error("Session Changes Only Failed to add tracks to playlist:", errData);
                         failedUris = [...failedUris, ...batch];
                     }
                     
@@ -7412,6 +7543,11 @@ if(newStationSearchAllowed){
                         await delay(30 * 1000); 
                         continue;
                     }
+                    else if(playlistResponse.status === 503){
+                        console.error(`⚠️ 503 Service Unavailable! Status: ${playlistResponse.status}`);
+                        await delay(30 * 1000); //retry after 30sec
+                        continue;
+                    }
                     else{
                         totalSpotifyRateLimit = true
                         break;
@@ -7558,7 +7694,7 @@ console.dir(playlistData.items, { depth: null });
 
         // Save it to localStorage so you never have to make this API fetch again!
         //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
-        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
+        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingTrackUris)); // Much cleaner, no stringify needed!
 
         console.log(`Playlist currently contains ${existingTrackUris.size} tracks. Searching for new additions...`);
 
@@ -7732,14 +7868,79 @@ console.dir(playlistData.items, { depth: null });
 
             const query = encodeURIComponent(`track:${title} artist:${artist}`);
             const searchUrl = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=1`;
-            const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${token}` } });
 
+            const searchResponse = await fetch(searchUrl, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            // If we hit a 429, capture the header instruction or wait a full 5 seconds before retrying
             if (searchResponse.status === 429) {
-                console.warn(`🛑 Spotify search rate limit hit on ${stationID}. Deferring remaining metadata rows.`);
-                syncRadioSpotifyRateLimit = true;
+                console.warn(`🛑 Session Changes Spotify Rate Limit`);
+                syncRadioSpotifyRateLimit = true
                 globalSearchesPerformed = 0
-                metadataToSaveForLater.push(item);
+                tracksToSaveForLater.push(item);
+
+                // Using a public demo proxy (Note: public proxies often have their own limits)
+                const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+                const targetUrl = searchUrl;
+
+                const proxyResponse = await fetch(proxyUrl + targetUrl, {
+                    method: "GET", // Or GET, matching your original searchUrl requirements
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "X-Requested-With": "XMLHttpRequest" // Required by cors-anywhere
+                    }
+                });
+
+                if (proxyResponse.status === 429) {
+                    // This will only run if the proxy server ALSO gets rate limited by Spotify
+                    const retryAfter = proxyResponse.headers.get("retry-after");
+                    console.log(`⏱️ Both local and proxy IPs rate limited. Retry after: ${retryAfter}s`);
+                    tracksToSaveForLater.push(item);
+                    continue;
+                } 
+                
+                if (proxyResponse.status === 200) {
+                    console.log(`✅ Proxy successfully bypassed the 429 limit.`);
+                    
+                    // CRITICAL: Extract and process the data so you don't lose the track!
+                    const data = await proxyResponse.json();
+                    
+                    // Add your normal track processing logic here, for example:
+                    // const track = data.tracks.items[0];
+                    // saveSpotifyTrack(track); 
+                    
+                    //continue; // Successfully recovered, move to the next item
+                }
+                
+                // Catch-all for other proxy errors (403, 500, etc.)
+                console.error(`❌ Proxy failed with status: ${proxyResponse.status}`);
+
+                if (proxyResponse.status === 429) {
+                    // The public proxy exposes ALL headers to the browser by default
+                    const retryAfter = proxyResponse.headers.get("retry-after");
+                    console.log(`retryAfter: ${retryAfter}`);
+                }
+                if(proxyResponse.status === 429){
+                    const retryAfter = response.headers.get("Retry-AFter")
+
+                    console.log(`retryAfter: ${retryAfter}`)
+                }
+                else{
+                    console.log(`429 Proxy retry did not encounter 429`)
+                    console.log(`proxyResponse.status: ${proxyResponse.status}`)
+                }
                 continue;
+            }
+
+            if (searchResponse.status === 503) {
+                console.error(`❌ Session Changes 503 service unavailable status: ${searchResponse.status}`);
+                tracksToSaveForLater.push(item);
+                continue;
+            }
+
+            if (!searchResponse.ok){
+                tracksToSaveForLater.push(item);
+                throw new Error(`StreamOn HTTP error! Status: ${searchResponse.status}`);
             }
 
             if (searchResponse.ok) {
@@ -7875,6 +8076,7 @@ console.dir(playlistData.items, { depth: null });
                 }
             }
             else {
+                tracksToSaveForLater.push(item);
                 console.log(`⚠️ Search failed for: ${title} - ${artist} (Status: ${searchResponse.status})`);
             }
         }
@@ -7911,7 +8113,7 @@ console.dir(playlistData.items, { depth: null });
         if(!totalSpotifyRateLimit && stationWithin5){
             trackUrisToAdd.reverse(); 
 
-            console.log(`%c Session Changes ${stationID}: Adding ${trackUrisToAdd.length} tracks to playlist...`, "color: #ff0000; background: #03db0e;");
+            console.log(`%c Session Changes Only ${stationID}: Adding ${trackUrisToAdd.length} tracks to playlist...`, "color: #ff0000; background: #03db0e;");
 
             const batchSize = 100;
 
@@ -7932,6 +8134,16 @@ console.dir(playlistData.items, { depth: null });
                         failedUris = [...failedUris, ...batch];
                         break; 
                     }
+                    if (appendResponse.status === 503) {
+                        console.error("503 Service Unavailable during batch addition.");
+                        failedUris = [...failedUris, ...batch];
+                        break;
+                    }
+                    if (appendResponse.status === 403) {
+                        console.error("403 Something wasn't accessible, maybe the playlist temporarily.");
+                        failedUris = [...failedUris, ...batch];
+                        break;
+                    }
                     if (appendResponse.ok) {
                         console.log("🎉 Success! Playlist updated.");
 
@@ -7940,11 +8152,11 @@ console.dir(playlistData.items, { depth: null });
                             existingTrackUris.add(uri);
                         }
                         //localStorage.setItem(mirrorKey, JSON.stringify(Array.from(existingCachedTrackUris)));
-                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingCachedTrackUris)); // Much cleaner, no stringify needed!
+                        await setPlaylistMirrorIndexedDB(mirrorKey, Array.from(existingTrackUris)); // Much cleaner, no stringify needed!
                     } 
                     else {
                         const errData = await appendResponse.json();
-                        console.error("Failed to add tracks to playlist:", errData);
+                        console.error("Session Changes Only Failed to add tracks to playlist:", errData);
                         failedUris = [...failedUris, ...batch];
                     }
                 } catch (err) {
@@ -9181,20 +9393,23 @@ const DB_NAME = "SpotifyRadioSyncDB";
 // const DB_VERSION = 1;
 const STORE_NAME = "song_cache";
 
-const DB_VERSION = 2; // Bump version to 2 to trigger upgrade if you had a previous version
+const DB_VERSION = 3; // Bump version to 2 to trigger upgrade if you had a previous version
 
 function getDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onupgradeneeded = (event) => {
+            console.log("📂 [IndexedDB] onupgradeneeded");
             const db = event.target.result;
             // Retain your old song cache table if it existed
-            if (!db.objectStoreNames.contains("global_song_cache")) {
-                db.createObjectStore("global_song_cache");
+            if (!db.objectStoreNames.contains("song_cache")) {
+                console.log("📂 [IndexedDB] onupgradeneeded - creating object store song_cache");
+                db.createObjectStore("song_cache");
             }
             // 🆕 Add the new dedicated object store container for your playlist mirrors
             if (!db.objectStoreNames.contains("playlist_mirrors")) {
+                console.log("📂 [IndexedDB] onupgradeneeded - creating object store playlist_mirrors");
                 db.createObjectStore("playlist_mirrors");
             }
         };
@@ -9254,7 +9469,8 @@ function openLocalCacheDB() {
  * Saves a single track record natively into the browser disk without stringifying.
  */
 async function saveLocalTrackItem(key, value) {
-    const db = await openLocalCacheDB();
+    //const db = await openLocalCacheDB();
+    const db = await getDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
@@ -9269,7 +9485,8 @@ async function saveLocalTrackItem(key, value) {
  * Retrieves a single track entry instantly from the disk via its metadata key string.
  */
 async function getLocalTrackItem(key) {
-    const db = await openLocalCacheDB();
+    //const db = await openLocalCacheDB();
+    const db = await getDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readonly");
         const store = transaction.objectStore(STORE_NAME);
@@ -9286,7 +9503,8 @@ async function getLocalTrackItem(key) {
  */
 async function getFullLocalTrackCacheMap() {
     console.log("📂 [IndexedDB] Opening and traversing Indexed DB for -song_cache-");
-    const db = await openLocalCacheDB();
+    //const db = await openLocalCacheDB();
+    const db = await getDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readonly");
         const store = transaction.objectStore(STORE_NAME);
@@ -9311,7 +9529,8 @@ async function getFullLocalTrackCacheMap() {
  * Bulk writes an entire dictionary map down to the disk (used during cloud pull-and-merge bootup).
  */
 async function saveFullLocalTrackCacheMap(cacheMap) {
-    const db = await openLocalCacheDB();
+    //const db = await openLocalCacheDB();
+    const db = await getDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, "readwrite");
         const store = transaction.objectStore(STORE_NAME);
@@ -10325,6 +10544,19 @@ async function pickRandomSong(attempt = 0) {
         return "RATE_LIMIT_HIT";
     }
 
+    if (track === "403_SPOTIFY_DOWN") {
+        console.log("pickRandomSong: 403_SPOTIFY_DOWN, stopping loop");
+            // SEND THE LOG
+            logEvent("ERROR", `pickRandomSong - 403_SPOTIFY_DOWN, stopping loop`, {
+                step: "pickRandomSong",
+                error: `403_SPOTIFY_DOWN`,
+                stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        return;
+    }
+
     if (track === null) {
         if (isSoftLocked) {
             console.log("pickRandomSong: Mixer is soft-locked. Waiting for recovery...");
@@ -10417,7 +10649,7 @@ async function pickRandomSong(attempt = 0) {
 
         return("SUCCESS")
 
-    } 
+    }
     else {
         console.log("Could not fetch that specific track. Try again!");
         // If track was null (failed safety checks), try again!
@@ -10590,7 +10822,21 @@ async function getTrackAtIndex(token, playlistId, index){
             });
             
             // This is the signal pickRandomSong is waiting for
-            return "RATE_LIMIT_HIT"; 
+            return "RATE_LIMIT_HIT";
+        }
+
+        if (res.status === 403) {
+            console.warn("getTrackAtIndex 403: Spotify is down!");
+            showResult(`%c Spotify is down!`, "color: #ff0000;")
+            visualLog(`%c Spotify is down!`, "color: #ff0000;")
+            // SEND THE LOG
+            logEvent("WARN", `getTrackAtIndex - safeSpotifyFetch - 403: Spotify is down`, {
+                step: "getTrackAtIndex",
+                error: "403_SPOTIFY_DOWN",
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+            return "403_SPOTIFY_DOWN"
         }
 
         if(!res.ok){
@@ -12015,6 +12261,19 @@ async function refreshPlaylistCount(playlistId, playlistIndex) {
                 step: "refreshPlaylistCount",
                 error: "401_TOKEN_EXPIRED",
                 stack_trace: new Error().stack, // Auto-trace errors
+                strikeCount: rateLimitStrikes,
+                activeMix: activeMixId
+            });
+        }
+
+        if (response.status === 403) {
+            console.warn("refreshPlaylistCount 403: Spotify is down!");
+            showResult(`%c Spotify is down!`, "color: #ff0000;")
+            visualLog(`%c Spotify is down!`, "color: #ff0000;")
+            // SEND THE LOG
+            logEvent("WARN", `refreshPlaylistCount - safeSpotifyFetch - 403: Spotify is down`, {
+                step: "refreshPlaylistCount",
+                error: "403_SPOTIFY_DOWN",
                 strikeCount: rateLimitStrikes,
                 activeMix: activeMixId
             });
@@ -13855,6 +14114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         });
                     //pickRandomSong(); 
                     //player.nextTrack();
+                    console.log(`lastState.position: ${lastState.position}`)
                     playNextTrack(lastState);
                 });
 
@@ -14074,7 +14334,7 @@ if(returnRefreshAccessToken && 0){
             player.nextTrack().then(() => {
                 console.log('Skipped to the next track!');
                         // SEND THE LOG
-                        logEvent("INFO", `internal_skip_button | Skipped to the next track!  duration:${lastState.duration}`, {
+                        logEvent("INFO", `internal_skip_button | Skipped to the next track!  duration:${lastState.position}`, {
                             step: "internal_skip_button",
                             error: "INTERNAL_SKIP_BUTTON",
                             skip: "SKIP",
