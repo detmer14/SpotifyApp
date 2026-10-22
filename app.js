@@ -5523,7 +5523,7 @@ console.dir(uniqueHistory, { depth: null });
                 nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${startingOffset}&?limit=100&locale=en-US,en`;
             }
             spotifyPlaylistDownloadSmallAllowed = false
-            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
+            console.log(`❌ Session Changes Only spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
 
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
@@ -5677,7 +5677,7 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
-        console.log(`🎯 Session Changes Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
+        console.log(`🎯 Session Changes Only Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
         }
         // else{
 
@@ -6245,9 +6245,9 @@ console.dir(playlistData.items, { depth: null });
 
         if(!totalSpotifyRateLimit && spotifyPlaylistDeDuplicateAllowed && (stationNetwork[deDuplicateStationAllowed].id === stationID)){
             spotifyPlaylistDeDuplicateAllowed = false
-            console.log(`❌ Session Changes DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            console.log(`❌ Session Changes Only - DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
             deduplicateSpotifyPlaylist(stationNetwork[deDuplicateStationAllowed].playlistId)
-            console.log(`🎯 Session Changes DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            console.log(`🎯 Session Changes Only - DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
         }
 
         // --- 4. FINALIZE: Save Unprocessed History for next run ---
@@ -6569,7 +6569,7 @@ if(newStationSearchAllowed){
                 nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${startingOffset}&?limit=100&locale=en-US,en`;
             }
             spotifyPlaylistDownloadSmallAllowed = false
-            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
+            console.log(`❌ Session Changes Only spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
 
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
@@ -6713,7 +6713,7 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
-        console.log(`🎯 Session Changes Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
+        console.log(`🎯 Session Changes Only Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
         }
         // else{
         //     const mirrorKey = `playlist_mirror_${stationID}`;
@@ -7232,9 +7232,9 @@ console.dir(uniqueHistory, { depth: null });
 
         if(!totalSpotifyRateLimit && spotifyPlaylistDeDuplicateAllowed && (stationNetwork[deDuplicateStationAllowed].id === stationID)){
             spotifyPlaylistDeDuplicateAllowed = false
-            console.log(`❌ Session Changes DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            console.log(`❌ Session Changes Only - DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
             deduplicateSpotifyPlaylist(stationNetwork[deDuplicateStationAllowed].playlistId)
-            console.log(`🎯 Session Changes DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            console.log(`🎯 Session Changes Only - DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
         }
 
         // --- 4. FINALIZE: Save Unprocessed History for next run ---
@@ -7525,7 +7525,7 @@ if(newStationSearchAllowed){
                 nextPageUrl = `https://api.spotify.com/v1/playlists/${playlistId}/items?offset=${startingOffset}&?limit=100&locale=en-US,en`;
             }
             spotifyPlaylistDownloadSmallAllowed = false
-            console.log(`❌ Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
+            console.log(`❌ Session Changes Only spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset}`);
 
         // ✅ STEP 1.5: Fetch existing tracks from the Spotify playlist to prevent duplicates
         console.log(`Loading entire track catalog for playlist: ${playlistId}...`);
@@ -7668,7 +7668,7 @@ console.dir(playlistData.items, { depth: null });
                 break;
             }
         }
-        console.log(`🎯 Session Changes Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
+        console.log(`🎯 Session Changes Only Complete! Final deduplication set populated with ${existingTrackUris.size} total tracks.`);
         }
         // else{
         //     const mirrorKey = `playlist_mirror_${stationID}`;
@@ -8176,9 +8176,9 @@ console.dir(playlistData.items, { depth: null });
 
         if(!totalSpotifyRateLimit && spotifyPlaylistDeDuplicateAllowed && (stationNetwork[deDuplicateStationAllowed].id === stationID)){
             spotifyPlaylistDeDuplicateAllowed = false
-            console.log(`❌ Session Changes DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            console.log(`❌ Session Changes Only - DeDuplicate spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
             deduplicateSpotifyPlaylist(stationNetwork[deDuplicateStationAllowed].playlistId)
-            console.log(`🎯 Session Changes DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
+            console.log(`🎯 Session Changes Only - DeDuplicate complete spotifyPlaylistDeDuplicateAllowed - ${stationNetwork[deDuplicateStationAllowed].id}.`);
         }
 
         // --- STEP 5: FINAL LOCAL STORAGE WRITEBACK ---
@@ -9070,11 +9070,11 @@ async function deduplicateSpotifyPlaylist(playlistId) {
     }
 
     if (duplicatesToPurge.length === 0) {
-        console.log("%c🎉 [Deduplicator] Session Changes Optimization pass complete. Your playlist has zero duplicate tracks!", "color: #1DB954; font-weight: bold;");
+        console.log("%c🎉 [Deduplicator] Session Changes Only - Optimization pass complete. Your playlist has zero duplicate tracks!", "color: #1DB954; font-weight: bold;");
         return;
     }
 
-    console.log(`\n🚨 [Deduplicator] Found ${duplicatesToPurge.length} duplicate entries. Preparing reverse deletion pipeline...`);
+    console.log(`\n🚨 [Deduplicator] Session Changes Only - Found ${duplicatesToPurge.length} duplicate entries. Preparing reverse deletion pipeline...`);
 
     // =========================================================================
     // 🅲 STEP 3: THE SEPARATED-ARRAY POSITIONAL PURGE
@@ -9135,7 +9135,7 @@ async function deduplicateSpotifyPlaylist(playlistId) {
         }
     }
 
-    console.log(`%c🎯 Session Changes [DeDuplicator] Playlist optimized! Cleared ${duplicatesToPurge.length} duplicates.`, "color: #1DB954; font-weight: bold;");
+    console.log(`%c🎯 Session Changes Only - [DeDuplicator] Playlist optimized! Cleared ${duplicatesToPurge.length} duplicates.`, "color: #1DB954; font-weight: bold;");
 }
 
 /**
