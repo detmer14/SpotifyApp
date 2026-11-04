@@ -19,31 +19,42 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Map of station names to their API endpoints
 STATIONS = {
-    "octane":               "https://xmplaylist.com/api/station/octane",                # XM Octane Ch. 37 - Hard Rock 
-    "bluegrassjunction":    "https://xmplaylist.com/api/station/bluegrassjunction",     # XM Bluegrass Junction  Ch. 77
-    "thepulse":             "https://xmplaylist.com/api/station/thepulse",              # XM The Pulse Ch. 5 - Today's pop
-    "siriusxmhits1":        "https://xmplaylist.com/api/station/siriusxmhits1",         # XM SiriusXM Hits 1 Ch. 2 - pop - Today's hits
-    "poprocks":             "https://xmplaylist.com/api/station/poprocks",              # XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
-    "thebridge":            "https://xmplaylist.com/api/station/thebridge",             # XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
-    "theblend":             "https://xmplaylist.com/api/station/theblend",              # XM The Blend Ch. 16 - Blending nice & easy pop
-    "alt2k":                "https://xmplaylist.com/api/station/alt2k",                 # XM Alt2K Ch. 27 - Alt Rock
-    "1stwave":              "https://xmplaylist.com/api/station/1stwave",               # XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
-    "lithium":              "https://xmplaylist.com/api/station/lithium",               # XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
-    "kidzbopradio":         "https://xmplaylist.com/api/station/kidzbopradio",          # XM KIDZ BOP Radio Ch. 135 - kids
-    "altnation":            "https://xmplaylist.com/api/station/altnation",             # XM Alt Nation Ch. 36 - Modern Alternative
-    "siriusxmturbo":        "https://xmplaylist.com/api/station/siriusxmturbo",         # XM Turbo Ch. 41 - 90s and 2000s Hard Rock
-    "thespectrum":          "https://xmplaylist.com/api/station/thespectrum",           # XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
-    "thehighway":           "https://xmplaylist.com/api/station/thehighway",            # XM The Highway Ch. 56 - New Country
-    "y2kountry":            "https://xmplaylist.com/api/station/y2kountry",             # XM Y2Kountry Ch. 57 - 2000s Country
-    "primecountry":         "https://xmplaylist.com/api/station/primecountry",          # XM Prime Country Ch. 58 - 80s 90s Country
-    "disneyhits":           "https://xmplaylist.com/api/station/disneyhits",            # XM Disney Hits Ch. 133
-    "greendaysidiotnation": "https://xmplaylist.com/api/station/greendaysidiotnation",  # XM Green Day's Idiot Nation Ch. 314 - Punk Rock
-    "williesroadhouse":     "https://xmplaylist.com/api/station/williesroadhouse",      # XM Willie's Roadhouse Ch. 61 - Classic Country
-    "classicrewind":        "https://xmplaylist.com/api/station/classicrewind",         # XM Classic Rewind Ch. 25 - Classic Rock
-    "ozzysboneyard":        "https://xmplaylist.com/api/station/ozzysboneyard",         # XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
-    "hairnation":           "https://xmplaylist.com/api/station/hairnation",            # XM Hair Nation Ch. 39 - Classic Rock
-    "redwhitebooze":        "https://xmplaylist.com/api/station/redwhitebooze",         # XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
-    "holidaytraditions":    "https://xmplaylist.com/api/station/holidaytraditions",     # XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+    "octane":                   "https://xmplaylist.com/api/station/octane",                    # XM Octane Ch. 37 - Hard Rock 
+    "bluegrassjunction":        "https://xmplaylist.com/api/station/bluegrassjunction",         # XM Bluegrass Junction  Ch. 77
+    "thepulse":                 "https://xmplaylist.com/api/station/thepulse",                  # XM The Pulse Ch. 5 - Today's pop
+    "siriusxmhits1":            "https://xmplaylist.com/api/station/siriusxmhits1",             # XM SiriusXM Hits 1 Ch. 2 - pop - Today's hits
+    "poprocks":                 "https://xmplaylist.com/api/station/poprocks",                  # XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
+    "thebridge":                "https://xmplaylist.com/api/station/thebridge",                 # XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
+    "theblend":                 "https://xmplaylist.com/api/station/theblend",                  # XM The Blend Ch. 16 - Blending nice & easy pop
+    "alt2k":                    "https://xmplaylist.com/api/station/alt2k",                     # XM Alt2K Ch. 27 - Alt Rock
+    "1stwave":                  "https://xmplaylist.com/api/station/1stwave",                   # XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
+    "lithium":                  "https://xmplaylist.com/api/station/lithium",                   # XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
+    "kidzbopradio":             "https://xmplaylist.com/api/station/kidzbopradio",              # XM KIDZ BOP Radio Ch. 135 - kids
+    "altnation":                "https://xmplaylist.com/api/station/altnation",                 # XM Alt Nation Ch. 36 - Modern Alternative
+    "siriusxmturbo":            "https://xmplaylist.com/api/station/siriusxmturbo",             # XM Turbo Ch. 41 - 90s and 2000s Hard Rock
+    "thespectrum":              "https://xmplaylist.com/api/station/thespectrum",               # XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
+    "thehighway":               "https://xmplaylist.com/api/station/thehighway",                # XM The Highway Ch. 56 - New Country
+    "y2kountry":                "https://xmplaylist.com/api/station/y2kountry",                 # XM Y2Kountry Ch. 57 - 2000s Country
+    "primecountry":             "https://xmplaylist.com/api/station/primecountry",              # XM Prime Country Ch. 58 - 80s 90s Country
+    "disneyhits":               "https://xmplaylist.com/api/station/disneyhits",                # XM Disney Hits Ch. 133
+    "greendaysidiotnation":     "https://xmplaylist.com/api/station/greendaysidiotnation",      # XM Green Day's Idiot Nation Ch. 314 - Punk Rock
+    "williesroadhouse":         "https://xmplaylist.com/api/station/williesroadhouse",          # XM Willie's Roadhouse Ch. 61 - Classic Country
+    "classicrewind":            "https://xmplaylist.com/api/station/classicrewind",             # XM Classic Rewind Ch. 25 - Classic Rock
+    "ozzysboneyard":            "https://xmplaylist.com/api/station/ozzysboneyard",             # XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
+    "hairnation":               "https://xmplaylist.com/api/station/hairnation",                # XM Hair Nation Ch. 39 - Classic Rock
+    "redwhitebooze":            "https://xmplaylist.com/api/station/redwhitebooze",             # XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
+    "holidaytraditions":        "https://xmplaylist.com/api/station/holidaytraditions",         # XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+    "countrychristmas":         "https://xmplaylist.com/api/station/countrychristmas",          # XM Country Christmas Ch. 606 - Classic and contemporary country stars come together with both traditional and original holiday songs to make the season bright.
+    "jollychristmas":           "https://xmplaylist.com/api/station/jollychristmas",            # XM Jolly Christmas Ch. 608 - Celebrate the season with an upbeat mix of holiday hits and familiar favorites. From timeless classics to modern seasonal songs, enjoy feel-good music made for singing along.
+    "christmasspirit":          "https://xmplaylist.com/api/station/christmasspirit",           # XM Christmas Spirit Ch. 610 - Christmas music and family holiday favorites all from contemporary Christian artists heard on The Message. Here, the reason for the season is not just remembered, He's celebrated in song, commercial free!
+    "smokeysholidaysoultown":   "https://xmplaylist.com/api/station/smokeysholidaysoultown",    # XM Smokey's Holiday Soul Town Ch. 612 - Celebrate the season with Smokey Robinson and soulful holiday favorites from the 60s and 70s! From Motown classics by The Miracles, The Supremes, and The Jackson 5 to holiday soul from Otis Redding and Lou Rawls, it's all in Smokey's Holiday Soul Town!
+    "holidaypops":              "https://xmplaylist.com/api/station/holidaypops",               # XM Holiday Pops Ch. 622 - Celebrate the season with classical music that captures the warmth, nostalgia, and wonder of Christmas. From radiant choirs to beloved orchestral favorites, enjoy treasured works by Handel, Tchaikovsky and John Rutter, alongside performances by King's College Choir, the Boston Pops, the Tabernacle Choir, and more.
+    "navidad":                  "https://xmplaylist.com/api/station/navidad",                   # XM Navidad Ch. 626 - Celebrate the season with the rhythms and traditions of a Latin Christmas! From festive parrandas and tropical favorites to timeless holiday classics, enjoy music from Ricky Martin, Gloria Estefan, José Feliciano, Tito El Bambino, Marco Antonio Solís, and more. ¡Feliz Navidad!
+    "noelincontournable":       "https://xmplaylist.com/api/station/noelincontournable",        # XM Noël Incontournable French Ch. 640 - Francophone Christmas classics and contemporary holiday hits from the 60s to today
+    "holly":                    "https://xmplaylist.com/api/station/holly",                     # XM Holly Ch. 144 - Merry and bright holiday hits featuring songs by Mariah Carey, Michael Bublé, Dean Martin, Kelly Clarkson, Pentatonix, Josh Groban, John Legend, Brenda Lee, Train, Gwen Stefani, and more.
+    "fallonholidayseasoning":   "https://xmplaylist.com/api/station/fallonholidayseasoning",    # XM Jimmy Fallon's Holiday Seasoning Radio Ch. 14 - Celebrate the season with a mix of classic holiday songs personally picked by Jimmy Fallon
+    "hallmarkradio":            "https://xmplaylist.com/api/station/hallmarkradio",             # XM Hallmark Radio Ch. 300 - Hallmark Radio is back for the holidays, featuring timeless Christmas music and carols that celebrate the joy of the season
+    "screamradio":              "https://xmplaylist.com/api/station/screamradio",               # XM Scream Radio Ch. 300 - Scream Radio is an annual tradition for Halloween enthusiasts, providing the perfect backdrop for the holiday by mixing creepy sound effects with music and atmosphere. Scream sets the tone for fans who want that spooky haunted house vibe this Halloween.
 }
 # Map of stations you actually care about tracking
 TRACKED_STATIONS = {
@@ -72,6 +83,17 @@ TRACKED_STATIONS = {
     "hairnation", 
     "redwhitebooze",
     "holidaytraditions",
+    "countrychristmas",
+    "jollychristmas",
+    "christmasspirit",
+    "smokeysholidaysoultown",
+    "holidaypops",
+    "navidad",
+    "noelincontournable",
+    "holly",
+    "fallonholidayseasoning",
+    "hallmarkradio",
+    "screamradio",
 }
 
 # Get the directory where your script is currently living
