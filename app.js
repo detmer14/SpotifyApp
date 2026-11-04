@@ -3717,84 +3717,95 @@ function getWeight(sliderValue, playlist) {
 
 // Define your sequential execution tracking grid mapping text slugs to Spotify playlist targets
 const stationNetwork = [
-    { id: "KBZN",                   playlistId: "5IJKK7NDMB0RauocZUd1jp" }, // * 97.9 FM - Now 97.9 KBZN
-    { id: "7346_48k",               playlistId: "3HPDlPwGtZi5bxBYOGLEWd" }, // * X96
-    { id: "7164_48k",               playlistId: "7nMQh4vmn567gapArxDiLQ" }, // * BOB FM
-    //{ id: "7155_48k",             playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
-    { id: "7169_48k",               playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // * Hank FM
-    { id: "7923_96k",               playlistId: "6fGCdcJZDyahG2OTSUJrvo" }, // * KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
-    { id: "a24346",                 playlistId: "3JxHp5IPpxLqSV1fuGuuji" }, // * KCUT 102.9 Moab Rocks
-    { id: "KJMY",                   playlistId: "3TgPFiTu70rAKTpO9Ve0ie" }, // * KJMY My 99.5 - Utah's Variety From The 90s To Today
-    { id: "KSOP",                   playlistId: "7srykcAmGSnU35lJ3LMyVQ" }, // * KSOP 104.3 Country
-    { id: "KODJ",                   playlistId: "1Ly0OjovU7Eqo9zTKpeBXg" }, // * KODJ 94.1 Classic Hits & Classic Rock
-    { id: "WDJO",                   playlistId: "3DfAWT6iCcTBYUDu0ai5qq" }, // * WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
-    { id: "BUZZ",                   playlistId: "16bDFbNspDZfzAJ0nRGC9a" }, // * The Buzz 94.9 - Rock
-    { id: "KZHT",                   playlistId: "2oSr3X6I2yDpgP01GCWDvI" }, // * 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
-    { id: "KAAZ",                   playlistId: "5Jfll0b1dD9f2gkawiQiHA" }, // * Rock 106.7 KAAZ - Anything That Rocks!
-    { id: "KBEE",                   playlistId: "4ibUu6VybTigEEnrVwp8aD" }, // * B98.7 KBEE - Today's Hits and Yesterday's Favorites
-    { id: "KENZ",                   playlistId: "7tqPljSsVmh2q3SQM6PoKW" }, // * KENZ 94.9 Provo - Utah's New Hit Music - Top 40
-    { id: "IHEARTCOUNTRY",          playlistId: "1Wu9NMHonCDjCPg8rnZubn" }, // iHeartCountry IHEARTCOUNTRY - New Country
-    { id: "IHEARTCOUNTRYFAVORITES", playlistId: "49rXaAf8N3X5sZPDjUMEcq" }, // iHeart Country Favorites IHEARTCOUNTRYFAVORITES - 90s to Now Country
-    { id: "IHEARTCOUNTRYCLASSICS",  playlistId: "4ElxODcIOgtRMnkCUxL86z" }, // iHeart Country Classics IHEARTCOUNTRYCLASSICS - Classic Country - but not old country it seems
-    { id: "IHEARTCOUNTRY70S",       playlistId: "0ard1KtZpdSV17hJhJWAJU" }, // iHeart Country 70s IHEARTCOUNTRY70S - 70s Country Hits
-    { id: "IHEARTBLUEGRASS",        playlistId: "6BpQD1kaOaHx4UjPndIZ2E" }, // iHeartBluegrass IHEARTBLUEGRASS - Bluegrass Hits
-    { id: "IHEARTALTRADIO",         playlistId: "3zvKhEkgsC3LtpbmFbUFsk" }, // iHeart Alt Radio IHEARTALTRADIO - Alternative Hits
-    { id: "IHEARTALTTOP20",         playlistId: "5ofb8Je1Dq2QOrujQAbbR5" }, // iHeart Alt Top 20 IHEARTALTTOP20 - This Week's Top 20
-    { id: "IHEARTSMELLS90S",        playlistId: "6FTYdIosZcWlc8GvyZdBkc" }, // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
-    { id: "IHEARTALTX",             playlistId: "25WaK2bS1PA7EGKHMChym8" }, // iHeart AltX IHEARTALTX - 90s/00s ALT Hits
-    { id: "IHEARTALT2K",            playlistId: "4gtzLuP3O7jZEut5wZ20Aw" }, // iHeart Alt2K IHEARTALT2K - 2000s ALT Hits
-    { id: "IHEARTFREEFORM",         playlistId: "6p88rMY6c6ZPA4pji9Amiw" }, // iHeart Freeform Radio IHEARTFREEFORM - ALT Mix for Music Fans
-    { id: "IHEARTROCKNATION",       playlistId: "1HaAXTc4L50VwKhl5Dbij7" }, // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
-    { id: "IHEARTROCKTOP20",        playlistId: "57KRM39ijC6P04O5LmVrLO" }, // iHeart Rock Top 20 IHEARTROCKTOP20 - This Week's Top 20
-    { id: "IHEARTPOPHITS",          playlistId: "43BM0F3ZuyOCVyKih5yu4e" }, // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
-    { id: "IHEARTSTAR1013",         playlistId: "7lKNq4Cq0Gf0tItuME3mhr" }, // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
-    { id: "IHEARTSTAR1057",         playlistId: "52Mo8OnP4TH09kdpyGnt6m" }, // iHeart Star 105.7 Grand Rapids' 80s to Now IHEARTSTAR1057
-    { id: "IHEARTSTARMIX1007",      playlistId: "3bAjfNMfzDjmbc92kmGHO9" }, // iHeart Star Mix 100.7 Tampa IHEARTSTARMIX1007
-    { id: "IHEARTSTARMIX945",       playlistId: "5cdRpz8szVx8wzCziYXMuP" }, // iHeart Star Mix 94.5 Lexington's 80s, 90s & Today IHEARTSTARMIX945
-    { id: "IHEARTCOALTERNATIVE",    playlistId: "5gbWKQNTq7W7X9FihHU2Q2" }, // iHeart Colorado Adult Alternative 93.3 IHEARTCOALTERNATIVE
-    { id: "IHEARTCHRISTMAS",        playlistId: "7rQyR8AupwZyuDXOxjbZnz" }, // iHeart Christmas IHEARTCHRISTMAS - Christmas Hits
-    { id: "IHEARTHOLIDAYSAEASON",   playlistId: "7aNbpTzV6zFptJefnkwZIi" }, // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
-    { id: "IHEARTCOUNTRYCHRISTMAS", playlistId: "1cy95KhxhmTu5rpQDHX3A8" }, // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
-    { id: "IHEARTCHRISTMASROCK",    playlistId: "22Zr2jSdug6B8QDQmSYnZz" }, // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
-    { id: "IHEARTSACREDCHRISTMAS",  playlistId: "56P0hPs9s2XiFvkGWY6YkH" }, // iHeart Sacred Christmas IHEARTSACREDCHRISTMAS - Traditional Carols
-    { id: "IHEARTKLOVECHRISTMAS",   playlistId: "28I3JtaHVe6Ibrkm149dJR" }, // iHeart K-Love Christmas IHEARTKLOVECHRISTMAS - Positive, Encouraging Christmas
-    { id: "IHEARTCHRISTMASPOP",     playlistId: "0MR5NLDKA1XTR3MCqG7n8l" }, // iHeart Christmas Pop IHEARTCHRISTMASPOP - Holiday Pop Hits
-    { id: "KBLQ",                   playlistId: "757OVZ8V0JdzE8eA05qaLa" }, // * KBLQ Q92
-    { id: "KLGN",                   playlistId: "40rg8M41WvZ4OD3SIqxvTz" }, // KLGN 103.3 Lite FM - Yesterday's Lite Hits
-    { id: "KCLS",                   playlistId: "4sIUUZpT7DjhZolusj5dom" }, // KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
-    { id: "KKEX",                   playlistId: "5MAmtTO9pE9DpOC1YwN45C" }, // * Kix 96 KKEX Country
-    { id: "KKEX3",                  playlistId: "7cnOzxNR0bwi531jE1SjA4" }, // * KKEX3 104.5 The Ranch
-    { id: "KGNT",                   playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // * KOOL 103.9 KGNT  Your Greatest Hits
-    { id: "KLZX",                   playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // * 95.0 KLZX Classic Rock
-    { id: "KVFX",                   playlistId: "7iyYX42dtmd82tuMIIetlL" }, // * 94.5 KVFX VFX Top 40
-    { id: "KRQX",                   playlistId: "2qOxntF5tFR5UlXIk79FRp" }, // KRQX KOOL 98.9 Classic Hits
-    { id: "KBERFM",                 playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // * KBER 101
-    { id: "KUBLFMAAC",              playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // * KUBL - KBULL 93 The Bull Country
-    { id: "XM_octane",              playlistId: "0p50gUG6ST0n37PYtEjEq6" }, // * XM Octane Ch. 37 - Hard Rock 
-    { id: "XM_bluegrassjunction",   playlistId: "0yDtWHSgoMeqicg3ZDubf3" }, // * XM Bluegrass Junction  Ch. 77
-    { id: "XM_thepulse",            playlistId: "3dGDQkqGftK9CrXeMmxtIE" }, // * XM The Pulse Ch. 5 - Today's pop
-    { id: "XM_siriusxmhits1",       playlistId: "27yiTJGKwlRaXHBrV35TeE" }, // * XM SiriusXM Hits 1 Ch. 2 - pop - Today's hits
-    { id: "XM_poprocks",            playlistId: "1kIlP87uYebdUWici4BDon" }, // * XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
-    { id: "XM_thebridge",           playlistId: "1gOsdinyLpSjNGCdwqsnvC" }, // * XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
-    { id: "XM_theblend",            playlistId: "2yBlKOrxYIkY7UUqTObxI9" }, // * XM The Blend Ch. 16 - Blending nice & easy pop
-    { id: "XM_alt2k",               playlistId: "7xF8OvyRYxWu4U0AZc975f" }, // * XM Alt2K Ch. 27 - Alt Rock
-    { id: "XM_1stwave",             playlistId: "5U6gy40PLZaBLoy2IHvlQq" }, // * XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
-    { id: "XM_lithium",             playlistId: "75jLeew4WERen7gpuFe6nn" }, // * XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
-    { id: "XM_kidzbopradio",        playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // * XM KIDZ BOP Radio Ch. 135 - kids
-    { id: "XM_altnation",           playlistId: "2815SuqCB3fUK18yiiOhzy" }, // * XM Alt Nation Ch. 36 - Modern Alternative
-    { id: "XM_siriusxmturbo",       playlistId: "5m0nEzUNccNny2fBuSNIql" }, // * XM Turbo Ch. 41 - 90s and 2000s Hard Rock
-    { id: "XM_thespectrum",         playlistId: "4zSWjbhuXi0ftS3UfOS8q4" }, // XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
-    { id: "XM_thehighway",          playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // * XM The Highway Ch. 56 - New Country
-    { id: "XM_y2kountry",           playlistId: "258caFaEZgidIIkvWD483x" }, // * XM Y2Kountry Ch. 57 - 2000s Country
-    { id: "XM_primecountry",        playlistId: "1iOdWIsvlM5eqV5i0M8CoH" }, // * XM Prime Country Ch. 58 - 80s 90s Country
-    { id: "XM_disneyhits",          playlistId: "2RY27XjagmNRt6prVhYCtp" }, // * XM Disney Hits Ch. 133
-    { id: "XM_greendaysidiotnation",playlistId: "0ARuyKZekSZXbGsksxn5sU" }, // * XM Green Day's Idiot Nation Ch. 314 - Punk Rock
-    { id: "XM_williesroadhouse",    playlistId: "0tVP4r4DJjQYK2Hqlz3sSr" }, // * XM Willie's Roadhouse Ch. 61 - Classic Country
-    { id: "XM_classicrewind",       playlistId: "7g1nHljfI6pntWQ1waW6YX" }, // * XM Classic Rewind Ch. 25 - Classic Rock
-    { id: "XM_ozzysboneyard",       playlistId: "2FWAPY5HEguJPFGFOhrd30" }, // * XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
-    { id: "XM_hairnation",          playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // * XM XM Hair Nation Ch. 39 - Classic Rock
-    { id: "XM_redwhitebooze",       playlistId: "4JdLLCLUOyj39fUCRwMqdl" }, // * XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
-    { id: "XM_holidaytraditions",   playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // * XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+    { id: "KBZN",                       playlistId: "5IJKK7NDMB0RauocZUd1jp" }, // * 97.9 FM - Now 97.9 KBZN
+    { id: "7346_48k",                   playlistId: "3HPDlPwGtZi5bxBYOGLEWd" }, // * X96
+    { id: "7164_48k",                   playlistId: "7nMQh4vmn567gapArxDiLQ" }, // * BOB FM
+    //{ id: "7155_48k",                 playlistId: "3ZrUs8aPnGwj0XohRQpcvh" }, // The Mix
+    { id: "7169_48k",                   playlistId: "5oe5s6xIGEITr0YHzlc0Ey" }, // * Hank FM
+    { id: "7923_96k",                   playlistId: "6fGCdcJZDyahG2OTSUJrvo" }, // * KCUA 92.5 Jack FM - Adult Hits and Rock - Playing what we want
+    { id: "a24346",                     playlistId: "3JxHp5IPpxLqSV1fuGuuji" }, // * KCUT 102.9 Moab Rocks
+    { id: "KJMY",                       playlistId: "3TgPFiTu70rAKTpO9Ve0ie" }, // * KJMY My 99.5 - Utah's Variety From The 90s To Today
+    { id: "KSOP",                       playlistId: "7srykcAmGSnU35lJ3LMyVQ" }, // * KSOP 104.3 Country
+    { id: "KODJ",                       playlistId: "1Ly0OjovU7Eqo9zTKpeBXg" }, // * KODJ 94.1 Classic Hits & Classic Rock
+    { id: "WDJO",                       playlistId: "3DfAWT6iCcTBYUDu0ai5qq" }, // * WDJO - Oldies - 1480, 99.5 & 107.9 Cincinnati's Oldies Network
+    { id: "BUZZ",                       playlistId: "16bDFbNspDZfzAJ0nRGC9a" }, // * The Buzz 94.9 - Rock
+    { id: "KZHT",                       playlistId: "2oSr3X6I2yDpgP01GCWDvI" }, // * 97.1 ZHT KZHT - Utah's #1 Hit Music Station - Top 40
+    { id: "KAAZ",                       playlistId: "5Jfll0b1dD9f2gkawiQiHA" }, // * Rock 106.7 KAAZ - Anything That Rocks!
+    { id: "KBEE",                       playlistId: "4ibUu6VybTigEEnrVwp8aD" }, // * B98.7 KBEE - Today's Hits and Yesterday's Favorites
+    { id: "KENZ",                       playlistId: "7tqPljSsVmh2q3SQM6PoKW" }, // * KENZ 94.9 Provo - Utah's New Hit Music - Top 40
+    { id: "IHEARTCOUNTRY",              playlistId: "1Wu9NMHonCDjCPg8rnZubn" }, // iHeartCountry IHEARTCOUNTRY - New Country
+    { id: "IHEARTCOUNTRYFAVORITES",     playlistId: "49rXaAf8N3X5sZPDjUMEcq" }, // iHeart Country Favorites IHEARTCOUNTRYFAVORITES - 90s to Now Country
+    { id: "IHEARTCOUNTRYCLASSICS",      playlistId: "4ElxODcIOgtRMnkCUxL86z" }, // iHeart Country Classics IHEARTCOUNTRYCLASSICS - Classic Country - but not old country it seems
+    { id: "IHEARTCOUNTRY70S",           playlistId: "0ard1KtZpdSV17hJhJWAJU" }, // iHeart Country 70s IHEARTCOUNTRY70S - 70s Country Hits
+    { id: "IHEARTBLUEGRASS",            playlistId: "6BpQD1kaOaHx4UjPndIZ2E" }, // iHeartBluegrass IHEARTBLUEGRASS - Bluegrass Hits
+    { id: "IHEARTALTRADIO",             playlistId: "3zvKhEkgsC3LtpbmFbUFsk" }, // iHeart Alt Radio IHEARTALTRADIO - Alternative Hits
+    { id: "IHEARTALTTOP20",             playlistId: "5ofb8Je1Dq2QOrujQAbbR5" }, // iHeart Alt Top 20 IHEARTALTTOP20 - This Week's Top 20
+    { id: "IHEARTSMELLS90S",            playlistId: "6FTYdIosZcWlc8GvyZdBkc" }, // iHeart Smells Like the 90s IHEARTSMELLS90S - 90s Alt Hits
+    { id: "IHEARTALTX",                 playlistId: "25WaK2bS1PA7EGKHMChym8" }, // iHeart AltX IHEARTALTX - 90s/00s ALT Hits
+    { id: "IHEARTALT2K",                playlistId: "4gtzLuP3O7jZEut5wZ20Aw" }, // iHeart Alt2K IHEARTALT2K - 2000s ALT Hits
+    { id: "IHEARTFREEFORM",             playlistId: "6p88rMY6c6ZPA4pji9Amiw" }, // iHeart Freeform Radio IHEARTFREEFORM - ALT Mix for Music Fans
+    { id: "IHEARTROCKNATION",           playlistId: "1HaAXTc4L50VwKhl5Dbij7" }, // iHeart Rock Nation IHEARTROCKNATION - America's Rock Station
+    { id: "IHEARTROCKTOP20",            playlistId: "57KRM39ijC6P04O5LmVrLO" }, // iHeart Rock Top 20 IHEARTROCKTOP20 - This Week's Top 20
+    { id: "IHEARTPOPHITS",              playlistId: "43BM0F3ZuyOCVyKih5yu4e" }, // iHeart Pop Hits IHEARTPOPHITS - New Hit Music
+    { id: "IHEARTSTAR1013",             playlistId: "7lKNq4Cq0Gf0tItuME3mhr" }, // iHeart Star 101.3 IHEARTSTAR1013 - 2000's, 90's & Today!
+    { id: "IHEARTSTAR1057",             playlistId: "52Mo8OnP4TH09kdpyGnt6m" }, // iHeart Star 105.7 Grand Rapids' 80s to Now IHEARTSTAR1057
+    { id: "IHEARTSTARMIX1007",          playlistId: "3bAjfNMfzDjmbc92kmGHO9" }, // iHeart Star Mix 100.7 Tampa IHEARTSTARMIX1007
+    { id: "IHEARTSTARMIX945",           playlistId: "5cdRpz8szVx8wzCziYXMuP" }, // iHeart Star Mix 94.5 Lexington's 80s, 90s & Today IHEARTSTARMIX945
+    { id: "IHEARTCOALTERNATIVE",        playlistId: "5gbWKQNTq7W7X9FihHU2Q2" }, // iHeart Colorado Adult Alternative 93.3 IHEARTCOALTERNATIVE
+    { id: "IHEARTCHRISTMAS",            playlistId: "7rQyR8AupwZyuDXOxjbZnz" }, // iHeart Christmas IHEARTCHRISTMAS - Christmas Hits
+    { id: "IHEARTHOLIDAYSAEASON",       playlistId: "7aNbpTzV6zFptJefnkwZIi" }, // iHeart Holiday Season IHEARTHOLIDAYSAEASON - Holiday Mix
+    { id: "IHEARTCOUNTRYCHRISTMAS",     playlistId: "1cy95KhxhmTu5rpQDHX3A8" }, // iHeart Country Christmas IHEARTCOUNTRYCHRISTMAS - Country Christmas Hits
+    { id: "IHEARTCHRISTMASROCK",        playlistId: "22Zr2jSdug6B8QDQmSYnZz" }, // iHeart Christmas Rock IHEARTCHRISTMASROCK - Rockin' Christmas
+    { id: "IHEARTSACREDCHRISTMAS",      playlistId: "56P0hPs9s2XiFvkGWY6YkH" }, // iHeart Sacred Christmas IHEARTSACREDCHRISTMAS - Traditional Carols
+    { id: "IHEARTKLOVECHRISTMAS",       playlistId: "28I3JtaHVe6Ibrkm149dJR" }, // iHeart K-Love Christmas IHEARTKLOVECHRISTMAS - Positive, Encouraging Christmas
+    { id: "IHEARTCHRISTMASPOP",         playlistId: "0MR5NLDKA1XTR3MCqG7n8l" }, // iHeart Christmas Pop IHEARTCHRISTMASPOP - Holiday Pop Hits
+    { id: "KBLQ",                       playlistId: "757OVZ8V0JdzE8eA05qaLa" }, // * KBLQ Q92
+    { id: "KLGN",                       playlistId: "40rg8M41WvZ4OD3SIqxvTz" }, // KLGN 103.3 Lite FM - Yesterday's Lite Hits
+    { id: "KCLS",                       playlistId: "4sIUUZpT7DjhZolusj5dom" }, // KCLS 101.5 Sunny 101.5 - The Greatest Hits of the 70’s, 80’s, and 90’s
+    { id: "KKEX",                       playlistId: "5MAmtTO9pE9DpOC1YwN45C" }, // * Kix 96 KKEX Country
+    { id: "KKEX3",                      playlistId: "7cnOzxNR0bwi531jE1SjA4" }, // * KKEX3 104.5 The Ranch
+    { id: "KGNT",                       playlistId: "2EIK73lP43RH5LbO4XUh4I" }, // * KOOL 103.9 KGNT  Your Greatest Hits
+    { id: "KLZX",                       playlistId: "5qoWmLVvZyMcHXEpkxDWT2" }, // * 95.0 KLZX Classic Rock
+    { id: "KVFX",                       playlistId: "7iyYX42dtmd82tuMIIetlL" }, // * 94.5 KVFX VFX Top 40
+    { id: "KRQX",                       playlistId: "2qOxntF5tFR5UlXIk79FRp" }, // KRQX KOOL 98.9 Classic Hits
+    { id: "KBERFM",                     playlistId: "0zMyia0KzbLTi0pEse7i0c" }, // * KBER 101
+    { id: "KUBLFMAAC",                  playlistId: "2nDRY8T9SruY4U0Dy4OkTS" }, // * KUBL - KBULL 93 The Bull Country
+    { id: "XM_octane",                  playlistId: "0p50gUG6ST0n37PYtEjEq6" }, // * XM Octane Ch. 37 - Hard Rock 
+    { id: "XM_bluegrassjunction",       playlistId: "0yDtWHSgoMeqicg3ZDubf3" }, // * XM Bluegrass Junction  Ch. 77
+    { id: "XM_thepulse",                playlistId: "3dGDQkqGftK9CrXeMmxtIE" }, // * XM The Pulse Ch. 5 - Today's pop
+    { id: "XM_siriusxmhits1",           playlistId: "27yiTJGKwlRaXHBrV35TeE" }, // * XM SiriusXM Hits 1 Ch. 2 - pop - Today's hits
+    { id: "XM_poprocks",                playlistId: "1kIlP87uYebdUWici4BDon" }, // * XM PopRocks Ch. 6 - pop - The greatest pop/rock anthems from the 90s and 2000s
+    { id: "XM_thebridge",               playlistId: "1gOsdinyLpSjNGCdwqsnvC" }, // * XM The Bridge Ch. 14 - Cross the bridge to the mellow side of classic rock and 70s folk rock.
+    { id: "XM_theblend",                playlistId: "2yBlKOrxYIkY7UUqTObxI9" }, // * XM The Blend Ch. 16 - Blending nice & easy pop
+    { id: "XM_alt2k",                   playlistId: "7xF8OvyRYxWu4U0AZc975f" }, // * XM Alt2K Ch. 27 - Alt Rock
+    { id: "XM_1stwave",                 playlistId: "5U6gy40PLZaBLoy2IHvlQq" }, // * XM 1st Wave Ch. 33 - Alt Rock - The First Wave of alternative music
+    { id: "XM_lithium",                 playlistId: "75jLeew4WERen7gpuFe6nn" }, // * XM Lithium Ch. 34 90s Rock - 90s alternative & grunge rock
+    { id: "XM_kidzbopradio",            playlistId: "53xrNLm1O5r8Th417Gy9Yq" }, // * XM KIDZ BOP Radio Ch. 135 - kids
+    { id: "XM_altnation",               playlistId: "2815SuqCB3fUK18yiiOhzy" }, // * XM Alt Nation Ch. 36 - Modern Alternative
+    { id: "XM_siriusxmturbo",           playlistId: "5m0nEzUNccNny2fBuSNIql" }, // * XM Turbo Ch. 41 - 90s and 2000s Hard Rock
+    { id: "XM_thespectrum",             playlistId: "4zSWjbhuXi0ftS3UfOS8q4" }, // XM The Spectrum Ch. 28 - The Spectrum of Rock, spanning more than six decades
+    { id: "XM_thehighway",              playlistId: "5WqhR1StD0Vgem8C5irJBP" }, // * XM The Highway Ch. 56 - New Country
+    { id: "XM_y2kountry",               playlistId: "258caFaEZgidIIkvWD483x" }, // * XM Y2Kountry Ch. 57 - 2000s Country
+    { id: "XM_primecountry",            playlistId: "1iOdWIsvlM5eqV5i0M8CoH" }, // * XM Prime Country Ch. 58 - 80s 90s Country
+    { id: "XM_disneyhits",              playlistId: "2RY27XjagmNRt6prVhYCtp" }, // * XM Disney Hits Ch. 133
+    { id: "XM_greendaysidiotnation",    playlistId: "0ARuyKZekSZXbGsksxn5sU" }, // * XM Green Day's Idiot Nation Ch. 314 - Punk Rock
+    { id: "XM_williesroadhouse",        playlistId: "0tVP4r4DJjQYK2Hqlz3sSr" }, // * XM Willie's Roadhouse Ch. 61 - Classic Country
+    { id: "XM_classicrewind",           playlistId: "7g1nHljfI6pntWQ1waW6YX" }, // * XM Classic Rewind Ch. 25 - Classic Rock
+    { id: "XM_ozzysboneyard",           playlistId: "2FWAPY5HEguJPFGFOhrd30" }, // * XM Ozzy's Boneyard Ch. 38 - Heavy Classic Rock
+    { id: "XM_hairnation",              playlistId: "64OtGKw7LPSzfGJyYtvT6Y" }, // * XM XM Hair Nation Ch. 39 - Classic Rock
+    { id: "XM_redwhitebooze",           playlistId: "4JdLLCLUOyj39fUCRwMqdl" }, // * XM Red White & Booze Ch. 350 - Country & Rock - Country/Rock-themed bars and honky tonks
+    { id: "XM_holidaytraditions",       playlistId: "6QdbwKDkjBaqHTAWWAp6cc" }, // * XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+    { id: "XM_countrychristmas",        playlistId: "0LjSYIXt2VEKhzVVnp7hTa" }, // * XM Country Christmas Ch. 606 - Classic and contemporary country stars come together with both traditional and original holiday songs to make the season bright.
+    { id: "XM_jollychristmas",          playlistId: "108zPmvRpQIgT2PIei9ecF" }, // * XM Jolly Christmas Ch. 608 - Celebrate the season with an upbeat mix of holiday hits and familiar favorites. From timeless classics to modern seasonal songs, enjoy feel-good music made for singing along.
+    { id: "XM_christmasspirit",         playlistId: "7qWvvMqSdzvnuRLSsx5qDZ" }, // * XM Christmas Spirit Ch. 610 - Christmas music and family holiday favorites all from contemporary Christian artists heard on The Message. Here, the reason for the season is not just remembered, He's celebrated in song, commercial free!
+    { id: "XM_smokeysholidaysoultown",  playlistId: "54nZnRE3kET3c0xV5knI0s" }, // * XM Smokey's Holiday Soul Town Ch. 612 - Celebrate the season with Smokey Robinson and soulful holiday favorites from the 60s and 70s! From Motown classics by The Miracles, The Supremes, and The Jackson 5 to holiday soul from Otis Redding and Lou Rawls, it's all in Smokey's Holiday Soul Town!
+    { id: "XM_holidaypops",             playlistId: "4pMCZkZv5oxH1lZG3bqn69" }, // * XM Holiday Pops Ch. 622 - Celebrate the season with classical music that captures the warmth, nostalgia, and wonder of Christmas. From radiant choirs to beloved orchestral favorites, enjoy treasured works by Handel, Tchaikovsky and John Rutter, alongside performances by King's College Choir, the Boston Pops, the Tabernacle Choir, and more.
+    { id: "XM_navidad",                 playlistId: "7ltZB8xwSk5XpzbavpDGQt" }, // * XM Navidad Ch. 626 - Celebrate the season with the rhythms and traditions of a Latin Christmas! From festive parrandas and tropical favorites to timeless holiday classics, enjoy music from Ricky Martin, Gloria Estefan, José Feliciano, Tito El Bambino, Marco Antonio Solís, and more. ¡Feliz Navidad!
+    { id: "XM_noelincontournable",      playlistId: "6luTNTI46BFveTXM0fHP6L" }, // * XM Noël Incontournable French Ch. 640 - Francophone Christmas classics and contemporary holiday hits from the 60s to today
+    { id: "XM_holly",                   playlistId: "1xAU7b0xIuEoaZpfQHhzLj" }, // * XM Holly Ch. 144 - Merry and bright holiday hits featuring songs by Mariah Carey, Michael Bublé, Dean Martin, Kelly Clarkson, Pentatonix, Josh Groban, John Legend, Brenda Lee, Train, Gwen Stefani, and more.
+    { id: "XM_fallonholidayseasoning",  playlistId: "3VfpBofIIMSM0vgfnphEIO" }, // * XM Jimmy Fallon's Holiday Seasoning Radio Ch. 14 - Celebrate the season with a mix of classic holiday songs personally picked by Jimmy Fallon
+    { id: "XM_hallmarkradio",           playlistId: "2NClQv3WQsEK2nObPis8DS" }, // * XM Hallmark Radio Ch. 300 - Hallmark Radio is back for the holidays, featuring timeless Christmas music and carols that celebrate the joy of the season
+    { id: "XM_screamradio",             playlistId: "02FtGsyW1xebw3bg4n7oWM" }, // * XM Scream Radio Ch. 300 - Scream Radio is an annual tradition for Halloween enthusiasts, providing the perfect backdrop for the holiday by mixing creepy sound effects with music and atmosphere. Scream sets the tone for fans who want that spooky haunted house vibe this Halloween.
 ];
 
 //This will round down to the nearest whole integer
@@ -4715,6 +4726,39 @@ async function syncXMstationsToSpotify(){
 
             // XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
             await syncRadioToSpotify("XM_holidaytraditions", "6QdbwKDkjBaqHTAWWAp6cc") // XM Holiday Traditions Ch. 602 - Sing-along holiday favorites
+
+            // XM Country Christmas Ch. 606 - Classic and contemporary country stars come together with both traditional and original holiday songs to make the season bright.
+            await syncRadioToSpotify("XM_countrychristmas", "0LjSYIXt2VEKhzVVnp7hTa") // XM Country Christmas Ch. 606 - Classic and contemporary country stars come together with both traditional and original holiday songs to make the season bright.
+
+            // XM Jolly Christmas Ch. 608 - Celebrate the season with an upbeat mix of holiday hits and familiar favorites. From timeless classics to modern seasonal songs, enjoy feel-good music made for singing along.
+            await syncRadioToSpotify("XM_jollychristmas", "108zPmvRpQIgT2PIei9ecF") // XM Jolly Christmas Ch. 608 - Celebrate the season with an upbeat mix of holiday hits and familiar favorites. From timeless classics to modern seasonal songs, enjoy feel-good music made for singing along.
+
+            // XM Christmas Spirit Ch. 610 - Christmas music and family holiday favorites all from contemporary Christian artists heard on The Message. Here, the reason for the season is not just remembered, He's celebrated in song, commercial free!
+            await syncRadioToSpotify("XM_christmasspirit", "7qWvvMqSdzvnuRLSsx5qDZ")
+
+            // XM Smokey's Holiday Soul Town Ch. 612 - Celebrate the season with Smokey Robinson and soulful holiday favorites from the 60s and 70s! From Motown classics by The Miracles, The Supremes, and The Jackson 5 to holiday soul from Otis Redding and Lou Rawls, it's all in Smokey's Holiday Soul Town!
+            await syncRadioToSpotify("XM_smokeysholidaysoultown", "54nZnRE3kET3c0xV5knI0s")
+
+            // XM Holiday Pops Ch. 622 - Celebrate the season with classical music that captures the warmth, nostalgia, and wonder of Christmas. From radiant choirs to beloved orchestral favorites, enjoy treasured works by Handel, Tchaikovsky and John Rutter, alongside performances by King's College Choir, the Boston Pops, the Tabernacle Choir, and more.
+            await syncRadioToSpotify("XM_holidaypops", "4pMCZkZv5oxH1lZG3bqn69")
+
+            // XM Navidad Ch. 626 - Celebrate the season with the rhythms and traditions of a Latin Christmas! From festive parrandas and tropical favorites to timeless holiday classics, enjoy music from Ricky Martin, Gloria Estefan, José Feliciano, Tito El Bambino, Marco Antonio Solís, and more. ¡Feliz Navidad!
+            await syncRadioToSpotify("XM_navidad", "7ltZB8xwSk5XpzbavpDGQt")
+
+            // XM Noël Incontournable French Ch. 640 - Francophone Christmas classics and contemporary holiday hits from the 60s to today
+            await syncRadioToSpotify("XM_noelincontournable", "6luTNTI46BFveTXM0fHP6L")
+
+            // XM Holly Ch. 144 - Merry and bright holiday hits featuring songs by Mariah Carey, Michael Bublé, Dean Martin, Kelly Clarkson, Pentatonix, Josh Groban, John Legend, Brenda Lee, Train, Gwen Stefani, and more.
+            await syncRadioToSpotify("XM_holly", "1xAU7b0xIuEoaZpfQHhzLj")
+
+            // XM Jimmy Fallon's Holiday Seasoning Radio Ch. 14 - Celebrate the season with a mix of classic holiday songs personally picked by Jimmy Fallon
+            await syncRadioToSpotify("XM_fallonholidayseasoning", "3VfpBofIIMSM0vgfnphEIO")
+
+            // XM Hallmark Radio Ch. 300 - Hallmark Radio is back for the holidays, featuring timeless Christmas music and carols that celebrate the joy of the season
+            await syncRadioToSpotify("XM_hallmarkradio", "2NClQv3WQsEK2nObPis8DS")
+
+            // XM Scream Radio Ch. 300 - Scream Radio is an annual tradition for Halloween enthusiasts, providing the perfect backdrop for the holiday by mixing creepy sound effects with music and atmosphere. Scream sets the tone for fans who want that spooky haunted house vibe this Halloween.
+            await syncRadioToSpotify("XM_screamradio", "02FtGsyW1xebw3bg4n7oWM")
 }
 
 /**
