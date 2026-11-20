@@ -5015,7 +5015,8 @@ async function syncRadioToSpotify(stationID= 9999, playlistId = 9999, sequenceNu
     }
 
     const proxyList = [
-        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        //"https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        `http://localhost:8080/?url=${encodeURIComponent(targetUrl)}`,
         //`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
         //`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
         //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
@@ -5577,7 +5578,7 @@ console.dir(uniqueHistory, { depth: null });
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
             try {
-                console.log(`nextPageUrl: ${nextPageUrl}`)
+                console.log(`🧭 Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. nextPageUrl: ${nextPageUrl}`)
                 const playlistResponse = await fetch(nextPageUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -5712,7 +5713,7 @@ console.dir(playlistData.items, { depth: null });
 
                 // Optional: Print progress updates if dealing with massive lists
                 if (nextPageUrl) {
-                    console.log(`...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
+                    console.log(`🧭 Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset} ...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
                     // Tiny 100ms pause to ensure your pagination loop doesn't slam the endpoint
                     await delay(800); 
                 }
@@ -5851,7 +5852,9 @@ console.dir(playlistData.items, { depth: null });
 
                     changesMade = changesMade || !savedPendingUris.includes(foundUri)
                 }
-                if(foundUri) continue; //It's in cache, no need to search for it
+                console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
+                //if(foundUri) continue; //It's in cache, no need to search for it
+                continue;
             }
 
             // 🅱️ CHECK 2: Fuzzy Cache Scanner Intercept
@@ -5910,7 +5913,9 @@ console.dir(playlistData.items, { depth: null });
 
                     changesMade = changesMade || !savedPendingUris.includes(foundUri)
                 }
-                if(foundUri) continue;
+                console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
+                //if(foundUri) continue;
+                continue;
             }
 
             globalCacheFound = false
@@ -6406,7 +6411,8 @@ async function syncKBERToSpotify(stationID = 9999, playlistId = 9999) {
     }
 
     const proxyList = [
-        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        //"https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        `http://localhost:8080/?url=${encodeURIComponent(targetUrl)}`,
         //`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
         //`https://corsproxy.io/?url=${targetUrl}`,
         //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
@@ -6622,6 +6628,7 @@ if(newStationSearchAllowed){
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
             try {
+                console.log(`🧭 Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. nextPageUrl: ${nextPageUrl}`)
                 const playlistResponse = await fetch(nextPageUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -6748,7 +6755,7 @@ console.dir(playlistData.items, { depth: null });
 
                 // Optional: Print progress updates if dealing with massive lists
                 if (nextPageUrl) {
-                    console.log(`...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
+                    console.log(`🧭 Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset} ...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
                     // Tiny 100ms pause to ensure your pagination loop doesn't slam the endpoint
                     await delay(800); 
                 }
@@ -6918,6 +6925,7 @@ console.dir(uniqueHistory, { depth: null });
 
                     changesMade = changesMade || !savedPendingUris.includes(foundUri)
                 }
+                console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
                 continue;
             }
 
@@ -7387,7 +7395,8 @@ if(newStationSearchAllowed){
     const targetUrl = `https://${serverSubdomain}.securenetsystems.net/player_status_update/${stationID}_history.xml`;
 
     const proxyList = [
-        "https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        //"https://" + "spotify-proxy" + "." + "detmer14" + ".workers.dev" + "/?url=" + encodeURIComponent(targetUrl),
+        `http://localhost:8080/?url=${encodeURIComponent(targetUrl)}`,
         //`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
         //`https://corsproxy.io/?url=${targetUrl}`,
         //`https://thingproxy.freeboard.io/fetch/${targetUrl}`,
@@ -7577,6 +7586,7 @@ if(newStationSearchAllowed){
         // 🔄 Pagination Loop: Keep crawling pages until nextPageUrl turns null
         while (nextPageUrl) {
             try {
+                console.log(`🧭 Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. nextPageUrl: ${nextPageUrl}`)
                 const playlistResponse = await fetch(nextPageUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -7703,7 +7713,7 @@ console.dir(playlistData.items, { depth: null });
 
                 // Optional: Print progress updates if dealing with massive lists
                 if (nextPageUrl) {
-                    console.log(`...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
+                    console.log(`🧭 Session Changes spotifyPlaylistDownloadAllowed - ${stationNetwork[beginningStationNetworkAllowed].id}. size=${existingCachedTrackUris.size} offset=${startingOffset} ...Loaded ${existingTrackUris.size} tracks so far. Moving to next page...`);
                     // Tiny 100ms pause to ensure your pagination loop doesn't slam the endpoint
                     await delay(800); 
                 }
@@ -7867,6 +7877,7 @@ console.dir(playlistData.items, { depth: null });
 
                     changesMade = changesMade || !savedPendingUris.includes(foundUri)
                 }
+                console.log(`Song already added this session, skipping artist: ${artist} title: ${title}`)
                 continue;
             }
 
@@ -9925,6 +9936,8 @@ async function pushCachesToCloud4(spotifyUserId, attempt = 1) {
     console.log("✅ [Sync] Cloud upload completed successfully in structured batches!");
 }
 async function pushCachesToCloud(spotifyUserId) {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
     if (!spotifyUserId) return;
 
     console.log("☁️ [Sync] Packing runtime memory matrix models for cloud upload backup...");
@@ -9934,7 +9947,7 @@ async function pushCachesToCloud(spotifyUserId) {
 
     try {
         const localEntries = Object.entries(currentLocalSongCache);
-        const BATCH_SIZE = 5000;
+        const BATCH_SIZE = 1000; //was 5000
 
         console.log(`🔄 [Sync] Session Changes Sending ${localEntries.length} tracks to server merge pipeline...`);
 
@@ -9962,6 +9975,8 @@ async function pushCachesToCloud(spotifyUserId) {
             } else {
                 console.log(`🎯 [Sync] Session Changes Server processed and merged block ${Math.floor(i/BATCH_SIZE) + 1} successfully.`);
             }
+
+            await sleep(1 * 60 * 1000)
         }
 
         console.log("%c☁️ [Sync] Session Changes Cloud sync complete! Database safely updated via server merge.", "color: #00c020;");
