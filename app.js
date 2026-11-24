@@ -119,6 +119,18 @@ async function emergencyStop() {
     activeTimeouts.forEach(id => clearTimeout(id));
     activeTimeouts = [];
 
+    // 1. Pause the silent audio loop and reset its position
+    if (silentAudio) {
+        silentAudio.pause();
+        silentAudio.currentTime = 0;
+    }
+
+    // 2. Tell the OS/browser that media playback has completely stopped
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'none';
+        navigator.mediaSession.metadata = null;
+    }
+    
     // 2. Disconnect the Player
     if (player) {
         player.disconnect();
@@ -130,6 +142,7 @@ async function emergencyStop() {
         player.removeListener('initialization_error');
         player.removeListener('authentication_error');
         player.removeListener('account_error');
+        //player = null; //delete the player completely
     }
 
     // 3. Reset UI
@@ -421,6 +434,9 @@ async function togglePlayback(){
     await new Promise((resolve) => {
         const checkInterval = setInterval(() => {
         console.log(`%c checking devicePoweredOn`, "color: #ff00ffff; background: #000000;");
+            if(!player)   console.log(`%c !player`, "color: #ff00ffff; background: #000000;");
+            if(!devicePoweredOn)   console.log(`%c !devicePoweredOn`, "color: #ff00ffff; background: #000000;");
+
             if (player && devicePoweredOn) {
                 clearInterval(checkInterval);
                 resolve();
@@ -1074,6 +1090,8 @@ async function playFromSpecificPlaylist(chosenplaylist) {
 
             // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
             // Add this whenever a song starts:
+    // Delay slightly so your assignment runs AFTER Spotify's iframe overwrites it
+    setTimeout(() => {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: track.name,
@@ -1086,6 +1104,7 @@ async function playFromSpecificPlaylist(chosenplaylist) {
                 // Update the playback state so the play/pause button looks right
                 navigator.mediaSession.playbackState = "playing";
             }
+    }, 150);
 
         incrementPlaylistCount(chosenplaylist.id)
 
@@ -10057,7 +10076,8 @@ async function initializePlayer(){
         const player = new Spotify.Player({
             name: 'Random Playlist Player',
             getOAuthToken: cb => cb(accessToken),
-            volume: 0.8
+            volume: 0.8,
+            enableMediaSession: false // Prevents the SDK from overriding your metadata/handlers
         })
 
         player.connect()
@@ -10675,6 +10695,8 @@ async function pickRandomSong(attempt = 0) {
 
         // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
         // Add this whenever a song starts:
+    // Delay slightly so your assignment runs AFTER Spotify's iframe overwrites it
+    setTimeout(() => {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: track.name,
@@ -10687,6 +10709,7 @@ async function pickRandomSong(attempt = 0) {
             // Update the playback state so the play/pause button looks right
             navigator.mediaSession.playbackState = "playing";
         }
+    }, 150);
 
         incrementPlaylistCount(chosenplaylist.id)
 
@@ -12602,6 +12625,48 @@ function releaseWakeLock() {
         console.log("Wake Lock released.");
     }
 }
+
+
+function createSilentAudioElement() {
+    // 1 second of silence at 8000Hz, 8-bit mono (tiny, ~8KB, valid on Android & Desktop)
+    const sampleRate = 8000;
+    const numSamples = sampleRate; 
+    const buffer = new ArrayBuffer(44 + numSamples);
+    const view = new DataView(buffer);
+
+    const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); // PCM chunk size
+    view.setUint16(20, 1, true);  // PCM format
+    view.setUint16(22, 1, true);  // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate, true); // Byte rate
+    view.setUint16(32, 1, true);  // Block align
+    view.setUint16(34, 8, true);  // 8-bit
+    writeString(36, 'data');
+    view.setUint32(40, numSamples, true);
+
+    // 128 is silence in 8-bit unsigned PCM
+    new Uint8Array(buffer, 44).fill(128);
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.loop = true;
+    audio.volume = 0.01; // Keep > 0; Chrome ignores MediaSession for muted/0-volume elements
+    return audio;
+}
+
+const silentAudio = createSilentAudioElement();
+
+
 // Re-request when the user comes back to the tab
 document.addEventListener('visibilitychange', async () => {
 
@@ -13062,6 +13127,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
+            // 1. Start silent audio IMMEDIATELY on click (before any await)
+            silentAudio.play()
+                .then(() => console.log('🟢 Hidden Audio Hack active'))
+                .catch(err => console.warn('🟡 Hidden Audio Hack failed:', err));
+            
             await requestWakeLock();
 
 
@@ -13112,7 +13182,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const token = localStorage.getItem('access_token');
                     cb(token); 
                 },
-                volume: 0.5
+                volume: 0.5,
+                enableMediaSession: false // Prevents the SDK from overriding your metadata/handlers
             });
 
             player.activateElement(); 
@@ -13128,6 +13199,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 activeMix: activeMixId
             });
                 return;
+            }
+            else{
+                console.error("Player created for SDK.")
             }
 
 
@@ -13188,28 +13262,29 @@ document.addEventListener("DOMContentLoaded", async () => {
             // }
 
 
-            // try {
-            //     // Avoid duplicating the node
-            //     if (document.getElementById('wake-lock-audio')) return;
+            try {
+                // Avoid duplicating the node
+                if (!document.getElementById('wake-lock-audio')){
 
-            //     const audio = document.createElement('audio');
-            //     audio.id = 'wake-lock-audio';
+                const audio = document.createElement('audio');
+                audio.id = 'wake-lock-audio';
                 
-            //     // A 1-second completely silent MP3 base64 string
-            //     audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAAATGFtZTMuOTguMgAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA';
+                // A 1-second completely silent MP3 base64 string
+                audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAAATGFtZTMuOTguMgAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAAABGcmFtZQAAAAAWAAAAQUgAAAAAAAAAAAAA';
                 
-            //     audio.loop = true;
-            //     audio.muted = true;
-            //     audio.style.display = 'none';
+                audio.loop = true;
+                audio.muted = true;
+                audio.style.display = 'none';
                 
-            //     document.body.appendChild(audio);
+                document.body.appendChild(audio);
                 
-            //     // Play immediately inside your user click handler
-            //     await audio.play();
-            //     console.log("🟢 Hidden Audio Wake Lock Active");
-            // } catch (err) {
-            //     console.warn("🟡 Hidden Audio Hack failed:", err);
-            // }            
+                // Play immediately inside your user click handler
+                await audio.play();
+                console.log("🟢 Hidden Audio Wake Lock Active");
+                }
+            } catch (err) {
+                console.warn("🟡 Hidden Audio Hack failed:", err);
+            }            
 
 
             // Since the video approach is being blocked, let's switch to the "Silent Audio Heartbeat" method. It's often more compatible with mobile Chrome because it uses the Web Audio API to generate a signal, which avoids codec errors entirely. 
@@ -13927,6 +14002,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     // To keep the music playing when the screen goes off, Android requires a "Foreground Service." Browsers can't do this easily, but there is a hack: The Media Session API. If you "tell" Android that media is playing, it’s less likely to kill the tab.
                     // Add this whenever a song starts:
+    // Delay slightly so your assignment runs AFTER Spotify's iframe overwrites it
+    setTimeout(() => {
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.metadata = new MediaMetadata({
                             title: current_track.name,
@@ -13939,6 +14016,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         // Update the playback state so the play/pause button looks right
                         navigator.mediaSession.playbackState = "playing";
                     }
+    }, 150);
 
 
                     lastTrackId = currentTrackIdISRC
@@ -14090,6 +14168,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 });
             }
 
+            devicePoweredOn = true; 
+
             await refreshAccessToken()
 
         // // 1. Re-prime the browser's audio (Required for mobile)
@@ -14190,6 +14270,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     setUserInitiatedPause()
                     
                     if (player) player.pause();
+                    //silentAudio.pause();
                     navigator.mediaSession.playbackState = "paused";
                 });
 
@@ -14209,6 +14290,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         player.resume()
                         showResult(`${nowPlayingText}`, "color: #129900;")
                     }
+                    silentAudio.play().catch(() => {});
                     navigator.mediaSession.playbackState = "playing";
                 });
             }
