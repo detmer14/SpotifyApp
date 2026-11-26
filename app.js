@@ -15149,37 +15149,3 @@ function showOfflineOverlay(show) {
         overlay.style.display = show ? 'flex' : 'none';
     }
 }
-
-// import express from "express"
-
-// const app = express()
-// app.use(express.json())
-// app.post("/spotify-proxy", async(req, res) => {
-//     const spotifyResponse = await fetch(req.body.url, {
-//         method: req.body.method || "GET",
-//         headers: {
-//             Authorization: req.body.authorization,
-//             "Content-Type": "application/json"
-//         },
-//         body: req.body.body
-//             ? JSON.stringify(req.body.body)
-//             : undefined
-//     });
-
-//     const retryAfter = spotifyResponse.headers.get("retry-after")
-
-//     const text = await spotifyResponse.text()
-
-//     res.set(
-//         "Access-Control-Expose-Headers",
-//         "Retry-After"
-//     )
-
-//     if(retryAfter){
-//         res.set("Retry-After", retryAfter)
-//     }
-
-//     res.status(spotifyResponse.status).send(text)
-// })
-
-// app.listen(3000)
